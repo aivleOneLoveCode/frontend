@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Söhne", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+            height: 100vh;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 사이드바 */
+        .sidebar {
+            width: 260px;
+            background: #f7f7f8;
+            border-right: 1px solid #e1e3e6;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-close-btn {
+            position: absolute;
+            top: 20px;
+            right: -20px;
+            width: 28px;
+            height: 32px;
+            background: #f7f7f8;
+            border: 1px solid #e1e3e6;
+            border-left: none;
+            border-radius: 0 12px 12px 0;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 14px;
+            z-index: 20;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+        }
+        
+        .sidebar-close-btn:hover {
+            background: #f3f4f6;
+            color: #374151;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-header {
+            padding: 12px;
+            border-bottom: none;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 2px 0;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: #374151;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 400;
+            transition: background 0.1s ease;
+            position: relative;
+        }
+
+        .new-chat-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .new-chat-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .shortcut-hint {
+            opacity: 0;
+            font-size: 12px;
+            color: #6b7280;
+            transition: opacity 0.2s;
+        }
+
+        .new-chat-btn:hover .shortcut-hint {
+            opacity: 1;
+        }
+
+        .section-title {
+            padding: 10px 12px;
+            margin: 2px 0;
+            font-size: 14px;
+            font-weight: 400;
+            color: #9ca3af;
+            position: sticky;
+            top: 0;
+            background: #f7f7f8;
+            z-index: 10;
+        }
+
+        .chat-history-list {
+            margin-bottom: 20px;
+        }
+
+        .chat-history-item {
+            padding: 10px 12px;
+            margin: 2px 0;
+            border-radius: 8px;
+            color: #374151;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.1s ease;
+            font-weight: 400;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-height: 40px;
+            flex-shrink: 0;
+        }
+
+        .chat-history-item:hover {
+            background: #f3f4f6;
+        }
+
+        .chat-history-item.active {
+            background: #e5e7eb;
+            font-weight: 500;
+        }
+        
+        .workflow-item {
+            padding: 10px 12px;
+            margin: 2px 0;
+            border-radius: 8px;
+            color: #374151;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.1s ease;
+            font-weight: 400;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-height: 40px;
+            flex-shrink: 0;
+        }
+        
+        .workflow-item:hover {
+            background: #f3f4f6;
+        }
+        
+        .workflow-item.active {
+            background: #e5e7eb;
+            font-weight: 500;
+        }
+
+        .sidebar-top {
+            flex: 1;
+        }
+        
+        .workflow-section {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            right: 0;
+            height: calc(50% - 75px);
+            max-height: calc(50% - 75px);
+            display: flex;
+            flex-direction: column;
+            padding: 12px 12px 0 12px;
+        }
+        
+        .workflow-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-top: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        
+        .workflow-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .workflow-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .workflow-content::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+        
+        .workflow-content::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        
+        
+        
+        .chat-history {
+            position: absolute;
+            bottom: 70px;
+            left: 0;
+            right: 0;
+            height: calc(50% - 15px);
+            max-height: calc(50% - 15px);
+            display: flex;
+            flex-direction: column;
+            padding: 12px 12px 0 12px;
+        }
+        
+        .chat-history-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-top: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        
+        .chat-history-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-history-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .chat-history-content::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+        
+        .chat-history-content::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        .nav-section {
+            margin-bottom: 20px;
+        }
+
+        .nav-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .nav-item {
+            padding: 10px 12px;
+            margin: 2px 0;
+            border-radius: 8px;
+            color: #374151;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            transition: background 0.1s ease;
+            font-weight: 400;
+        }
+
+        .nav-item:hover {
+            background: #f3f4f6;
+        }
+
+        .nav-item.active {
+            background: #e5e7eb;
+            font-weight: 500;
+        }
+
+        .nav-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.7;
+        }
+
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid #e1e3e6;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .user-profile:hover {
+            background: #f3f4f6;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #10a37f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .user-name {
+            font-size: 14px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+
+        /* 메인 컨텐츠 */
+        .main-content {
+            flex: 1;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .welcome-area {
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .logo-container {
+            margin-bottom: 32px;
+        }
+
+        .chatgpt-logo {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #74aa9c 0%, #1f8b73 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .welcome-title {
+            font-size: 32px;
+            font-weight: 600;
+            color: #202123;
+            margin-bottom: 12px;
+            letter-spacing: -0.8px;
+        }
+
+        .welcome-subtitle {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 48px;
+            font-weight: 400;
+        }
+
+        .example-prompts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .example-prompt {
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .example-prompt:hover {
+            border-color: #d1d5db;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+            transform: translateY(-1px);
+        }
+
+        .example-prompt-title {
+            font-weight: 600;
+            color: #202123;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .example-prompt-text {
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* 입력 영역 */
+        .input-container {
+            position: sticky;
+            bottom: 0;
+            background: #ffffff;
+            padding: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .input-wrapper {
+            max-width: 768px;
+            width: 100%;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .input-box {
+            width: 100%;
+            min-height: 52px;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 24px;
+            padding: 12px 50px 12px 50px;
+            font-size: 16px;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            color: #202123;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: all 0.2s;
+        }
+
+        .input-box:focus {
+            border-color: #10a37f;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 0 0 3px rgba(16, 163, 127, 0.1);
+        }
+
+        .input-box::placeholder {
+            color: #9ca3af;
+        }
+
+        .file-upload-btn {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            border-radius: 16px;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        .file-upload-btn:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+
+        .disclaimer {
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 12px;
+            max-width: 768px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* 메시지 영역 */
+        .messages {
+            flex: 1;
+            max-width: 768px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 24px;
+            display: flex;
+            gap: 16px;
+            padding: 20px 24px;
+        }
+
+        .message.user {
+            background: transparent;
+        }
+
+        .message.assistant {
+            background: #f7f7f8;
+            border-radius: 16px;
+            margin: 12px;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: #5436da;
+            color: white;
+        }
+
+        .message.assistant .message-avatar {
+            background: #19c37d;
+            color: white;
+        }
+
+        .message-content {
+            flex: 1;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #202123;
+            padding-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script>
+        const { createApp, ref } = Vue;
+
+        createApp({
+            setup() {
+                const messages = ref([]);
+                const inputText = ref('');
+                const showWelcome = ref(true);
+
+                const chatHistoryItems = ref([
+                    { id: 1, title: 'Git pull 동작 설명', active: false, messages: [] },
+                    { id: 2, title: '프론트엔드 코드 예시', active: false, messages: [] },
+                    { id: 3, title: 'Git 저장소 올리기', active: false, messages: [] },
+                    { id: 4, title: 'React 실행 방법', active: false, messages: [] },
+                    { id: 5, title: 'MCP 서버 추천', active: false, messages: [] },
+                    { id: 6, title: 'Python 환경변수 편집', active: false, messages: [] },
+                    { id: 7, title: '이 두 사람 누구인가', active: false, messages: [] },
+                    { id: 8, title: 'MCP Client 연결 오류', active: false, messages: [] },
+                ]);
+
+                const currentChatId = ref(null);
+                const sidebarCollapsed = ref(false);
+                
+                const workflowItems = ref([
+                    { id: 1, title: '데이터 분석 워크플로우', active: false },
+                    { id: 2, title: '이미지 처리 워크플로우', active: false },
+                    { id: 3, title: 'API 데이터 연동', active: false },
+                    { id: 4, title: '머신러닝 모델 학습', active: false },
+                    { id: 5, title: '자동화 업무 수행', active: false },
+                    { id: 6, title: '리포트 생성 워크플로우', active: false },
+                ]);
+
+                const navItems = [
+                    { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.58L19 8l-9 9z"/></svg>', text: 'ChatGPT', active: true },
+                    { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>', text: 'DALL·E', active: false },
+                    { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/></svg>', text: '문서', active: false },
+                    { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/></svg>', text: '검색', active: false },
+                    { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>', text: 'GPT', active: false },
+                ];
+
+                const examplePrompts = [
+                    {
+                        title: '창의적인 아이디어',
+                        text: '새로운 프로젝트를 위한 창의적인 아이디어를 제안해주세요'
+                    },
+                    {
+                        title: '문제 해결',
+                        text: '복잡한 문제를 단계별로 해결하는 방법을 알려주세요'
+                    },
+                    {
+                        title: '학습 도우미',
+                        text: '새로운 주제에 대해 쉽게 설명해주세요'
+                    }
+                ];
+
+                const sendMessage = () => {
+                    if (!inputText.value.trim()) return;
+
+                    const currentInput = inputText.value;
+                    
+                    // 현재 활성된 채팅이 없으면 새 채팅 생성
+                    if (currentChatId.value === null) {
+                        const newChatTitle = currentInput.length > 20 ? currentInput.substring(0, 20) + '...' : currentInput;
+                        const newChatId = Date.now();
+                        
+                        // 모든 기존 채팅의 active 상태를 false로 변경
+                        chatHistoryItems.value.forEach(item => item.active = false);
+                        
+                        // 새 채팅을 맨 위에 추가
+                        chatHistoryItems.value.unshift({
+                            id: newChatId,
+                            title: newChatTitle,
+                            active: true,
+                            messages: []
+                        });
+                        
+                        currentChatId.value = newChatId;
+                    }
+
+                    showWelcome.value = false;
+                    
+                    const userMessage = {
+                        id: Date.now(),
+                        type: 'user',
+                        content: currentInput
+                    };
+
+                    messages.value.push(userMessage);
+                    
+                    // 현재 채팅에 메시지 저장
+                    const currentChat = chatHistoryItems.value.find(item => item.id === currentChatId.value);
+                    if (currentChat) {
+                        currentChat.messages.push(userMessage);
+                    }
+                    
+                    inputText.value = '';
+
+                    setTimeout(() => {
+                        const assistantMessage = {
+                            id: Date.now() + 1,
+                            type: 'assistant',
+                            content: `안녕하세요! "${currentInput}"에 대해 답변드리겠습니다. 어떤 도움이 필요하신지 자세히 알려주시면 더 구체적으로 도움을 드릴 수 있습니다.`
+                        };
+                        messages.value.push(assistantMessage);
+                        
+                        // 현재 채팅에 어시스턴트 메시지도 저장
+                        if (currentChat) {
+                            currentChat.messages.push(assistantMessage);
+                        }
+                    }, 1000);
+                };
+
+                const handleKeydown = (event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        sendMessage();
+                    }
+                };
+
+                const handleGlobalKeydown = (event) => {
+                    if (event.ctrlKey && event.shiftKey && event.key === 'O') {
+                        event.preventDefault();
+                        newChat();
+                    }
+                };
+
+                const newChat = () => {
+                    messages.value = [];
+                    inputText.value = '';
+                    showWelcome.value = true;
+                    currentChatId.value = null;
+                    // 모든 채팅 히스토리 아이템의 active 상태를 false로 변경
+                    chatHistoryItems.value.forEach(item => item.active = false);
+                };
+
+                const selectChatHistory = (selectedItem) => {
+                    // 모든 아이템의 active 상태를 false로 변경
+                    chatHistoryItems.value.forEach(item => item.active = false);
+                    // 선택된 아이템만 active로 변경
+                    selectedItem.active = true;
+                    currentChatId.value = selectedItem.id;
+                    
+                    // 해당 채팅의 메시지들을 로드
+                    showWelcome.value = false;
+                    messages.value = [...selectedItem.messages];
+                };
+                
+                const selectWorkflow = (selectedItem) => {
+                    // 모든 워크플로우의 active 상태를 false로 변경
+                    workflowItems.value.forEach(item => item.active = false);
+                    // 선택된 워크플로우만 active로 변경
+                    selectedItem.active = true;
+                    
+                    // 워크플로우 선택 시 시스템에서 발생하는 동작을 여기에 추가 가능
+                    console.log('워크플로우 선택됨:', selectedItem.title);
+                };
+                
+                const toggleSidebar = () => {
+                    sidebarCollapsed.value = !sidebarCollapsed.value;
+                };
+                
+
+                const useExamplePrompt = (prompt) => {
+                    inputText.value = prompt.text;
+                };
+
+                // 전역 키보드 이벤트 리스너 등록
+                Vue.onMounted(() => {
+                    document.addEventListener('keydown', handleGlobalKeydown);
+                });
+
+                Vue.onUnmounted(() => {
+                    document.removeEventListener('keydown', handleGlobalKeydown);
+                });
+
+                return {
+                    messages,
+                    inputText,
+                    showWelcome,
+                    chatHistoryItems,
+                    currentChatId,
+                    sidebarCollapsed,
+                    workflowItems,
+                    examplePrompts,
+                    sendMessage,
+                    handleKeydown,
+                    useExamplePrompt,
+                    newChat,
+                    selectChatHistory,
+                    selectWorkflow,
+                    toggleSidebar
+                };
+            },
+
+            template: `
+                <div class="app">
+                    <!-- 사이드바 -->
+                    <div :class="['sidebar', { collapsed: sidebarCollapsed }]">
+                        <button class="sidebar-close-btn" @click="toggleSidebar" title="사이드바 닫기">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M15 18l-6-6 6-6"/>
+                            </svg>
+                        </button>
+                        
+                        <div class="sidebar-top">
+                            <div class="sidebar-header">
+                                <button class="new-chat-btn" @click="newChat">
+                                    <div class="new-chat-content">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 5v14M5 12h14"/>
+                                        </svg>
+                                        새로운 채팅
+                                    </div>
+                                    <div class="shortcut-hint">Ctrl+Shift+O</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="workflow-section">
+                            <!-- 워크플로우 섹션 -->
+                            <div class="section-title">워크플로우</div>
+                            <div class="workflow-content">
+                                <div v-for="item in workflowItems" 
+                                     :key="item.id"
+                                     :class="['workflow-item', { active: item.active }]"
+                                     @click="selectWorkflow(item)">
+                                    {{ item.title }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chat-history">
+                            <!-- 채팅 히스토리 섹션 -->
+                            <div class="section-title">채팅</div>
+                            <div class="chat-history-content">
+                                <div v-for="item in chatHistoryItems" 
+                                     :key="item.id"
+                                     :class="['chat-history-item', { active: item.active }]"
+                                     @click="selectChatHistory(item)">
+                                    {{ item.title }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="sidebar-footer">
+                            <div class="user-profile">
+                                <div class="user-avatar">U</div>
+                                <div class="user-name">사용자</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 메인 컨텐츠 -->
+                    <div class="main-content">
+                        <!-- 웰컴 화면 -->
+                        <div v-if="showWelcome" class="chat-container">
+                            <div class="welcome-area">
+                                <div class="logo-container">
+                                    <div class="chatgpt-logo">✨</div>
+                                    <h1 class="welcome-title">ChatGPT</h1>
+                                    <p class="welcome-subtitle">준비되면 여기에 주세요</p>
+                                </div>
+
+                                <div class="example-prompts">
+                                    <div v-for="prompt in examplePrompts" 
+                                         :key="prompt.title"
+                                         class="example-prompt"
+                                         @click="useExamplePrompt(prompt)">
+                                        <div class="example-prompt-title">{{ prompt.title }}</div>
+                                        <div class="example-prompt-text">{{ prompt.text }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 메시지 영역 -->
+                        <div v-else class="messages">
+                            <div v-for="message in messages" 
+                                 :key="message.id"
+                                 :class="['message', message.type]">
+                                <div class="message-avatar">
+                                    {{ message.type === 'user' ? 'U' : 'AI' }}
+                                </div>
+                                <div class="message-content">
+                                    {{ message.content }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 입력 영역 -->
+                        <div class="input-container">
+                            <div class="input-wrapper">
+                                <button class="file-upload-btn" title="파일 업로드">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 5v14M5 12h14"/>
+                                    </svg>
+                                </button>
+                                <textarea 
+                                    v-model="inputText"
+                                    class="input-box"
+                                    placeholder="메시지를 입력하세요..."
+                                    rows="1"
+                                    @keydown="handleKeydown"
+                                ></textarea>
+                            </div>
+                            <div class="disclaimer">
+                                ChatGPT는 실수할 수 있습니다. 중요한 정보를 확인해 보세요.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `
+        }).mount('#app');
+    </script>
+</body>
+</html>
