@@ -1,5 +1,5 @@
 <template>
-  <div class="app">
+  <div class="app" :class="{ 'board-open': boardPanelOpen }">
     <!-- 사이드바 -->
     <Sidebar
       :collapsed="sidebarCollapsed"
@@ -51,6 +51,12 @@
       @close-panel="closeWorkflowPanel"
       @start-resize="startResize"
     />
+
+    <!-- 게시판 패널 -->
+    <BoardPanel
+      :isOpen="boardPanelOpen"
+      @close="closeBoardPanel"
+    />
   </div>
 </template>
 
@@ -60,6 +66,7 @@ import Sidebar from './components/Sidebar.vue'
 import Header from './components/Header.vue'
 import ChatArea from './components/ChatArea.vue'
 import WorkflowPanel from './components/WorkflowPanel.vue'
+import BoardPanel from './components/BoardPanel.vue'
 import { useChatManagement } from './composables/useChatManagement'
 import { useWorkflowManagement } from './composables/useWorkflowManagement'
 import { useFileHandling } from './composables/useFileHandling'
@@ -103,6 +110,7 @@ const {
 // UI 상태
 const sidebarCollapsed = ref(false)
 const activeMenu = ref<string | null>(null)
+const boardPanelOpen = ref(false)
 
 // 예시 프롬프트
 const examplePrompts: ExamplePrompt[] = [
@@ -172,7 +180,11 @@ const deleteItem = (itemId: number, type: string) => {
 
 // 헤더 액션
 const goToBoard = () => {
-  console.log('게시판 페이지로 이동')
+  boardPanelOpen.value = true
+}
+
+const closeBoardPanel = () => {
+  boardPanelOpen.value = false
 }
 
 const goToLogin = () => {
@@ -204,4 +216,20 @@ onUnmounted(() => {
 
 <style>
 @import './assets/styles/main.css';
+
+/* 게시판이 열렸을 때 채팅창 스타일 조정 */
+.app.board-open .main-content {
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.app.board-open .sidebar {
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.app.board-open .workflow-panel {
+  filter: blur(2px);
+  pointer-events: none;
+}
 </style>
