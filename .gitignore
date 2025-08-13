@@ -1,27 +1,56 @@
 # Dependencies
 node_modules/
-.pnpm-debug.log*
-
-# Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build output
+# Production build
 dist/
 build/
 
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment variables
+# Local env files
 .env
 .env.local
-.env.production.local
+.env.*.local
+
+# Log files
+*.log
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Vite
+.vite/
+
+# ESLint cache
+.eslintcache
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Legacy HTML files (백업용)
+chatgpt-clone.html.bak
+login.html.bak
