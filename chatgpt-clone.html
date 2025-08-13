@@ -71,7 +71,7 @@
             border-bottom: none;
         }
 
-        .new-chat-btn {
+        .new-chat-btn, .new-folder-btn {
             width: 100%;
             padding: 10px 12px;
             margin: 2px 0;
@@ -90,7 +90,7 @@
             position: relative;
         }
 
-        .new-chat-btn:hover {
+        .new-chat-btn:hover, .new-folder-btn:hover {
             background: #e5e7eb;
         }
 
@@ -107,7 +107,8 @@
             transition: opacity 0.2s;
         }
 
-        .new-chat-btn:hover .shortcut-hint {
+        .new-chat-btn:hover .shortcut-hint,
+        .new-folder-btn:hover .shortcut-hint {
             opacity: 1;
         }
 
@@ -270,29 +271,236 @@
             font-weight: 500;
         }
 
+
+        /* 워크플로우 컨트롤 버튼들 */
+        .workflow-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .workflow-item:hover .workflow-controls {
+            opacity: 1;
+        }
+
+        .workflow-item.running .workflow-controls {
+            opacity: 1;
+        }
+
+        .workflow-toggle {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: none;
+            background: #9ca3af;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .workflow-toggle.active {
+            background: #ef4444;
+            position: relative;
+        }
+
+        .workflow-toggle.active::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            animation: gentle-pulse 3s infinite ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes gentle-pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+                opacity: 1;
+            }
+            70% {
+                box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+                opacity: 0;
+            }
+            100% {
+                box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+                opacity: 0;
+            }
+        }
+
+        /* 워크플로우 페이지네이션 */
+        .workflow-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 8px;
+            margin-bottom: 0;
+            padding: 0 12px;
+            gap: 16px;
+            flex: 0 0 auto;
+        }
+
+        .workflow-page-info {
+            font-size: 13px;
+            color: #6b7280;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .workflow-nav-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+
+        .workflow-nav-btn:hover:not(:disabled) {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .workflow-nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
         .sidebar-top {
-            flex: 1;
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
         }
         
-        .workflow-section {
-            position: absolute;
-            top: 80px;
-            left: 0;
-            right: 0;
-            height: calc(50% - 75px);
-            max-height: calc(50% - 75px);
+        .sidebar-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .folder-section {
+            flex: 0 0 120px;
             display: flex;
             flex-direction: column;
             padding: 12px 12px 0 12px;
         }
         
-        .workflow-content {
-            flex: 1;
-            overflow-y: auto;
+        .folder-content {
+            flex: 0 0 auto;
+            overflow-y: visible;
             padding-top: 0;
+            padding-bottom: 0;
+        }
+        
+        .folder-list {
+            margin-top: 0;
+            margin-bottom: 12px;
+            height: 160px;
             display: flex;
-            flex-direction: column-reverse;
-            justify-content: flex-end;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        
+        .folder-item {
+            padding: 10px 12px;
+            margin: 2px 0;
+            border-radius: 8px;
+            color: #374151;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.1s ease;
+            font-weight: 400;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-height: 40px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .folder-item:hover {
+            background: #e5e7eb;
+        }
+        
+        .folder-item.active {
+            background: #e5e7eb;
+            font-weight: 500;
+        }
+        
+        .folder-item:hover .item-menu-btn {
+            opacity: 1;
+        }
+        
+        /* 폴더 페이지네이션 */
+        .folder-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 8px;
+            margin-bottom: 12px;
+            padding: 0 12px;
+            gap: 16px;
+            flex: 0 0 auto;
+        }
+
+        .folder-page-info {
+            font-size: 13px;
+            color: #6b7280;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .folder-nav-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+
+        .folder-nav-btn:hover:not(:disabled) {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .folder-nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        .workflow-section {
+            flex: 0 0 180px;
+            display: flex;
+            flex-direction: column;
+            padding: 0 12px 0 12px;
+        }
+        
+        .workflow-content {
+            flex: 0 0 auto;
+            overflow-y: visible;
+            padding-top: 0;
+            padding-bottom: 0;
         }
         
         .workflow-content::-webkit-scrollbar {
@@ -314,21 +522,22 @@
         
         .workflow-list {
             margin-top: 0;
-            margin-bottom: 0;
+            margin-bottom: 8px;
+            height: 160px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
         }
         
         
         
         .chat-history {
-            position: absolute;
-            bottom: 70px;
-            left: 0;
-            right: 0;
-            height: calc(50% - 15px);
-            max-height: calc(50% - 15px);
+            flex: 1;
             display: flex;
             flex-direction: column;
             padding: 12px 12px 0 12px;
+            min-height: 200px;
+            overflow: hidden;
         }
         
         .chat-history-content {
@@ -407,10 +616,20 @@
             border-radius: 8px;
             cursor: pointer;
             transition: background 0.2s;
+            position: relative;
         }
 
         .user-profile:hover {
             background: #e5e7eb;
+        }
+
+        .user-profile-dropdown {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            margin-bottom: 8px;
+            z-index: 1000;
         }
 
         .user-avatar {
@@ -619,7 +838,7 @@
 
         .panel-section:last-child {
             border-bottom: none;
-            padding-bottom: 30px; /* 마지막 섹션 여백 */
+            padding-bottom: 30px;
         }
 
         .panel-section h4 {
@@ -709,6 +928,12 @@
             box-sizing: border-box;
         }
 
+        .workflow-description {
+            margin: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
         .workflow-description p {
             margin: 0;
             line-height: 1.6;
@@ -728,6 +953,7 @@
             border-radius: 6px;
             border: 1px solid #e5e7eb;
         }
+
 
         .chat-container {
             flex: 1;
@@ -776,14 +1002,16 @@
             font-weight: 400;
         }
 
-        .example-prompts {
+        .example-workflows {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
             gap: 12px;
             margin-bottom: 32px;
+            max-width: 900px;
         }
 
-        .example-prompt {
+        .example-workflow {
             padding: 20px;
             border: 1px solid #e5e7eb;
             border-radius: 16px;
@@ -794,20 +1022,20 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
 
-        .example-prompt:hover {
-            border-color: #d1d5db;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-            transform: translateY(-1px);
+        .example-workflow:hover {
+            border-color: #67bdc6;
+            box-shadow: 0 4px 12px rgba(103, 189, 198, 0.15);
+            transform: translateY(-2px);
         }
 
-        .example-prompt-title {
+        .example-workflow-title {
             font-weight: 600;
             color: #202123;
             margin-bottom: 8px;
             font-size: 15px;
         }
 
-        .example-prompt-text {
+        .example-workflow-text {
             color: #6b7280;
             font-size: 14px;
             line-height: 1.5;
@@ -1008,13 +1236,313 @@
             color: #202123;
             padding-top: 4px;
         }
+
+        /* 프로필 메뉴 모달 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            animation: fadeIn 0.3s ease-out;
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25), 
+                        0 0 0 1px rgba(103, 189, 198, 0.1);
+            width: 90%;
+            max-width: 600px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+        }
+
+        .modal-content.help-modal {
+            max-width: 700px;
+        }
+
+        .modal-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(103, 189, 198, 0.03) 0%, 
+                rgba(255, 255, 255, 0.97) 50%, 
+                rgba(103, 189, 198, 0.03) 100%);
+            border-radius: 20px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        @keyframes modalSlideIn {
+            0% { 
+                opacity: 0;
+                transform: translateY(30px) scale(0.9);
+            }
+            60% {
+                opacity: 0.8;
+                transform: translateY(-5px) scale(1.02);
+            }
+            100% { 
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 28px 32px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, #67bdc6 0%, #5aa7b0 50%, #4a969f 100%);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.1), 
+                transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .modal-close-btn {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            color: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .modal-close-btn:active {
+            transform: scale(0.95);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 32px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        }
+
+        /* 모달 스크롤바 */
+        .modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.5);
+            border-radius: 10px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #67bdc6, #5aa7b0);
+            border-radius: 10px;
+            border: 2px solid rgba(241, 245, 249, 0.5);
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5aa7b0, #4a969f);
+        }
+
+        .modal-footer {
+            padding: 20px 32px;
+            border-top: 1px solid #e5e7eb;
+            background: white;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        /* 설정 섹션 스타일 */
+        .settings-section {
+            margin-bottom: 32px;
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(103, 189, 198, 0.1);
+        }
+
+        .settings-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-section h3 {
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .setting-item {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .setting-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-item label {
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .setting-item select,
+        .setting-item input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
+            color: #374151;
+            min-width: 120px;
+        }
+
+        .setting-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #67bdc6;
+        }
+
+        /* 도움말 섹션 스타일 */
+        .help-section {
+            margin-bottom: 32px;
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(103, 189, 198, 0.1);
+        }
+
+        .help-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .help-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .help-section p {
+            margin: 0 0 12px 0;
+            line-height: 1.6;
+            color: #4b5563;
+        }
+
+        .help-section ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        .help-section li {
+            margin-bottom: 8px;
+        }
+
+        .help-section strong {
+            color: #67bdc6;
+            font-weight: 600;
+        }
+
+        /* 버튼 스타일 */
+        .btn-primary,
+        .btn-secondary {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #67bdc6, #5aa7b0);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5aa7b0, #4a969f);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(103, 189, 198, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
     </style>
 </head>
 <body>
     <div id="app"></div>
 
     <script>
-        const { createApp, ref } = Vue;
+        const { createApp, ref, computed, nextTick } = Vue;
 
         createApp({
             setup() {
@@ -1033,6 +1561,18 @@
                     { id: 8, title: 'MCP Client 연결 오류', active: false, messages: [] },
                 ]);
 
+                const folders = ref([
+                    { id: 1, title: '개발 프로젝트', type: 'folder', active: false, expanded: false, chats: [] },
+                    { id: 2, title: '디자인 작업', type: 'folder', active: false, expanded: false, chats: [] },
+                    { id: 3, title: '회의 내용', type: 'folder', active: false, expanded: false, chats: [] },
+                    { id: 4, title: '학습 자료', type: 'folder', active: false, expanded: false, chats: [] },
+                    { id: 5, title: '마케팅 기획', type: 'folder', active: false, expanded: false, chats: [] },
+                    { id: 6, title: '고객 지원', type: 'folder', active: false, expanded: false, chats: [] },
+                    { id: 7, title: '연구 분석', type: 'folder', active: false, expanded: false, chats: [] },
+                    { id: 8, title: '팀 관리', type: 'folder', active: false, expanded: false, chats: [] },
+                    { id: 9, title: '문서 작성', type: 'folder', active: false, expanded: false, chats: [] }
+                ]);
+
                 const currentChatId = ref(null);
                 const sidebarCollapsed = ref(false);
                 const activeMenu = ref(null);
@@ -1044,11 +1584,32 @@
                 const workflowPanelWidth = ref(400);
                 const isResizing = ref(false);
                 
+                // 폴더 페이지네이션 관련 상태
+                const currentFolderPage = ref(1);
+                const folderPageSize = ref(4);
+                const totalFolderPages = computed(() => Math.ceil(folders.value.length / folderPageSize.value));
+                const paginatedFolderItems = computed(() => {
+                    const start = (currentFolderPage.value - 1) * folderPageSize.value;
+                    const end = start + folderPageSize.value;
+                    return folders.value.slice(start, end);
+                });
+                
+                // 워크플로우 페이지네이션 관련 상태
+                const currentWorkflowPage = ref(1);
+                const workflowPageSize = ref(4);
+                const totalWorkflowPages = computed(() => Math.ceil(workflowItems.value.length / workflowPageSize.value));
+                const paginatedWorkflowItems = computed(() => {
+                    const start = (currentWorkflowPage.value - 1) * workflowPageSize.value;
+                    const end = start + workflowPageSize.value;
+                    return workflowItems.value.slice(start, end);
+                });
+                
                 const workflowItems = ref([
                     { 
                         id: 1, 
                         title: '데이터 분석 워크플로우', 
                         active: false,
+                        isRunning: false,
                         description: '데이터를 수집, 정제, 분석하여 인사이트를 도출하는 워크플로우입니다.',
                         n8nUrl: 'https://n8n.example.com/workflow/data-analysis',
                         jsonData: {
@@ -1064,6 +1625,7 @@
                         id: 2, 
                         title: '이미지 처리 워크플로우', 
                         active: false,
+                        isRunning: false,
                         description: '이미지를 업로드하고 다양한 필터와 변환을 적용하는 워크플로우입니다.',
                         n8nUrl: 'https://n8n.example.com/workflow/image-processing'
                     },
@@ -1071,12 +1633,14 @@
                         id: 3, 
                         title: 'API 데이터 연동', 
                         active: false,
+                        isRunning: false,
                         description: '외부 API에서 데이터를 가져와 내부 시스템과 연동하는 워크플로우입니다.'
                     },
                     { 
                         id: 4, 
                         title: '머신러닝 모델 학습', 
                         active: false,
+                        isRunning: false,
                         description: '데이터를 기반으로 머신러닝 모델을 학습시키고 배포하는 워크플로우입니다.',
                         n8nUrl: 'https://n8n.example.com/workflow/ml-training'
                     },
@@ -1084,12 +1648,14 @@
                         id: 5, 
                         title: '자동화 업무 수행', 
                         active: false,
+                        isRunning: false,
                         description: '반복적인 업무를 자동화하여 효율성을 높이는 워크플로우입니다.'
                     },
                     { 
                         id: 6, 
                         title: '리포트 생성 워크플로우', 
                         active: false,
+                        isRunning: false,
                         description: '데이터를 기반으로 정기 리포트를 자동 생성하는 워크플로우입니다.',
                         n8nUrl: 'https://n8n.example.com/workflow/report-generation'
                     }
@@ -1103,18 +1669,48 @@
                     { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>', text: 'GPT', active: false },
                 ];
 
-                const examplePrompts = [
-                    {
-                        title: '창의적인 아이디어',
-                        text: '새로운 프로젝트를 위한 창의적인 아이디어를 제안해주세요'
+                const exampleWorkflows = [
+                    { 
+                        title: '데이터 분석 자동화', 
+                        description: 'CSV 파일을 읽고 차트 생성 후 보고서 전송',
+                        category: 'data',
+                        n8nUrl: 'https://n8n.io/templates/data-analysis',
+                        jsonData: null
                     },
-                    {
-                        title: '문제 해결',
-                        text: '복잡한 문제를 단계별로 해결하는 방법을 알려주세요'
+                    { 
+                        title: '이미지 처리', 
+                        description: '이미지 리사이즈 및 워터마크 추가 자동화',
+                        category: 'media',
+                        n8nUrl: 'https://n8n.io/templates/image-processing',
+                        jsonData: null
                     },
-                    {
-                        title: '학습 도우미',
-                        text: '새로운 주제에 대해 쉽게 설명해주세요'
+                    { 
+                        title: '이메일 자동화', 
+                        description: '조건부 이메일 발송 및 답장 처리',
+                        category: 'communication',
+                        n8nUrl: 'https://n8n.io/templates/email-automation',
+                        jsonData: null
+                    },
+                    { 
+                        title: 'AI 텍스트 생성', 
+                        description: 'GPT API를 활용한 콘텐츠 자동 생성',
+                        category: 'ai',
+                        n8nUrl: 'https://n8n.io/templates/ai-content',
+                        jsonData: null
+                    },
+                    { 
+                        title: '소셜미디어 관리', 
+                        description: '다중 플랫폼 포스팅 및 댓글 모니터링',
+                        category: 'social',
+                        n8nUrl: 'https://n8n.io/templates/social-media',
+                        jsonData: null
+                    },
+                    { 
+                        title: '보고서 자동화', 
+                        description: '정기 보고서 생성 및 배포 자동화',
+                        category: 'reporting',
+                        n8nUrl: 'https://n8n.io/templates/reporting',
+                        jsonData: null
                     }
                 ];
 
@@ -1200,6 +1796,10 @@
                         event.preventDefault();
                         newChat();
                     }
+                    if (event.ctrlKey && event.shiftKey && event.key === 'F') {
+                        event.preventDefault();
+                        newFolder();
+                    }
                 };
 
                 const newChat = () => {
@@ -1209,6 +1809,20 @@
                     currentChatId.value = null;
                     // 모든 채팅 히스토리 아이템의 active 상태를 false로 변경
                     chatHistoryItems.value.forEach(item => item.active = false);
+                };
+
+                const newFolder = () => {
+                    const folderName = prompt('새 폴더 이름을 입력하세요:', '새 폴더');
+                    if (folderName && folderName.trim()) {
+                        const newFolderItem = {
+                            id: Date.now(),
+                            title: folderName.trim(),
+                            type: 'folder',
+                            expanded: false,
+                            chats: []
+                        };
+                        folders.value.unshift(newFolderItem);
+                    }
                 };
 
                 const selectChatHistory = (selectedItem) => {
@@ -1266,7 +1880,8 @@
                     const handleMouseMove = (e) => {
                         if (isResizing.value) {
                             const deltaX = startX - e.clientX;
-                            const newWidth = Math.max(300, Math.min(800, startWidth + deltaX));
+                            const maxWidth = window.innerWidth * 0.8; // 화면 너비의 80%까지 허용
+                            const newWidth = Math.max(300, Math.min(maxWidth, startWidth + deltaX));
                             workflowPanelWidth.value = newWidth;
                         }
                     };
@@ -1467,6 +2082,91 @@
                     // 로그인 페이지로 이동
                     window.location.href = 'login.html';
                 };
+
+                // 모달 상태 관리
+                const showSettingsModal = ref(false);
+                const showHelpModal = ref(false);
+
+                // 사용자 프로필 관련 함수들
+                const openSettings = () => {
+                    showSettingsModal.value = true;
+                    activeMenu.value = null;
+                };
+
+                const openHelp = () => {
+                    showHelpModal.value = true;
+                    activeMenu.value = null;
+                };
+
+                const closeSettingsModal = () => {
+                    showSettingsModal.value = false;
+                };
+
+                const closeHelpModal = () => {
+                    showHelpModal.value = false;
+                };
+
+                const logout = () => {
+                    if (confirm('정말로 로그아웃하시겠습니까?')) {
+                        // 채팅 기록 초기화
+                        messages.value = [];
+                        chatHistoryItems.value = [];
+                        folders.value = [];
+                        currentChatId.value = null;
+                        showWelcome.value = true;
+                        
+                        // 로컬 스토리지 정리
+                        localStorage.removeItem('chatHistories');
+                        localStorage.removeItem('customWorkflows');
+                        
+                        alert('로그아웃되었습니다.');
+                        // 실제 환경에서는 로그인 페이지로 리다이렉트
+                        // window.location.href = 'login.html';
+                    }
+                    activeMenu.value = null;
+                };
+
+                // 폴더 페이지네이션 함수들
+                const nextFolderPage = () => {
+                    if (currentFolderPage.value < totalFolderPages.value) {
+                        currentFolderPage.value++;
+                    }
+                };
+
+                const prevFolderPage = () => {
+                    if (currentFolderPage.value > 1) {
+                        currentFolderPage.value--;
+                    }
+                };
+
+                const selectFolder = (selectedItem) => {
+                    // 모든 폴더의 active 상태를 false로 변경
+                    folders.value.forEach(item => item.active = false);
+                    // 선택된 폴더만 active로 변경
+                    selectedItem.active = true;
+                    
+                    console.log('폴더 선택됨:', selectedItem.title);
+                };
+                
+                // 워크플로우 페이지네이션 함수들
+                const nextWorkflowPage = () => {
+                    if (currentWorkflowPage.value < totalWorkflowPages.value) {
+                        currentWorkflowPage.value++;
+                    }
+                };
+
+                const prevWorkflowPage = () => {
+                    if (currentWorkflowPage.value > 1) {
+                        currentWorkflowPage.value--;
+                    }
+                };
+
+                // 워크플로우 실행 상태 토글
+                const toggleWorkflowRunning = (workflow) => {
+                    workflow.isRunning = !workflow.isRunning;
+                    const status = workflow.isRunning ? '활성화 (트리거 대기중)' : '비활성화';
+                    console.log(`워크플로우 "${workflow.title}" ${status}`);
+                };
                 
                 // 메시지에서 JSON 검출 및 워크플로우 생성
                 const checkForWorkflowInMessage = (messageContent) => {
@@ -1533,8 +2233,37 @@
                 };
                 
 
-                const useExamplePrompt = (prompt) => {
-                    inputText.value = prompt.text;
+                const addExampleWorkflow = (workflow) => {
+                    // 중복 체크 및 번호 생성
+                    const baseTitle = workflow.title;
+                    const existingTitles = workflowItems.value.map(item => item.title);
+                    let finalTitle = baseTitle;
+                    
+                    // 동일한 제목이 있는지 확인
+                    if (existingTitles.includes(baseTitle)) {
+                        let counter = 2;
+                        while (existingTitles.includes(`${baseTitle} (${counter})`)) {
+                            counter++;
+                        }
+                        finalTitle = `${baseTitle} (${counter})`;
+                    }
+                    
+                    // 새로운 ID 생성 (기존 워크플로우 최대 ID + 1)
+                    const maxId = Math.max(...workflowItems.value.map(item => item.id), 0);
+                    const newWorkflow = {
+                        id: maxId + 1,
+                        title: finalTitle,
+                        description: workflow.description,
+                        active: false,
+                        isRunning: false,
+                        n8nUrl: workflow.n8nUrl,
+                        jsonData: workflow.jsonData
+                    };
+                    
+                    // 워크플로우 리스트에 추가
+                    workflowItems.value.push(newWorkflow);
+                    
+                    // 웰컴 화면은 유지 (숨기지 않음)
                 };
 
                 // 다른 영역 클릭 시 드롭다운 닫기
@@ -1554,9 +2283,28 @@
                 // 삭제 함수
                 const deleteItem = (itemId, type) => {
                     if (confirm('정말로 삭제하시겠습니까?')) {
-                        if (type === 'workflow') {
+                        if (type === 'folder') {
+                            const index = folders.value.findIndex(item => item.id === itemId);
+                            if (index > -1) {
+                                folders.value.splice(index, 1);
+                                
+                                // 현재 페이지에 항목이 없으면 이전 페이지로 이동
+                                const newTotalPages = Math.ceil(folders.value.length / folderPageSize.value);
+                                if (currentFolderPage.value > newTotalPages && newTotalPages > 0) {
+                                    currentFolderPage.value = newTotalPages;
+                                }
+                            }
+                        } else if (type === 'workflow') {
                             const index = workflowItems.value.findIndex(item => item.id === itemId);
-                            if (index > -1) workflowItems.value.splice(index, 1);
+                            if (index > -1) {
+                                workflowItems.value.splice(index, 1);
+                                
+                                // 현재 페이지에 항목이 없으면 이전 페이지로 이동
+                                const newTotalPages = Math.ceil(workflowItems.value.length / workflowPageSize.value);
+                                if (currentWorkflowPage.value > newTotalPages && newTotalPages > 0) {
+                                    currentWorkflowPage.value = newTotalPages;
+                                }
+                            }
                         } else if (type === 'chat') {
                             const index = chatHistoryItems.value.findIndex(item => item.id === itemId);
                             if (index > -1) chatHistoryItems.value.splice(index, 1);
@@ -1585,22 +2333,40 @@
                     inputText,
                     showWelcome,
                     chatHistoryItems,
+                    folders,
                     currentChatId,
                     sidebarCollapsed,
                     workflowItems,
-                    examplePrompts,
+                    exampleWorkflows,
                     activeMenu,
                     isDragging,
                     sendMessage,
                     handleKeydown,
-                    useExamplePrompt,
+                    addExampleWorkflow,
                     newChat,
+                    newFolder,
                     selectChatHistory,
+                    selectFolder,
                     selectWorkflow,
                     toggleSidebar,
                     showDropdown,
                     renameItem,
                     deleteItem,
+                    // 폴더 페이지네이션
+                    currentFolderPage,
+                    folderPageSize,
+                    totalFolderPages,
+                    paginatedFolderItems,
+                    nextFolderPage,
+                    prevFolderPage,
+                    // 워크플로우 페이지네이션
+                    currentWorkflowPage,
+                    workflowPageSize,
+                    totalWorkflowPages,
+                    paginatedWorkflowItems,
+                    nextWorkflowPage,
+                    prevWorkflowPage,
+                    toggleWorkflowRunning,
                     scrollToBottom,
                     handleFileUpload,
                     addWorkflow,
@@ -1613,6 +2379,13 @@
                     downloadJsonFile,
                     goToBoard,
                     goToLogin,
+                    openSettings,
+                    openHelp,
+                    logout,
+                    showSettingsModal,
+                    showHelpModal,
+                    closeSettingsModal,
+                    closeHelpModal,
                     workflowPanelOpen,
                     selectedWorkflow,
                     workflowPanelWidth,
@@ -1644,36 +2417,164 @@
                                     </div>
                                     <div class="shortcut-hint">Ctrl+Shift+O</div>
                                 </button>
+                                <button class="new-folder-btn" @click="newFolder">
+                                    <div class="new-chat-content">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                            <line x1="12" y1="11" x2="12" y2="17"/>
+                                            <line x1="9" y1="14" x2="15" y2="14"/>
+                                        </svg>
+                                        새 폴더
+                                    </div>
+                                    <div class="shortcut-hint">Ctrl+Shift+F</div>
+                                </button>
+                                <div class="section-title" style="margin-top: 8px;">폴더</div>
+                                
+                                <!-- 폴더 리스트 -->
+                                <div class="folder-content">
+                                    <div class="folder-list">
+                                        <div v-for="item in paginatedFolderItems" 
+                                             :key="item.id"
+                                             :class="['folder-item', { active: item.active }]"
+                                             @click="selectFolder(item)">
+                                            <span class="item-title">📁 {{ item.title }}</span>
+                                            <div class="item-menu">
+                                                <button class="item-menu-btn" @click="showDropdown(item.id, 'folder', $event)">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                        <circle cx="5" cy="12" r="2"/>
+                                                        <circle cx="12" cy="12" r="2"/>
+                                                        <circle cx="19" cy="12" r="2"/>
+                                                    </svg>
+                                                </button>
+                                                <div class="dropdown-menu" :class="{ show: activeMenu === 'folder-' + item.id }" @click.stop>
+                                                    <button class="dropdown-item" @click="renameItem(item, 'folder')">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                                            <path d="m15 5 4 4"/>
+                                                        </svg>
+                                                        이름 바꾸기
+                                                    </button>
+                                                    <button class="dropdown-item delete" @click="deleteItem(item.id, 'folder')">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M3 6h18"/>
+                                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                                            <line x1="10" y1="11" x2="10" y2="17"/>
+                                                            <line x1="14" y1="11" x2="14" y2="17"/>
+                                                        </svg>
+                                                        삭제
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 폴더 페이지네이션 -->
+                                <div class="folder-pagination" v-if="totalFolderPages > 1">
+                                    <button class="folder-nav-btn" 
+                                            @click="prevFolderPage" 
+                                            :disabled="currentFolderPage <= 1">‹</button>
+                                    <div class="folder-page-info">
+                                        {{ currentFolderPage }} / {{ totalFolderPages }}
+                                    </div>
+                                    <button class="folder-nav-btn" 
+                                            @click="nextFolderPage" 
+                                            :disabled="currentFolderPage >= totalFolderPages">›</button>
+                                </div>
                             </div>
                         </div>
+                        
+                        <div class="sidebar-content">
+                            <div class="workflow-section">
+                                <!-- 워크플로우 섹션 -->
+                                <div class="section-title">워크플로우</div>
+                                
+                                <div class="workflow-content">
+                                    <div class="workflow-list">
+                                        <div v-for="item in paginatedWorkflowItems" 
+                                             :key="item.id"
+                                             :class="['workflow-item', { active: item.active, running: item.isRunning }]"
+                                             @click="selectWorkflow(item)">
+                                            <span class="item-title">{{ item.title }}</span>
+                                            <div class="workflow-controls">
+                                                <div :class="['workflow-toggle', { active: item.isRunning }]" 
+                                                     @click.stop="toggleWorkflowRunning(item)"
+                                                     :title="item.isRunning ? '워크플로우 비활성화' : '워크플로우 활성화 (트리거 대기)'">
+                                                </div>
+                                            </div>
+                                            <div class="item-menu">
+                                                <button class="item-menu-btn" @click="showDropdown(item.id, 'workflow', $event)">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                        <circle cx="5" cy="12" r="2"/>
+                                                        <circle cx="12" cy="12" r="2"/>
+                                                        <circle cx="19" cy="12" r="2"/>
+                                                    </svg>
+                                                </button>
+                                                <div class="dropdown-menu" :class="{ show: activeMenu === 'workflow-' + item.id }" @click.stop>
+                                                    <button class="dropdown-item" @click="renameItem(item, 'workflow')">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                                            <path d="m15 5 4 4"/>
+                                                        </svg>
+                                                        이름 바꾸기
+                                                    </button>
+                                                    <button class="dropdown-item delete" @click="deleteItem(item.id, 'workflow')">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M3 6h18"/>
+                                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                                            <line x1="10" y1="11" x2="10" y2="17"/>
+                                                            <line x1="14" y1="11" x2="14" y2="17"/>
+                                                        </svg>
+                                                        삭제
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 워크플로우 페이지네이션 -->
+                                <div class="workflow-pagination">
+                                    <button class="workflow-nav-btn" 
+                                            @click="prevWorkflowPage" 
+                                            :disabled="currentWorkflowPage <= 1">‹</button>
+                                    <div class="workflow-page-info">
+                                        {{ currentWorkflowPage }} / {{ totalWorkflowPages }}
+                                    </div>
+                                    <button class="workflow-nav-btn" 
+                                            @click="nextWorkflowPage" 
+                                            :disabled="currentWorkflowPage >= totalWorkflowPages">›</button>
+                                </div>
+                            </div>
 
-                        <div class="workflow-section">
-                            <!-- 워크플로우 섹션 -->
-                            <div class="section-title">워크플로우</div>
-                            <div class="workflow-content">
-                                <div class="workflow-list">
-                                    <div v-for="item in workflowItems" 
+                            <div class="chat-history">
+                                <!-- 채팅 히스토리 섹션 -->
+                                <div class="section-title">채팅</div>
+                                <div class="chat-history-content">
+                                    <div v-for="item in chatHistoryItems" 
                                          :key="item.id"
-                                         :class="['workflow-item', { active: item.active }]"
-                                         @click="selectWorkflow(item)">
+                                         :class="['chat-history-item', { active: item.active }]"
+                                         @click="selectChatHistory(item)">
                                         <span class="item-title">{{ item.title }}</span>
                                         <div class="item-menu">
-                                            <button class="item-menu-btn" @click="showDropdown(item.id, 'workflow', $event)">
+                                            <button class="item-menu-btn" @click="showDropdown(item.id, 'chat', $event)">
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                                     <circle cx="5" cy="12" r="2"/>
                                                     <circle cx="12" cy="12" r="2"/>
                                                     <circle cx="19" cy="12" r="2"/>
                                                 </svg>
                                             </button>
-                                            <div class="dropdown-menu" :class="{ show: activeMenu === 'workflow-' + item.id }" @click.stop>
-                                                <button class="dropdown-item" @click="renameItem(item, 'workflow')">
+                                            <div class="dropdown-menu" :class="{ show: activeMenu === 'chat-' + item.id }" @click.stop>
+                                                <button class="dropdown-item" @click="renameItem(item, 'chat')">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                         <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
                                                         <path d="m15 5 4 4"/>
                                                     </svg>
                                                     이름 바꾸기
                                                 </button>
-                                                <button class="dropdown-item delete" @click="deleteItem(item.id, 'workflow')">
+                                                <button class="dropdown-item delete" @click="deleteItem(item.id, 'chat')">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                         <path d="M3 6h18"/>
                                                         <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
@@ -1690,51 +2591,36 @@
                             </div>
                         </div>
 
-                        <div class="chat-history">
-                            <!-- 채팅 히스토리 섹션 -->
-                            <div class="section-title">채팅</div>
-                            <div class="chat-history-content">
-                                <div v-for="item in chatHistoryItems" 
-                                     :key="item.id"
-                                     :class="['chat-history-item', { active: item.active }]"
-                                     @click="selectChatHistory(item)">
-                                    <span class="item-title">{{ item.title }}</span>
-                                    <div class="item-menu">
-                                        <button class="item-menu-btn" @click="showDropdown(item.id, 'chat', $event)">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                                <circle cx="5" cy="12" r="2"/>
-                                                <circle cx="12" cy="12" r="2"/>
-                                                <circle cx="19" cy="12" r="2"/>
-                                            </svg>
-                                        </button>
-                                        <div class="dropdown-menu" :class="{ show: activeMenu === 'chat-' + item.id }" @click.stop>
-                                            <button class="dropdown-item" @click="renameItem(item, 'chat')">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                                                    <path d="m15 5 4 4"/>
-                                                </svg>
-                                                이름 바꾸기
-                                            </button>
-                                            <button class="dropdown-item delete" @click="deleteItem(item.id, 'chat')">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <path d="M3 6h18"/>
-                                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                                                    <line x1="10" y1="11" x2="10" y2="17"/>
-                                                    <line x1="14" y1="11" x2="14" y2="17"/>
-                                                </svg>
-                                                삭제
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
                         <div class="sidebar-footer">
-                            <div class="user-profile">
+                            <div class="user-profile" @click="showDropdown('user-profile', 'user', $event)">
                                 <div class="user-avatar">U</div>
                                 <div class="user-name">사용자</div>
+                                <div class="user-profile-dropdown dropdown-menu" :class="{ show: activeMenu === 'user-user-profile' }" @click.stop>
+                                    <button class="dropdown-item" @click="openSettings">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="3"/>
+                                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V6a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V12a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                                        </svg>
+                                        설정
+                                    </button>
+                                    <button class="dropdown-item" @click="openHelp">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                        </svg>
+                                        도움말
+                                    </button>
+                                    <button class="dropdown-item" @click="logout">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                            <polyline points="16,17 21,12 16,7"/>
+                                            <line x1="21" y1="12" x2="9" y2="12"/>
+                                        </svg>
+                                        로그아웃
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1775,13 +2661,13 @@
                                     <p class="welcome-subtitle">준비되면 여기에 주세요</p>
                                 </div>
 
-                                <div class="example-prompts">
-                                    <div v-for="prompt in examplePrompts" 
-                                         :key="prompt.title"
-                                         class="example-prompt"
-                                         @click="useExamplePrompt(prompt)">
-                                        <div class="example-prompt-title">{{ prompt.title }}</div>
-                                        <div class="example-prompt-text">{{ prompt.text }}</div>
+                                <div class="example-workflows">
+                                    <div v-for="workflow in exampleWorkflows" 
+                                         :key="workflow.title"
+                                         class="example-workflow"
+                                         @click="addExampleWorkflow(workflow)">
+                                        <div class="example-workflow-title">{{ workflow.title }}</div>
+                                        <div class="example-workflow-text">{{ workflow.description }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -1883,6 +2769,170 @@
                                         <span v-else class="no-description">설명이 없습니다</span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 설정 모달 -->
+                    <div v-if="showSettingsModal" class="modal-overlay" @click="closeSettingsModal">
+                        <div class="modal-content" @click.stop>
+                            <div class="modal-header">
+                                <h2>설정</h2>
+                                <button class="modal-close-btn" @click="closeSettingsModal">×</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="settings-section">
+                                    <h3>외관</h3>
+                                    <div class="setting-item">
+                                        <label>테마</label>
+                                        <select>
+                                            <option>라이트 모드</option>
+                                            <option>다크 모드</option>
+                                            <option>시스템 설정</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label>언어</label>
+                                        <select>
+                                            <option>한국어</option>
+                                            <option>English</option>
+                                            <option>日本語</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="settings-section">
+                                    <h3>채팅</h3>
+                                    <div class="setting-item">
+                                        <label>
+                                            <input type="checkbox" checked> 채팅 기록 자동 저장
+                                        </label>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label>
+                                            <input type="checkbox" checked> 자동 스크롤
+                                        </label>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label>메시지 글꼴 크기</label>
+                                        <select>
+                                            <option>작게</option>
+                                            <option selected>보통</option>
+                                            <option>크게</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="settings-section">
+                                    <h3>워크플로우</h3>
+                                    <div class="setting-item">
+                                        <label>
+                                            <input type="checkbox"> 워크플로우 자동 실행
+                                        </label>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label>
+                                            <input type="checkbox" checked> 실행 완료 알림
+                                        </label>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label>페이지당 표시 항목 수</label>
+                                        <select>
+                                            <option>2개</option>
+                                            <option selected>4개</option>
+                                            <option>6개</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="settings-section">
+                                    <h3>알림</h3>
+                                    <div class="setting-item">
+                                        <label>
+                                            <input type="checkbox" checked> 데스크톱 알림
+                                        </label>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label>
+                                            <input type="checkbox"> 소리 알림
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn-secondary" @click="closeSettingsModal">취소</button>
+                                <button class="btn-primary" @click="closeSettingsModal">저장</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 도움말 모달 -->
+                    <div v-if="showHelpModal" class="modal-overlay" @click="closeHelpModal">
+                        <div class="modal-content help-modal" @click.stop>
+                            <div class="modal-header">
+                                <h2>도움말</h2>
+                                <button class="modal-close-btn" @click="closeHelpModal">×</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="help-section">
+                                    <h3>🚀 시작하기</h3>
+                                    <p>ChatGPT 워크플로우 관리자에 오신 것을 환영합니다! 이 도구를 사용하여 AI 채팅과 자동화 워크플로우를 효율적으로 관리할 수 있습니다.</p>
+                                </div>
+
+                                <div class="help-section">
+                                    <h3>💬 채팅 사용법</h3>
+                                    <ul>
+                                        <li>화면 하단의 입력창에 메시지를 입력하고 Enter 키를 누르세요</li>
+                                        <li>좌측 사이드바에서 채팅 기록을 확인할 수 있습니다</li>
+                                        <li>새 채팅을 시작하려면 "새 채팅" 버튼을 클릭하거나 <strong>Ctrl+Shift+O</strong>를 누르세요</li>
+                                        <li>파일을 첨부하려면 입력창 좌측의 + 버튼을 클릭하세요</li>
+                                    </ul>
+                                </div>
+
+                                <div class="help-section">
+                                    <h3>📁 폴더 관리</h3>
+                                    <ul>
+                                        <li>"새 폴더" 버튼을 클릭하거나 <strong>Ctrl+Shift+F</strong>로 새 폴더를 생성하세요</li>
+                                        <li>폴더를 클릭하면 해당 폴더의 채팅 기록을 볼 수 있습니다</li>
+                                        <li>폴더명 옆의 ⋯ 메뉴에서 이름 변경이나 삭제가 가능합니다</li>
+                                        <li>페이지네이션을 통해 여러 폴더를 탐색할 수 있습니다</li>
+                                    </ul>
+                                </div>
+
+                                <div class="help-section">
+                                    <h3>⚙️ 워크플로우 관리</h3>
+                                    <ul>
+                                        <li>메인 화면의 워크플로우 예시를 클릭하여 빠르게 추가할 수 있습니다</li>
+                                        <li>워크플로우 좌측의 빨간 점을 클릭하여 활성화/비활성화를 설정하세요</li>
+                                        <li>활성화된 워크플로우는 자동으로 트리거 조건에 따라 실행됩니다</li>
+                                        <li>워크플로우를 클릭하면 우측 패널에서 상세 정보를 볼 수 있습니다</li>
+                                        <li>JSON 파일을 드래그 앤 드롭하여 새로운 워크플로우를 추가할 수 있습니다</li>
+                                    </ul>
+                                </div>
+
+                                <div class="help-section">
+                                    <h3>⌨️ 단축키</h3>
+                                    <ul>
+                                        <li><strong>Ctrl+Shift+O</strong>: 새 채팅 시작</li>
+                                        <li><strong>Ctrl+Shift+F</strong>: 새 폴더 생성</li>
+                                        <li><strong>Enter</strong>: 메시지 전송</li>
+                                        <li><strong>Shift+Enter</strong>: 줄바꿈</li>
+                                        <li><strong>Ctrl+/</strong>: 사이드바 토글</li>
+                                    </ul>
+                                </div>
+
+                                <div class="help-section">
+                                    <h3>🔧 문제 해결</h3>
+                                    <ul>
+                                        <li>채팅이 응답하지 않으면 새 채팅을 시작해보세요</li>
+                                        <li>워크플로우가 실행되지 않으면 활성화 상태를 확인하세요</li>
+                                        <li>페이지가 느려지면 브라우저 캐시를 삭제해보세요</li>
+                                        <li>설정에서 알림 권한을 허용하면 더 나은 경험을 할 수 있습니다</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn-primary" @click="closeHelpModal">확인</button>
                             </div>
                         </div>
                     </div>
