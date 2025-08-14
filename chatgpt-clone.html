@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatGPT</title>
+    <title>DA-ZZANY</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         * {
@@ -381,6 +381,25 @@
             flex: 0 0 auto;
             display: flex;
             flex-direction: column;
+            max-height: 70vh;  /* 최대 높이 제한 */
+            overflow-y: auto;  /* 내용이 많으면 스크롤 */
+        }
+        
+        .sidebar-top::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-top::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .sidebar-top::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+        
+        .sidebar-top::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
         }
         
         .sidebar-content {
@@ -391,10 +410,11 @@
         }
         
         .folder-section {
-            flex: 0 0 120px;
+            flex: 0 0 auto;  /* 고정 높이 제거, 내용에 따라 자동 조절 */
             display: flex;
             flex-direction: column;
             padding: 12px 12px 0 12px;
+            min-height: 120px;  /* 최소 높이만 설정 */
         }
         
         .folder-content {
@@ -407,41 +427,142 @@
         .folder-list {
             margin-top: 0;
             margin-bottom: 12px;
-            height: 160px;
+            /* height 제거 - 내용에 따라 자동 조절 */
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
         }
         
         .folder-item {
-            padding: 10px 12px;
             margin: 2px 0;
             border-radius: 8px;
             color: #374151;
-            cursor: pointer;
             font-size: 14px;
-            transition: background 0.1s ease;
-            font-weight: 400;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            min-height: 40px;
-            flex-shrink: 0;
+            transition: all 0.2s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .folder-header {
+            padding: 10px 12px;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            border-radius: 8px;
+            transition: background 0.1s ease;
+            min-height: 40px;
         }
         
-        .folder-item:hover {
-            background: #e5e7eb;
+        .folder-header.drag-over {
+            background: #dbeafe;
+            border: 2px dashed #60a5fa;
+            padding: 8px 10px;
         }
         
-        .folder-item.active {
+        .folder-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .folder-arrow {
+            width: 12px;
+            height: 12px;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        
+        .folder-arrow.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .folder-workflows {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding-left: 28px;
+        }
+        
+        .folder-workflows.expanded {
+            max-height: 300px;  /* 적절한 최대 높이 설정 */
+            overflow-y: auto;
+            padding-top: 4px;
+            padding-bottom: 4px;
+        }
+        
+        .folder-workflow-item {
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #4b5563;
+            transition: background 0.1s ease;
+            position: relative;
+            min-height: 32px;
+        }
+        
+        .folder-workflow-item .item-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 8px;
+        }
+        
+        .folder-workflow-item .workflow-controls {
+            opacity: 0;
+            transition: opacity 0.2s;
+            margin-right: 8px;
+        }
+        
+        .folder-workflow-item:hover .workflow-controls {
+            opacity: 1;
+        }
+        
+        .folder-workflow-item.running .workflow-controls {
+            opacity: 1;
+        }
+        
+        .folder-workflow-item .item-menu {
+            position: relative;
+        }
+        
+        .folder-workflow-item:hover {
+            background: #f3f4f6;
+        }
+        
+        .folder-workflow-item.active {
             background: #e5e7eb;
             font-weight: 500;
         }
         
-        .folder-item:hover .item-menu-btn {
+        .folder-workflow-item.dragging {
+            opacity: 0.5;
+        }
+        
+        .folder-workflow-item:hover .item-menu-btn {
+            opacity: 1;
+        }
+        
+        .folder-header:hover {
+            background: #e5e7eb;
+        }
+        
+        .folder-item.active .folder-header {
+            background: #e5e7eb;
+            font-weight: 500;
+        }
+        
+        .folder-header:hover .item-menu-btn {
             opacity: 1;
         }
         
@@ -490,10 +611,11 @@
         }
         
         .workflow-section {
-            flex: 0 0 180px;
+            flex: 0 0 auto;  /* 고정 높이 제거 */
             display: flex;
             flex-direction: column;
             padding: 0 12px 0 12px;
+            min-height: 180px;  /* 최소 높이만 설정 */
         }
         
         .workflow-content {
@@ -532,11 +654,11 @@
         
         
         .chat-history {
-            flex: 1;
+            flex: 1;  /* 남은 공간 모두 차지 */
             display: flex;
             flex-direction: column;
             padding: 12px 12px 0 12px;
-            min-height: 200px;
+            min-height: 100px;  /* 최소 높이 축소 */
             overflow: hidden;
         }
         
@@ -2382,7 +2504,7 @@
                 ]);
 
                 const navItems = [
-                    { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.58L19 8l-9 9z"/></svg>', text: 'ChatGPT', active: true },
+                    { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.58L19 8l-9 9z"/></svg>', text: 'DA-ZZANY', active: true },
                     { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>', text: 'DALL·E', active: false },
                     { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/></svg>', text: '문서', active: false },
                     { icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/></svg>', text: '검색', active: false },
@@ -2828,8 +2950,8 @@
                     },
                     {
                         id: 2,
-                        title: 'ChatGPT API 활용 팁',
-                        content: 'ChatGPT API를 활용하여 다양한 애플리케이션을 개발하는 방법을 소개합니다.',
+                        title: 'DA-ZZANY API 활용 팁',
+                        content: 'DA-ZZANY API를 활용하여 다양한 애플리케이션을 개발하는 방법을 소개합니다.',
                         author: 'AI연구원',
                         createdAt: new Date('2024-01-14'),
                         views: 32
@@ -3372,6 +3494,179 @@
                     console.log('폴더 선택됨:', selectedItem.title);
                 };
                 
+                // 폴더 토글 (열기/닫기)
+                const toggleFolder = (folder) => {
+                    folder.expanded = !folder.expanded;
+                    selectFolder(folder);
+                };
+                
+                // 워크플로우 드래그 시작
+                const handleWorkflowDragStart = (workflow, event) => {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('workflow', JSON.stringify(workflow));
+                    event.target.classList.add('dragging');
+                };
+                
+                // 워크플로우 드래그 종료
+                const handleWorkflowDragEnd = (event) => {
+                    event.target.classList.remove('dragging');
+                };
+                
+                // 폴더에 드래그 오버
+                const handleFolderDragOver = (folder, event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                    folder.dragOver = true;
+                };
+                
+                // 폴더에서 드래그 떠남
+                const handleFolderDragLeave = (folder) => {
+                    folder.dragOver = false;
+                };
+                
+                // 폴더에 드롭
+                const handleFolderDrop = (folder, event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    folder.dragOver = false;
+                    
+                    // 워크플로우 데이터 가져오기
+                    const workflowData = event.dataTransfer.getData('workflow');
+                    if (workflowData) {
+                        try {
+                            const workflow = JSON.parse(workflowData);
+                            
+                            // 폴더에 워크플로우 추가 (중복 체크)
+                            if (!folder.workflows) {
+                                folder.workflows = [];
+                            }
+                            
+                            const exists = folder.workflows.some(w => w.id === workflow.id);
+                            if (!exists) {
+                                folder.workflows.push({...workflow});
+                                // 원본 워크플로우 리스트에서 제거
+                                const index = workflowItems.value.findIndex(w => w.id === workflow.id);
+                                if (index > -1) {
+                                    workflowItems.value.splice(index, 1);
+                                }
+                                console.log(`워크플로우 "${workflow.title}"가 폴더 "${folder.title}"로 이동되었습니다.`);
+                                saveFoldersToLocalStorage(); // 저장
+                            }
+                        } catch (e) {
+                            console.error('워크플로우 데이터 파싱 오류:', e);
+                        }
+                    }
+                    
+                    // 로컬 파일 처리
+                    const files = event.dataTransfer.files;
+                    if (files && files.length > 0) {
+                        handleFolderFileDrop(folder, files);
+                    }
+                };
+                
+                // 폴더에 파일 드롭 처리
+                const handleFolderFileDrop = async (folder, files) => {
+                    for (const file of files) {
+                        if (file.type === 'application/json' || file.name.endsWith('.json')) {
+                            try {
+                                const text = await file.text();
+                                const jsonData = JSON.parse(text);
+                                
+                                if (!folder.workflows) {
+                                    folder.workflows = [];
+                                }
+                                
+                                const newWorkflow = {
+                                    id: Date.now() + Math.random(),
+                                    title: file.name.replace('.json', '') || 'Custom Workflow',
+                                    active: false,
+                                    isRunning: false,
+                                    isCustom: true,
+                                    jsonData: jsonData,
+                                    description: jsonData.description || '업로드된 워크플로우'
+                                };
+                                
+                                folder.workflows.push(newWorkflow);
+                                console.log(`파일 "${file.name}"가 폴더 "${folder.title}"에 추가되었습니다.`);
+                                saveFoldersToLocalStorage(); // 저장
+                            } catch (e) {
+                                console.error('JSON 파일 파싱 오류:', e);
+                            }
+                        }
+                    }
+                };
+                
+                // 폴더 상태를 localStorage에 저장
+                const saveFoldersToLocalStorage = () => {
+                    try {
+                        const foldersData = folders.value.map(folder => ({
+                            id: folder.id,
+                            title: folder.title,
+                            type: folder.type,
+                            active: folder.active,
+                            expanded: folder.expanded,
+                            workflows: folder.workflows || []
+                        }));
+                        localStorage.setItem('workflowFolders', JSON.stringify(foldersData));
+                        console.log('폴더 상태가 저장되었습니다.');
+                    } catch (e) {
+                        console.error('폴더 저장 오류:', e);
+                    }
+                };
+                
+                // localStorage에서 폴더 상태 복원
+                const loadFoldersFromLocalStorage = () => {
+                    try {
+                        const savedFolders = localStorage.getItem('workflowFolders');
+                        if (savedFolders) {
+                            const foldersData = JSON.parse(savedFolders);
+                            folders.value = foldersData.map(folder => ({
+                                ...folder,
+                                dragOver: false // 드래그 상태는 초기화
+                            }));
+                            console.log('폴더 상태가 복원되었습니다.');
+                        }
+                    } catch (e) {
+                        console.error('폴더 복원 오류:', e);
+                    }
+                };
+                
+                // 폴더 내 워크플로우 선택
+                const selectFolderWorkflow = (workflow, folder) => {
+                    // 모든 워크플로우의 active 상태 초기화
+                    workflowItems.value.forEach(item => item.active = false);
+                    folders.value.forEach(f => {
+                        if (f.workflows) {
+                            f.workflows.forEach(w => w.active = false);
+                        }
+                    });
+                    
+                    // 선택된 워크플로우만 active
+                    workflow.active = true;
+                    
+                    // 워크플로우 패널 열기
+                    if (!workflowPanelOpen.value) {
+                        workflowPanelOpen.value = true;
+                    }
+                    
+                    console.log(`폴더 "${folder.title}"의 워크플로우 "${workflow.title}" 선택됨`);
+                };
+                
+                // 워크플로우를 폴더에서 빼기
+                const moveWorkflowOutOfFolder = (workflow, folder) => {
+                    // 폴더에서 워크플로우 제거
+                    const index = folder.workflows.findIndex(w => w.id === workflow.id);
+                    if (index > -1) {
+                        folder.workflows.splice(index, 1);
+                        
+                        // 메인 워크플로우 리스트에 추가
+                        workflowItems.value.push({...workflow});
+                        
+                        console.log(`워크플로우 "${workflow.title}"가 폴더 "${folder.title}"에서 제거되어 메인 리스트로 이동했습니다.`);
+                        saveFoldersToLocalStorage(); // 저장
+                    }
+                };
+                
                 // 워크플로우 페이지네이션 함수들
                 const nextWorkflowPage = () => {
                     if (currentWorkflowPage.value < totalWorkflowPages.value) {
@@ -3505,17 +3800,28 @@
                 };
                 
                 // 삭제 함수
-                const deleteItem = (itemId, type) => {
+                const deleteItem = (itemId, type, folder = null) => {
                     if (confirm('정말로 삭제하시겠습니까?')) {
                         if (type === 'folder') {
                             const index = folders.value.findIndex(item => item.id === itemId);
                             if (index > -1) {
                                 folders.value.splice(index, 1);
+                                saveFoldersToLocalStorage(); // 저장
                                 
                                 // 현재 페이지에 항목이 없으면 이전 페이지로 이동
                                 const newTotalPages = Math.ceil(folders.value.length / folderPageSize.value);
                                 if (currentFolderPage.value > newTotalPages && newTotalPages > 0) {
                                     currentFolderPage.value = newTotalPages;
+                                }
+                            }
+                        } else if (type === 'folder-workflow') {
+                            // 폴더 내부 워크플로우 삭제
+                            if (folder && folder.workflows) {
+                                const index = folder.workflows.findIndex(w => w.id === itemId);
+                                if (index > -1) {
+                                    folder.workflows.splice(index, 1);
+                                    console.log(`폴더 "${folder.title}"에서 워크플로우가 삭제되었습니다.`);
+                                    saveFoldersToLocalStorage(); // 저장
                                 }
                             }
                         } else if (type === 'workflow') {
@@ -3545,6 +3851,7 @@
                 Vue.onMounted(() => {
                     document.addEventListener('keydown', handleGlobalKeydown);
                     document.addEventListener('click', closeDropdown);
+                    loadFoldersFromLocalStorage(); // 폴더 상태 복원
                 });
 
                 Vue.onUnmounted(() => {
@@ -3571,6 +3878,16 @@
                     newFolder,
                     selectChatHistory,
                     selectFolder,
+                    toggleFolder,
+                    handleWorkflowDragStart,
+                    handleWorkflowDragEnd,
+                    handleFolderDragOver,
+                    handleFolderDragLeave,
+                    handleFolderDrop,
+                    selectFolderWorkflow,
+                    moveWorkflowOutOfFolder,
+                    saveFoldersToLocalStorage,
+                    loadFoldersFromLocalStorage,
                     selectWorkflow,
                     toggleSidebar,
                     showDropdown,
@@ -3689,35 +4006,94 @@
                                     <div class="folder-list">
                                         <div v-for="item in paginatedFolderItems" 
                                              :key="item.id"
-                                             :class="['folder-item', { active: item.active }]"
-                                             @click="selectFolder(item)">
-                                            <span class="item-title">📁 {{ item.title }}</span>
-                                            <div class="item-menu">
-                                                <button class="item-menu-btn" @click="showDropdown(item.id, 'folder', $event)">
-                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                                        <circle cx="5" cy="12" r="2"/>
-                                                        <circle cx="12" cy="12" r="2"/>
-                                                        <circle cx="19" cy="12" r="2"/>
+                                             :class="['folder-item', { active: item.active }]">
+                                            <div :class="['folder-header', { 'drag-over': item.dragOver }]"
+                                                 @click="toggleFolder(item)"
+                                                 @dragover.prevent="handleFolderDragOver(item, $event)"
+                                                 @dragleave="handleFolderDragLeave(item)"
+                                                 @drop="handleFolderDrop(item, $event)">
+                                                <div class="folder-toggle">
+                                                    <svg :class="['folder-arrow', { expanded: item.expanded }]" viewBox="0 0 24 24" fill="currentColor">
+                                                        <path d="M10 6L16 12L10 18" />
                                                     </svg>
-                                                </button>
-                                                <div class="dropdown-menu" :class="{ show: activeMenu === 'folder-' + item.id }" @click.stop>
-                                                    <button class="dropdown-item" @click="renameItem(item, 'folder')">
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                                                            <path d="m15 5 4 4"/>
+                                                    <span>📁 {{ item.title }}</span>
+                                                    <span v-if="item.workflows && item.workflows.length > 0" style="color: #9ca3af; font-size: 12px; margin-left: 4px;">({{ item.workflows.length }})</span>
+                                                </div>
+                                                <div class="item-menu">
+                                                    <button class="item-menu-btn" @click.stop="showDropdown(item.id, 'folder', $event)">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                            <circle cx="5" cy="12" r="2"/>
+                                                            <circle cx="12" cy="12" r="2"/>
+                                                            <circle cx="19" cy="12" r="2"/>
                                                         </svg>
-                                                        이름 바꾸기
                                                     </button>
-                                                    <button class="dropdown-item delete" @click="deleteItem(item.id, 'folder')">
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                            <path d="M3 6h18"/>
-                                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                                                            <line x1="10" y1="11" x2="10" y2="17"/>
-                                                            <line x1="14" y1="11" x2="14" y2="17"/>
-                                                        </svg>
-                                                        삭제
-                                                    </button>
+                                                    <div class="dropdown-menu" :class="{ show: activeMenu === 'folder-' + item.id }" @click.stop>
+                                                        <button class="dropdown-item" @click="renameItem(item, 'folder')">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                                                <path d="m15 5 4 4"/>
+                                                            </svg>
+                                                            이름 바꾸기
+                                                        </button>
+                                                        <button class="dropdown-item delete" @click="deleteItem(item.id, 'folder')">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                                <path d="M3 6h18"/>
+                                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                                                <line x1="10" y1="11" x2="10" y2="17"/>
+                                                                <line x1="14" y1="11" x2="14" y2="17"/>
+                                                            </svg>
+                                                            삭제
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div :class="['folder-workflows', { expanded: item.expanded }]">
+                                                <div v-for="workflow in item.workflows"
+                                                     :key="workflow.id"
+                                                     :class="['folder-workflow-item', { active: workflow.active, running: workflow.isRunning }]"
+                                                     @click="selectFolderWorkflow(workflow, item)">
+                                                    <span class="item-title">{{ workflow.title }}</span>
+                                                    <div class="workflow-controls">
+                                                        <div :class="['workflow-toggle', { active: workflow.isRunning }]" 
+                                                             @click.stop="toggleWorkflowRunning(workflow)"
+                                                             :title="workflow.isRunning ? '워크플로우 비활성화' : '워크플로우 활성화 (트리거 대기)'">
+                                                        </div>
+                                                    </div>
+                                                    <div class="item-menu">
+                                                        <button class="item-menu-btn" @click.stop="showDropdown('folder-workflow-' + workflow.id, 'workflow', $event)">
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                                <circle cx="5" cy="12" r="2"/>
+                                                                <circle cx="12" cy="12" r="2"/>
+                                                                <circle cx="19" cy="12" r="2"/>
+                                                            </svg>
+                                                        </button>
+                                                        <div class="dropdown-menu" :class="{ show: activeMenu === 'workflow-folder-workflow-' + workflow.id }" @click.stop>
+                                                            <button class="dropdown-item" @click="renameItem(workflow, 'folder-workflow', item)">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                                                    <path d="m15 5 4 4"/>
+                                                                </svg>
+                                                                이름 바꾸기
+                                                            </button>
+                                                            <button class="dropdown-item" @click="moveWorkflowOutOfFolder(workflow, item)">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                                    <path d="M3 12h18m-9-9l9 9-9 9"/>
+                                                                </svg>
+                                                                꺼내기
+                                                            </button>
+                                                            <button class="dropdown-item delete" @click="deleteItem(workflow.id, 'folder-workflow', item)">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                                    <path d="M3 6h18"/>
+                                                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                                                    <line x1="10" y1="11" x2="10" y2="17"/>
+                                                                    <line x1="14" y1="11" x2="14" y2="17"/>
+                                                                </svg>
+                                                                삭제
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3749,6 +4125,9 @@
                                         <div v-for="item in paginatedWorkflowItems" 
                                              :key="item.id"
                                              :class="['workflow-item', { active: item.active, running: item.isRunning }]"
+                                             draggable="true"
+                                             @dragstart="handleWorkflowDragStart(item, $event)"
+                                             @dragend="handleWorkflowDragEnd($event)"
                                              @click="selectWorkflow(item)">
                                             <span class="item-title">{{ item.title }}</span>
                                             <div class="workflow-controls">
@@ -3911,7 +4290,7 @@
                             <div class="welcome-area">
                                 <div class="logo-container">
                                     <div class="chatgpt-logo">✨</div>
-                                    <h1 class="welcome-title">ChatGPT</h1>
+                                    <h1 class="welcome-title">DA-ZZANY</h1>
                                     <p class="welcome-subtitle">준비되면 여기에 주세요</p>
                                 </div>
 
@@ -3975,7 +4354,7 @@
                                 </div>
                             </div>
                             <div class="disclaimer">
-                                ChatGPT는 실수할 수 있습니다. 중요한 정보를 확인해 보세요.
+                                DA-ZZANY는 실수할 수 있습니다. 중요한 정보를 확인해 보세요.
                             </div>
                         </div>
                     </div>
@@ -4130,7 +4509,7 @@
                             <div class="modal-body">
                                 <div class="help-section">
                                     <h3>🚀 시작하기</h3>
-                                    <p>ChatGPT 워크플로우 관리자에 오신 것을 환영합니다! 이 도구를 사용하여 AI 채팅과 자동화 워크플로우를 효율적으로 관리할 수 있습니다.</p>
+                                    <p>DA-ZZANY 워크플로우 관리자에 오신 것을 환영합니다! 이 도구를 사용하여 AI 채팅과 자동화 워크플로우를 효율적으로 관리할 수 있습니다.</p>
                                 </div>
 
                                 <div class="help-section">
