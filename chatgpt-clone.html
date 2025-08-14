@@ -24,6 +24,7 @@
             --input-bg: #ffffff;
             --input-border: #d1d5db;
             --input-focus: #67bdc6;
+            --shadow-focus: 0 0 0 3px rgba(103, 189, 198, 0.1);
             
             /* 버튼 색상 */
             --btn-primary: #67bdc6;
@@ -32,8 +33,8 @@
             --btn-secondary-hover: #4b5563;
             
             /* 메시지 관련 */
-            --message-bg-user: transparent;
-            --message-bg-assistant: #f7f7f8;
+            --message-bg-user: #f7f7f8;
+            --message-bg-assistant: transparent;
             --message-font-size: 16px;
             --message-line-height: 1.5;
             
@@ -884,6 +885,60 @@
             background: #204f55;
         }
 
+        /* 백엔드 연결 상태 */
+        .backend-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid;
+            transition: all 0.2s;
+        }
+
+        .backend-status.connected {
+            background: #d1fae5;
+            border-color: #10b981;
+            color: #065f46;
+        }
+
+        .backend-status.disconnected {
+            background: #fef2f2;
+            border-color: #f87171;
+            color: #991b1b;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .backend-status.connected .status-dot {
+            background: #10b981;
+        }
+
+        .backend-status.disconnected .status-dot {
+            background: #ef4444;
+        }
+
+        .retry-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 2px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .retry-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
         /* 툴팁 스타일 */
         .header-btn-icon:hover::after {
             content: attr(title);
@@ -1342,8 +1397,9 @@
         }
 
         .input-box:focus {
-            border-color: var(--primary-500);
-            box-shadow: var(--shadow-focus);
+            border-color: var(--input-focus) !important;
+            box-shadow: var(--shadow-focus) !important;
+            outline: none !important;
         }
 
         .input-box::placeholder {
@@ -1529,7 +1585,17 @@
         }
 
         .message.user {
+            flex-direction: row-reverse;
+            justify-content: flex-start;
+            background: transparent;
+        }
+
+        .message.user .message-content {
             background: var(--message-bg-user);
+            border-radius: 18px;
+            padding: 12px 16px;
+            max-width: 70%;
+            margin-left: auto;
         }
 
         .message.assistant {
@@ -1561,11 +1627,14 @@
         }
 
         .message-content {
-            flex: 1;
             font-size: var(--message-font-size);
             line-height: var(--message-line-height);
             color: var(--text-color);
             padding-top: 4px;
+        }
+
+        .message.assistant .message-content {
+            flex: 1;
         }
 
         /* 프로필 메뉴 모달 */
@@ -2770,13 +2839,230 @@
     <div id="app"></div>
 
     <script>
-        const { createApp, ref, computed, nextTick, watch } = Vue;
+        const { createApp, ref, computed, nextTick, watch, onMounted } = Vue;
+
+        // 실시간 채팅 클래스 (기본 구조)
+        class DAZZANYChatStream {
+            constructor() {
+                this.backendUrl = 'http://localhost:8000';
+                this.sessionId = 'web-' + Date.now();
+                this.isConnected = false;
+                this.isProcessing = false;
+                
+                console.log('DA-ZZANY 채팅 스트림 초기화됨');
+            }
+            
+            async checkBackend() {
+                try {
+                    const response = await fetch(`${this.backendUrl}/health`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.isConnected = true;
+                        console.log(`백엔드 연결됨 - 모드: ${data.mode}, 도구: ${data.tools_loaded}개`);
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('백엔드 연결 실패:', error);
+                    this.isConnected = false;
+                    return false;
+                }
+            }
+            
+            async sendMessage(message, onUpdate) {
+                if (!this.isConnected || this.isProcessing) {
+                    console.warn('백엔드가 연결되지 않았거나 이미 처리 중입니다.');
+                    return;
+                }
+                
+                this.isProcessing = true;
+                
+                try {
+                    await this.streamChat(message, onUpdate);
+                } catch (error) {
+                    console.error('채팅 오류:', error);
+                    onUpdate({ type: 'error', message: '오류가 발생했습니다: ' + error.message });
+                } finally {
+                    this.isProcessing = false;
+                }
+            }
+            
+            async streamChat(message, onUpdate) {
+                const response = await fetch(`${this.backendUrl}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: this.sessionId
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                onUpdate(data);
+                            } catch (error) {
+                                console.error('SSE 데이터 파싱 실패:', error);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         createApp({
             setup() {
                 const messages = ref([]);
                 const inputText = ref('');
                 const showWelcome = ref(true);
+                
+                // 백엔드 연결 상태
+                const isBackendConnected = ref(false);
+                const backendStatus = ref('연결 확인 중...');
+                
+                // 전역 채팅 인스턴스
+                const chatStream = new DAZZANYChatStream();
+                
+                // 백엔드 연결 확인
+                const checkBackendConnection = async () => {
+                    const connected = await chatStream.checkBackend();
+                    isBackendConnected.value = connected;
+                    backendStatus.value = connected ? 
+                        '백엔드 서버 연결됨' : 
+                        '백엔드 서버 연결 실패 - 서버가 실행 중인지 확인하세요';
+                };
+                
+                // 컴포넌트 마운트 시 백엔드 연결 확인
+                onMounted(() => {
+                    checkBackendConnection();
+                });
+                
+                // 실시간 스트리밍 테스트 함수
+                const testStreamingChat = (currentInput) => {
+                    // 채팅 생성 로직 (기존과 동일)
+                    if (currentChatId.value === null) {
+                        const newChatTitle = currentInput.length > 20 ? currentInput.substring(0, 20) + '...' : currentInput;
+                        const newChatId = Date.now();
+                        
+                        chatHistoryItems.value.forEach(item => item.active = false);
+                        
+                        chatHistoryItems.value.unshift({
+                            id: newChatId,
+                            title: newChatTitle,
+                            active: true,
+                            messages: []
+                        });
+                        
+                        currentChatId.value = newChatId;
+                    }
+
+                    showWelcome.value = false;
+                    
+                    // 사용자 메시지 추가
+                    const userMessage = {
+                        id: Date.now(),
+                        type: 'user',
+                        content: currentInput
+                    };
+
+                    messages.value.push(userMessage);
+                    
+                    const currentChat = chatHistoryItems.value.find(item => item.id === currentChatId.value);
+                    if (currentChat) {
+                        currentChat.messages.push(userMessage);
+                    }
+                    
+                    inputText.value = '';
+                    
+                    nextTick(() => {
+                        scrollToBottom();
+                    });
+
+                    // 실시간 스트리밍 시작
+                    console.log('🚀 실시간 스트리밍 테스트 시작:', currentInput);
+                    
+                    const assistantMessage = {
+                        id: Date.now() + 1,
+                        type: 'assistant',
+                        content: '연결 중...',
+                        isStreaming: true
+                    };
+                    
+                    messages.value.push(assistantMessage);
+                    
+                    if (currentChat) {
+                        currentChat.messages.push(assistantMessage);
+                    }
+
+                    // 실시간 스트리밍 호출
+                    chatStream.sendMessage(currentInput, (data) => {
+                        handleStreamingUpdate(data, assistantMessage);
+                    });
+                };
+                
+                // 스트리밍 업데이트 처리
+                const handleStreamingUpdate = (data, assistantMessage) => {
+                    console.log('📡 스트리밍 데이터:', data);
+                    
+                    switch (data.type) {
+                        case 'thinking_start':
+                            assistantMessage.content = '🤔 생각 중...';
+                            break;
+                            
+                        case 'thinking_delta':
+                            if (data.text) {
+                                assistantMessage.content = '🤔 생각 중: ' + data.text.substring(0, 50) + '...';
+                            }
+                            break;
+                            
+                        case 'thinking_stop':
+                            assistantMessage.content = '💬 답변 준비 중...';
+                            break;
+                            
+                        case 'text_start':
+                            assistantMessage.content = '';
+                            break;
+                            
+                        case 'text_delta':
+                            if (data.text) {
+                                assistantMessage.content += data.text;
+                            }
+                            break;
+                            
+                        case 'complete':
+                            assistantMessage.isStreaming = false;
+                            console.log('✅ 스트리밍 완료');
+                            break;
+                            
+                        case 'error':
+                            assistantMessage.content = '❌ 오류: ' + data.message;
+                            assistantMessage.isStreaming = false;
+                            break;
+                    }
+                    
+                    // Vue 반응성 트리거
+                    messages.value = [...messages.value];
+                    
+                    nextTick(() => {
+                        scrollToBottom();
+                    });
+                };
 
                 const chatHistoryItems = ref([
                     { id: 1, title: 'Git pull 동작 설명', active: false, messages: [] },
@@ -3473,6 +3759,10 @@
 
                     const currentInput = inputText.value;
                     
+                    // 모든 메시지에서 실시간 스트리밍 사용
+                    testStreamingChat(currentInput);
+                    return;
+                    
                     // 현재 활성된 채팅이 없으면 새 채팅 생성
                     if (currentChatId.value === null) {
                         const newChatTitle = currentInput.length > 20 ? currentInput.substring(0, 20) + '...' : currentInput;
@@ -3921,14 +4211,15 @@
                         root.style.setProperty('--input-bg', '#2d3748');
                         root.style.setProperty('--input-border', '#4a5568');
                         root.style.setProperty('--input-focus', '#68d391');
+                        root.style.setProperty('--shadow-focus', '0 0 0 3px rgba(104, 211, 145, 0.1)');
                         
                         root.style.setProperty('--btn-primary', '#68d391');
                         root.style.setProperty('--btn-primary-hover', '#48bb78');
                         root.style.setProperty('--btn-secondary', '#718096');
                         root.style.setProperty('--btn-secondary-hover', '#a0aec0');
                         
-                        root.style.setProperty('--message-bg-user', 'transparent');
-                        root.style.setProperty('--message-bg-assistant', '#2d3748');
+                        root.style.setProperty('--message-bg-user', '#2d3748');
+                        root.style.setProperty('--message-bg-assistant', 'transparent');
                         
                         root.style.setProperty('--dropdown-bg', '#2d3748');
                         root.style.setProperty('--dropdown-shadow', 'rgba(0, 0, 0, 0.4)');
@@ -3964,14 +4255,15 @@
                         root.style.setProperty('--input-bg', '#ffffff');
                         root.style.setProperty('--input-border', '#d1d5db');
                         root.style.setProperty('--input-focus', '#67bdc6');
+                        root.style.setProperty('--shadow-focus', '0 0 0 3px rgba(103, 189, 198, 0.1)');
                         
                         root.style.setProperty('--btn-primary', '#67bdc6');
                         root.style.setProperty('--btn-primary-hover', '#5aa7b0');
                         root.style.setProperty('--btn-secondary', '#6b7280');
                         root.style.setProperty('--btn-secondary-hover', '#4b5563');
                         
-                        root.style.setProperty('--message-bg-user', 'transparent');
-                        root.style.setProperty('--message-bg-assistant', '#f7f7f8');
+                        root.style.setProperty('--message-bg-user', '#f7f7f8');
+                        root.style.setProperty('--message-bg-assistant', 'transparent');
                         
                         root.style.setProperty('--dropdown-bg', '#ffffff');
                         root.style.setProperty('--dropdown-shadow', 'rgba(0, 0, 0, 0.1)');
@@ -5153,6 +5445,11 @@
                     messages,
                     inputText,
                     showWelcome,
+                    isBackendConnected,
+                    backendStatus,
+                    checkBackendConnection,
+                    testStreamingChat,
+                    handleStreamingUpdate,
                     chatHistoryItems,
                     folders,
                     currentChatId,
@@ -5523,6 +5820,14 @@
                     <div class="main-content" :style="{ marginRight: workflowPanelOpen ? workflowPanelWidth + 'px' : '0px' }">
                         <!-- 헤더 버튼들 -->
                         <div class="header-buttons">
+                            <!-- 백엔드 연결 상태 -->
+                            <div class="backend-status" :class="{ 'connected': isBackendConnected, 'disconnected': !isBackendConnected }">
+                                <span class="status-dot"></span>
+                                <span class="status-text">{{ backendStatus }}</span>
+                                <button v-if="!isBackendConnected" @click="checkBackendConnection" class="retry-btn" title="다시 연결 시도">
+                                    ↻
+                                </button>
+                            </div>
                             <button class="header-btn-icon" @click="downloadJsonFile" title="워크플로우 JSON 다운로드">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
