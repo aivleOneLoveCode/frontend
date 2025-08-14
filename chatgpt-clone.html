@@ -6,6 +6,54 @@
     <title>DA-ZZANY</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
+        :root {
+            /* 기본 색상 */
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --border-hover: #d1d5db;
+            
+            /* 패널 배경 */
+            --panel-bg: #ffffff;
+            --panel-hover: #f9fafb;
+            --sidebar-bg: #f8f9fa;
+            --header-bg: #ffffff;
+            
+            /* 입력 요소 */
+            --input-bg: #ffffff;
+            --input-border: #d1d5db;
+            --input-focus: #67bdc6;
+            
+            /* 버튼 색상 */
+            --btn-primary: #67bdc6;
+            --btn-primary-hover: #5aa7b0;
+            --btn-secondary: #6b7280;
+            --btn-secondary-hover: #4b5563;
+            
+            /* 메시지 관련 */
+            --message-bg-user: transparent;
+            --message-bg-assistant: #f7f7f8;
+            --message-font-size: 16px;
+            --message-line-height: 1.5;
+            
+            /* 드롭다운 & 모달 */
+            --dropdown-bg: #ffffff;
+            --dropdown-shadow: rgba(0, 0, 0, 0.1);
+            --modal-bg: #ffffff;
+            --modal-overlay: rgba(0, 0, 0, 0.5);
+            
+            /* 상태 색상 */
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            
+            /* 스크롤바 */
+            --scrollbar-track: #f1f1f1;
+            --scrollbar-thumb: #c1c1c1;
+            --scrollbar-thumb-hover: #a8a8a8;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -16,7 +64,8 @@
             font-family: "Söhne", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
             height: 100vh;
             overflow: hidden;
-            background: #ffffff;
+            background: var(--bg-color);
+            color: var(--text-color);
         }
 
         .app {
@@ -27,8 +76,8 @@
         /* 사이드바 */
         .sidebar {
             width: 260px;
-            background: #f7f7f8;
-            border-right: 1px solid #e1e3e6;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             position: relative;
@@ -45,11 +94,11 @@
             right: -20px;
             width: 28px;
             height: 32px;
-            background: #f7f7f8;
-            border: 1px solid #e1e3e6;
+            background: var(--gray-100);
+            border: 1px solid var(--border-color);
             border-left: none;
             border-radius: 0 12px 12px 0;
-            color: #6b7280;
+            color: var(--text-muted);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -61,8 +110,8 @@
         }
         
         .sidebar-close-btn:hover {
-            background: #e5e7eb;
-            color: #374151;
+            background: var(--gray-200);
+            color: var(--gray-700);
             box-shadow: 2px 0 8px rgba(0,0,0,0.1);
         }
 
@@ -188,10 +237,10 @@
         
         .dropdown-menu {
             position: fixed;
-            background: white;
-            border: 1px solid #d1d5db;
+            background: var(--dropdown-bg);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 12px var(--dropdown-shadow);
             z-index: 9999;
             min-width: 130px;
             display: none;
@@ -228,6 +277,16 @@
         
         .dropdown-item.delete:hover {
             background: #fef2f2;
+        }
+
+        .dropdown-item:disabled {
+            color: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .dropdown-item:disabled:hover {
+            background: transparent;
         }
 
         .chat-history-item:hover {
@@ -868,9 +927,9 @@
             top: 0;
             right: 0;
             height: 100vh;
-            background: white;
-            border-left: 1px solid #e5e7eb;
-            box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            box-shadow: var(--shadow-xl);
             z-index: 1000;
             display: flex;
             flex-direction: row;
@@ -891,7 +950,7 @@
         }
 
         .workflow-panel-resize:hover {
-            background: #67bdc6;
+            background: var(--primary-500);
         }
 
         .workflow-panel-resize::before {
@@ -915,15 +974,99 @@
             justify-content: space-between;
             align-items: center;
             padding: 20px;
-            border-bottom: 1px solid #e5e7eb;
-            background: #f9fafb;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--panel-header-bg);
         }
 
         .workflow-panel-header h3 {
             margin: 0;
             font-size: 18px;
             font-weight: 600;
-            color: #111827;
+            color: var(--text-color);
+        }
+
+        .panel-header-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .edit-title-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid var(--primary-600);
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            background: var(--input-bg);
+            color: var(--text-color);
+            outline: none;
+        }
+
+        .panel-edit-btn,
+        .panel-save-btn,
+        .panel-cancel-btn {
+            background: transparent;
+            border: none;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .panel-edit-btn {
+            color: #6b7280;
+        }
+
+        .panel-edit-btn:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .panel-save-btn {
+            color: #67bdc6;
+        }
+
+        .panel-save-btn:hover {
+            background: #f0f9ff;
+            color: #5aa7b0;
+        }
+
+        .panel-cancel-btn {
+            color: #ef4444;
+        }
+
+        .panel-cancel-btn:hover {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .edit-description-textarea,
+        .edit-json-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .edit-description-textarea:focus,
+        .edit-json-textarea:focus {
+            border-color: #67bdc6;
+            box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+        }
+
+        .edit-json-textarea {
+            background: #f8f9fa;
+            color: #2d3748;
         }
 
         .panel-close-btn {
@@ -1158,7 +1301,7 @@
         }
 
         .example-workflow-text {
-            color: #6b7280;
+            color: var(--text-muted);
             font-size: 14px;
             line-height: 1.5;
         }
@@ -1167,9 +1310,9 @@
         .input-container {
             position: sticky;
             bottom: 0;
-            background: #ffffff;
+            background: var(--bg-color);
             padding: 24px;
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid var(--border-color);
         }
 
         .input-wrapper {
@@ -1183,8 +1326,8 @@
             width: 100%;
             min-height: 52px;
             max-height: 200px;
-            background: #ffffff;
-            border: 1px solid #d1d5db;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
             border-radius: 24px;
             padding: 12px 56px 12px 50px;
             font-size: 16px;
@@ -1192,19 +1335,19 @@
             resize: none;
             outline: none;
             font-family: inherit;
-            color: #202123;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            color: var(--text-color);
+            box-shadow: var(--shadow-sm);
             transition: all 0.2s;
             overflow-y: hidden;
         }
 
         .input-box:focus {
-            border-color: #67bdc6;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 0 0 3px rgba(16, 163, 127, 0.1);
+            border-color: var(--primary-500);
+            box-shadow: var(--shadow-focus);
         }
 
         .input-box::placeholder {
-            color: #9ca3af;
+            color: var(--text-muted);
         }
 
         .file-upload-btn {
@@ -1217,7 +1360,7 @@
             background: transparent;
             border: none;
             border-radius: 16px;
-            color: #6b7280;
+            color: var(--text-muted);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -1227,8 +1370,8 @@
         }
 
         .file-upload-btn:hover {
-            background: #e5e7eb;
-            color: #374151;
+            background: var(--gray-100);
+            color: var(--text-color);
         }
 
         .send-btn {
@@ -1238,7 +1381,7 @@
             transform: translateY(-50%);
             width: 32px;
             height: 32px;
-            background: #2d2d2d;
+            background: var(--gray-800);
             border: none;
             border-radius: 50%;
             color: white;
@@ -1251,7 +1394,7 @@
         }
 
         .send-btn:hover {
-            background: #1a1a1a;
+            background: var(--gray-900);
         }
 
         .send-btn:disabled {
@@ -1300,6 +1443,70 @@
             margin-right: auto;
         }
 
+        /* 다운로드 알림창 스타일 */
+        .download-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            max-width: 500px;
+            font-size: 14px;
+            font-weight: 500;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .download-alert.show {
+            transform: translateX(0);
+        }
+
+        .download-alert.success {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            color: #0c4a6e;
+        }
+
+        .download-alert.warning {
+            background: #fffbeb;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+        }
+
+        .download-alert.error {
+            background: #fef2f2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+
+        .download-alert-icon {
+            flex-shrink: 0;
+        }
+
+        .download-alert-content {
+            flex: 1;
+        }
+
+        .download-alert-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            color: inherit;
+            opacity: 0.7;
+            flex-shrink: 0;
+        }
+
+        .download-alert-close:hover {
+            opacity: 1;
+        }
+
         /* 메시지 영역 */
         .messages {
             flex: 1;
@@ -1322,11 +1529,11 @@
         }
 
         .message.user {
-            background: transparent;
+            background: var(--message-bg-user);
         }
 
         .message.assistant {
-            background: #f7f7f8;
+            background: var(--message-bg-assistant);
             border-radius: 16px;
             margin: 12px;
         }
@@ -1355,9 +1562,9 @@
 
         .message-content {
             flex: 1;
-            font-size: 16px;
-            line-height: 1.6;
-            color: #202123;
+            font-size: var(--message-font-size);
+            line-height: var(--message-line-height);
+            color: var(--text-color);
             padding-top: 4px;
         }
 
@@ -1368,7 +1575,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.6);
+            background: var(--modal-overlay);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -1378,7 +1585,7 @@
         }
 
         .modal-content {
-            background: white;
+            background: var(--modal-bg);
             border-radius: 20px;
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25), 
                         0 0 0 1px rgba(103, 189, 198, 0.1);
@@ -1497,7 +1704,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 24px 32px;
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            background: var(--modal-body-bg);
         }
 
         /* 모달 스크롤바 */
@@ -1506,24 +1713,24 @@
         }
 
         .modal-body::-webkit-scrollbar-track {
-            background: rgba(241, 245, 249, 0.5);
+            background: var(--scrollbar-track);
             border-radius: 10px;
         }
 
         .modal-body::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #67bdc6, #5aa7b0);
+            background: var(--primary-gradient);
             border-radius: 10px;
-            border: 2px solid rgba(241, 245, 249, 0.5);
+            border: 2px solid var(--scrollbar-track);
         }
 
         .modal-body::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #5aa7b0, #4a969f);
+            background: var(--primary-gradient-hover);
         }
 
         .modal-footer {
             padding: 20px 32px;
-            border-top: 1px solid #e5e7eb;
-            background: white;
+            border-top: 1px solid var(--border-color);
+            background: var(--modal-footer-bg);
             display: flex;
             justify-content: flex-end;
             gap: 12px;
@@ -1532,11 +1739,11 @@
         /* 설정 섹션 스타일 */
         .settings-section {
             margin-bottom: 32px;
-            background: white;
+            background: var(--settings-section-bg);
             border-radius: 16px;
             padding: 24px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            border: 1px solid rgba(103, 189, 198, 0.1);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--primary-100);
         }
 
         .settings-section:last-child {
@@ -1625,7 +1832,7 @@
         }
 
         .help-section strong {
-            color: #67bdc6;
+            color: var(--primary-500);
             font-weight: 600;
         }
 
@@ -1641,24 +1848,201 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #67bdc6, #5aa7b0);
+            background: var(--primary-gradient);
             color: white;
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #5aa7b0, #4a969f);
+            background: var(--primary-gradient-hover);
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(103, 189, 198, 0.3);
+            box-shadow: var(--shadow-primary);
         }
 
         .btn-secondary {
-            background: #f3f4f6;
-            color: #374151;
-            border: 1px solid #d1d5db;
+            background: var(--gray-100);
+            color: var(--gray-700);
+            border: 1px solid var(--border-color);
         }
 
         .btn-secondary:hover {
-            background: #e5e7eb;
+            background: var(--gray-200);
+        }
+
+        /* 로그인 모달 스타일 */
+        .auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        .auth-panel {
+            background: var(--bg-color);
+            border-radius: 16px;
+            padding: 0;
+            width: 400px;
+            max-width: 90vw;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        
+        .auth-header {
+            text-align: center;
+            padding: 40px 40px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .auth-logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-color);
+            margin-bottom: 16px;
+        }
+        
+        .auth-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-color);
+            margin: 0;
+        }
+        
+        .auth-body {
+            padding: 32px 40px;
+        }
+        
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .auth-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            transition: border-color 0.2s;
+        }
+        
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--primary-500);
+        }
+        
+        .auth-submit {
+            width: 100%;
+            padding: 12px;
+            background: var(--gray-900);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 8px;
+        }
+        
+        .auth-submit:hover {
+            background: var(--gray-800);
+        }
+        
+        .auth-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0;
+            color: var(--text-muted);
+        }
+        
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-color);
+        }
+        
+        .auth-divider span {
+            padding: 0 16px;
+            font-size: 14px;
+        }
+        
+        .auth-social {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .auth-social-btn {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 15px;
+        }
+        
+        .auth-social-btn:hover {
+            border-color: var(--border-hover);
+            background: var(--panel-hover);
+        }
+        
+        .auth-footer {
+            text-align: center;
+            padding: 20px 40px 40px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        
+        .auth-footer button {
+            background: none;
+            border: none;
+            color: var(--primary-500);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        
+        .auth-footer button:hover {
+            color: var(--primary-600);
+        }
+        
+        .auth-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .auth-close:hover {
+            background: var(--gray-100);
+            color: var(--text-color);
         }
 
         /* 게시판 스타일 */
@@ -1725,7 +2109,7 @@
         }
 
         .post-item:hover {
-            border-color: #10a37f;
+            border-color: #67bdc6;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
@@ -1902,13 +2286,13 @@
 
         .search-input:focus {
             outline: none;
-            border-color: #10a37f;
+            border-color: #67bdc6;
             box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.1);
         }
 
         .search-btn {
             padding: 10px 12px;
-            background: #10a37f;
+            background: #67bdc6;
             color: white;
             border: none;
             border-radius: 6px;
@@ -1920,7 +2304,7 @@
         }
 
         .search-btn:hover {
-            background: #0d8a6b;
+            background: #5aa7b0;
         }
 
         .search-info {
@@ -1929,7 +2313,7 @@
         }
 
         .search-results {
-            color: #10a37f;
+            color: #67bdc6;
             font-weight: 500;
         }
 
@@ -1970,9 +2354,9 @@
         }
 
         .page-btn.active {
-            background: #10a37f;
+            background: #67bdc6;
             color: white;
-            border-color: #10a37f;
+            border-color: #67bdc6;
         }
 
         .page-btn:disabled {
@@ -2038,8 +2422,8 @@
 
         .download-btn:hover {
             background: #f3f4f6;
-            border-color: #10a37f;
-            color: #10a37f;
+            border-color: #67bdc6;
+            color: #67bdc6;
         }
 
         .delete-btn {
@@ -2079,14 +2463,14 @@
         .download-btn.large {
             padding: 8px 16px;
             font-size: 14px;
-            background: #10a37f;
+            background: #67bdc6;
             color: white;
-            border-color: #10a37f;
+            border-color: #67bdc6;
         }
 
         .download-btn.large:hover {
-            background: #0d8a6b;
-            border-color: #0d8a6b;
+            background: #5aa7b0;
+            border-color: #5aa7b0;
         }
 
         /* 페이지네이션 섹션 */
@@ -2104,7 +2488,7 @@
             align-items: center;
             gap: 6px;
             padding: 8px 16px;
-            background: #10a37f;
+            background: #67bdc6;
             color: white;
             border: none;
             border-radius: 6px;
@@ -2118,7 +2502,7 @@
         }
 
         .new-post-btn:hover {
-            background: #0d8a6b;
+            background: #5aa7b0;
             transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
@@ -2194,7 +2578,7 @@
         .post-title-input:focus,
         .post-content-input:focus {
             outline: none;
-            border-color: #10a37f;
+            border-color: #67bdc6;
             box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
         }
 
@@ -2231,12 +2615,12 @@
         }
 
         .post-btn.primary {
-            background: #10a37f;
+            background: #67bdc6;
             color: white;
         }
 
         .post-btn.primary:hover {
-            background: #0d8a6b;
+            background: #5aa7b0;
         }
 
         .post-btn.secondary {
@@ -2277,7 +2661,7 @@
 
         .file-upload-area:hover,
         .file-upload-area.drag-over {
-            border-color: #10a37f;
+            border-color: #67bdc6;
             background: #f0fdf9;
         }
 
@@ -2309,7 +2693,7 @@
         .file-select-btn {
             pointer-events: auto;
             padding: 8px 16px;
-            background: #10a37f;
+            background: #67bdc6;
             color: white;
             border: none;
             border-radius: 6px;
@@ -2319,7 +2703,7 @@
         }
 
         .file-select-btn:hover {
-            background: #0d8a6b;
+            background: #5aa7b0;
         }
 
         .attached-file {
@@ -2409,33 +2793,496 @@
                     { 
                         id: 1, title: '개발 프로젝트', type: 'folder', active: false, expanded: false, 
                         workflows: [
-                            { id: 101, title: 'API 연동 워크플로우', active: false, isRunning: false, jsonData: { name: 'API Integration' } },
-                            { id: 102, title: '데이터베이스 백업', active: false, isRunning: false, jsonData: { name: 'DB Backup' } },
-                            { id: 103, title: '코드 배포 자동화', active: false, isRunning: false, jsonData: { name: 'Auto Deploy' } }
+                            { 
+                                id: 101, 
+                                title: 'API 연동 워크플로우', 
+                                active: false, 
+                                isRunning: false,
+                                description: 'GitHub API를 호출하여 사용자 정보를 가져오고, 공개 저장소 개수에 따라 이메일 또는 웹훅으로 알림을 전송하는 자동화 워크플로우입니다. 개발자 정보 모니터링 및 알림 시스템에 활용할 수 있습니다.',
+                                n8nUrl: 'https://n8n.io/workflows/github-api-integration-workflow', 
+                                jsonData: {
+                                    "name": "API 연동 워크플로우",
+                                    "nodes": [
+                                        {
+                                            "parameters": {},
+                                            "name": "When clicking \"Execute Workflow\"",
+                                            "type": "n8n-nodes-base.manualTrigger",
+                                            "typeVersion": 1,
+                                            "position": [720, 460],
+                                            "id": "start-node"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "url": "https://api.github.com/users/octocat",
+                                                "options": {}
+                                            },
+                                            "name": "GitHub API 호출",
+                                            "type": "n8n-nodes-base.httpRequest",
+                                            "typeVersion": 4.1,
+                                            "position": [940, 460],
+                                            "id": "github-api-node"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "conditions": {
+                                                    "options": {
+                                                        "caseSensitive": true,
+                                                        "leftValue": "",
+                                                        "typeValidation": "strict"
+                                                    },
+                                                    "conditions": [
+                                                        {
+                                                            "leftValue": "={{ $json.public_repos }}",
+                                                            "rightValue": 10,
+                                                            "operator": {
+                                                                "type": "number",
+                                                                "operation": "gt"
+                                                            }
+                                                        }
+                                                    ],
+                                                    "combinator": "and"
+                                                },
+                                                "options": {}
+                                            },
+                                            "name": "저장소 개수 확인",
+                                            "type": "n8n-nodes-base.if",
+                                            "typeVersion": 2,
+                                            "position": [1160, 460],
+                                            "id": "condition-node"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "subject": "GitHub 사용자 정보 알림",
+                                                "message": "=안녕하세요!\n\n사용자 {{ $('GitHub API 호출').first().json.login }}의 정보를 확인했습니다.\n\n- 이름: {{ $('GitHub API 호출').first().json.name }}\n- 공개 저장소 수: {{ $('GitHub API 호출').first().json.public_repos }}\n- 팔로워 수: {{ $('GitHub API 호출').first().json.followers }}\n\n감사합니다.",
+                                                "options": {}
+                                            },
+                                            "name": "이메일 전송",
+                                            "type": "n8n-nodes-base.emailSend",
+                                            "typeVersion": 2,
+                                            "position": [1380, 360],
+                                            "id": "email-node"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "url": "https://webhook.site/your-webhook-url",
+                                                "options": {
+                                                    "bodyContentType": "json"
+                                                },
+                                                "sendBody": true,
+                                                "specifyBody": "json",
+                                                "jsonBody": "={{ $('GitHub API 호출').first().json }}"
+                                            },
+                                            "name": "웹훅 전송",
+                                            "type": "n8n-nodes-base.httpRequest",
+                                            "typeVersion": 4.1,
+                                            "position": [1380, 560],
+                                            "id": "webhook-node"
+                                        }
+                                    ],
+                                    "connections": {
+                                        "When clicking \"Execute Workflow\"": {
+                                            "main": [
+                                                [
+                                                    {
+                                                        "node": "GitHub API 호출",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        "GitHub API 호출": {
+                                            "main": [
+                                                [
+                                                    {
+                                                        "node": "저장소 개수 확인",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        "저장소 개수 확인": {
+                                            "main": [
+                                                [
+                                                    {
+                                                        "node": "이메일 전송",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ],
+                                                [
+                                                    {
+                                                        "node": "웹훅 전송",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ]
+                                            ]
+                                        }
+                                    },
+                                    "active": false,
+                                    "settings": {
+                                        "executionOrder": "v1"
+                                    },
+                                    "versionId": "1",
+                                    "meta": {
+                                        "templateCredsSetupCompleted": true,
+                                        "instanceId": "12345"
+                                    },
+                                    "id": "api-integration-workflow",
+                                    "tags": ["API", "GitHub", "Integration"]
+                                }
+                            },
+                            { 
+                                id: 102, 
+                                title: '데이터베이스 백업', 
+                                active: false, 
+                                isRunning: false,
+                                description: 'MySQL 데이터베이스를 자동으로 백업하고 클라우드 스토리지에 업로드하는 워크플로우입니다. 매일 정해진 시간에 실행되어 데이터 안전성을 보장합니다.',
+                                n8nUrl: 'https://n8n.io/workflows/database-backup-automation',
+                                jsonData: {
+                                    "name": "데이터베이스 백업",
+                                    "nodes": [
+                                        {
+                                            "parameters": {
+                                                "rule": {
+                                                    "interval": [
+                                                        {
+                                                            "field": "hour",
+                                                            "hourValue": 2
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "name": "매일 새벽 2시",
+                                            "type": "n8n-nodes-base.cron",
+                                            "typeVersion": 1,
+                                            "position": [240, 300],
+                                            "id": "cron-trigger"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "operation": "executeQuery",
+                                                "query": "SHOW DATABASES;"
+                                            },
+                                            "name": "MySQL 연결",
+                                            "type": "n8n-nodes-base.mysql",
+                                            "typeVersion": 2.3,
+                                            "position": [460, 300],
+                                            "id": "mysql-node"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "command": "mysqldump -u {{ $credentials.mysql.user }} -p{{ $credentials.mysql.password }} {{ $json.Database }}"
+                                            },
+                                            "name": "DB 덤프 생성",
+                                            "type": "n8n-nodes-base.executeCommand",
+                                            "typeVersion": 1,
+                                            "position": [680, 300],
+                                            "id": "dump-command"
+                                        }
+                                    ],
+                                    "connections": {
+                                        "매일 새벽 2시": {
+                                            "main": [
+                                                [
+                                                    {
+                                                        "node": "MySQL 연결",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        "MySQL 연결": {
+                                            "main": [
+                                                [
+                                                    {
+                                                        "node": "DB 덤프 생성",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ]
+                                            ]
+                                        }
+                                    },
+                                    "active": true,
+                                    "settings": {
+                                        "executionOrder": "v1"
+                                    },
+                                    "versionId": "1",
+                                    "id": "db-backup-workflow",
+                                    "tags": ["Database", "Backup", "Automation"]
+                                }
+                            },
+                            { 
+                                id: 103, 
+                                title: '코드 배포 자동화', 
+                                active: false, 
+                                isRunning: false,
+                                description: 'Git 저장소에 새로운 커밋이 푸시되면 자동으로 테스트를 실행하고 성공 시 프로덕션 서버에 배포하는 CI/CD 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/cicd-deployment-automation',
+                                jsonData: {
+                                    "name": "코드 배포 자동화",
+                                    "nodes": [
+                                        {
+                                            "parameters": {
+                                                "httpMethod": "POST",
+                                                "path": "/webhook/github",
+                                                "options": {}
+                                            },
+                                            "name": "GitHub Webhook",
+                                            "type": "n8n-nodes-base.webhook",
+                                            "typeVersion": 1,
+                                            "position": [240, 300],
+                                            "id": "github-webhook"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "conditions": {
+                                                    "options": {
+                                                        "caseSensitive": true,
+                                                        "leftValue": "",
+                                                        "typeValidation": "strict"
+                                                    },
+                                                    "conditions": [
+                                                        {
+                                                            "leftValue": "={{ $json.ref }}",
+                                                            "rightValue": "refs/heads/main",
+                                                            "operator": {
+                                                                "type": "string",
+                                                                "operation": "equals"
+                                                            }
+                                                        }
+                                                    ],
+                                                    "combinator": "and"
+                                                }
+                                            },
+                                            "name": "Main 브랜치 확인",
+                                            "type": "n8n-nodes-base.if",
+                                            "typeVersion": 2,
+                                            "position": [460, 300],
+                                            "id": "branch-check"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "command": "cd /app && npm test"
+                                            },
+                                            "name": "테스트 실행",
+                                            "type": "n8n-nodes-base.executeCommand",
+                                            "typeVersion": 1,
+                                            "position": [680, 300],
+                                            "id": "run-tests"
+                                        },
+                                        {
+                                            "parameters": {
+                                                "command": "cd /app && npm run build && pm2 restart app"
+                                            },
+                                            "name": "빌드 및 배포",
+                                            "type": "n8n-nodes-base.executeCommand",
+                                            "typeVersion": 1,
+                                            "position": [900, 300],
+                                            "id": "deploy"
+                                        }
+                                    ],
+                                    "connections": {
+                                        "GitHub Webhook": {
+                                            "main": [
+                                                [
+                                                    {
+                                                        "node": "Main 브랜치 확인",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        "Main 브랜치 확인": {
+                                            "main": [
+                                                [
+                                                    {
+                                                        "node": "테스트 실행",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        "테스트 실행": {
+                                            "main": [
+                                                [
+                                                    {
+                                                        "node": "빌드 및 배포",
+                                                        "type": "main",
+                                                        "index": 0
+                                                    }
+                                                ]
+                                            ]
+                                        }
+                                    },
+                                    "active": true,
+                                    "settings": {
+                                        "executionOrder": "v1"
+                                    },
+                                    "versionId": "1",
+                                    "id": "cicd-deployment-workflow",
+                                    "tags": ["CI/CD", "Deployment", "GitHub"]
+                                }
+                            }
                         ]
                     },
                     { 
                         id: 2, title: '디자인 작업', type: 'folder', active: false, expanded: false,
                         workflows: [
-                            { id: 201, title: '이미지 최적화', active: false, isRunning: false, jsonData: { name: 'Image Optimization' } },
-                            { id: 202, title: 'UI 컴포넌트 생성', active: false, isRunning: false, jsonData: { name: 'UI Components' } },
-                            { id: 203, title: '디자인 시스템 관리', active: false, isRunning: false, jsonData: { name: 'Design System' } }
+                            { 
+                                id: 201, 
+                                title: '이미지 최적화', 
+                                active: false, 
+                                isRunning: false,
+                                description: '업로드된 이미지를 다양한 크기로 리사이즈하고 압축하여 웹 최적화된 형태로 변환하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/image-optimization',
+                                jsonData: {
+                                    "name": "이미지 최적화",
+                                    "nodes": [
+                                        {
+                                            "parameters": {
+                                                "httpMethod": "POST",
+                                                "path": "/image-upload"
+                                            },
+                                            "name": "이미지 업로드",
+                                            "type": "n8n-nodes-base.webhook",
+                                            "typeVersion": 1,
+                                            "position": [240, 300],
+                                            "id": "image-upload"
+                                        }
+                                    ],
+                                    "id": "image-optimization-workflow",
+                                    "tags": ["Image", "Optimization"]
+                                }
+                            },
+                            { 
+                                id: 202, 
+                                title: 'UI 컴포넌트 생성', 
+                                active: false, 
+                                isRunning: false,
+                                description: '디자인 시스템 기반으로 자동화된 UI 컴포넌트를 생성하고 코드베이스에 배포하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/ui-component-generator',
+                                jsonData: {
+                                    "name": "UI 컴포넌트 생성",
+                                    "nodes": [],
+                                    "id": "ui-component-workflow",
+                                    "tags": ["UI", "Components"]
+                                }
+                            },
+                            { 
+                                id: 203, 
+                                title: '디자인 시스템 관리', 
+                                active: false, 
+                                isRunning: false,
+                                description: '디자인 토큰과 컴포넌트 라이브러리를 관리하고 업데이트를 자동으로 배포하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/design-system-management',
+                                jsonData: {
+                                    "name": "디자인 시스템 관리",
+                                    "nodes": [],
+                                    "id": "design-system-workflow",
+                                    "tags": ["Design", "System"]
+                                }
+                            }
                         ]
                     },
                     { 
                         id: 3, title: '회의 내용', type: 'folder', active: false, expanded: false,
                         workflows: [
-                            { id: 301, title: '회의록 자동 생성', active: false, isRunning: false, jsonData: { name: 'Meeting Notes' } },
-                            { id: 302, title: '일정 동기화', active: false, isRunning: false, jsonData: { name: 'Calendar Sync' } },
-                            { id: 303, title: '참석자 알림', active: false, isRunning: false, jsonData: { name: 'Attendee Notification' } }
+                            { 
+                                id: 301, 
+                                title: '회의록 자동 생성', 
+                                active: false, 
+                                isRunning: false,
+                                description: '회의 음성을 텍스트로 변환하고 AI를 사용해 요약된 회의록을 자동 생성하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/meeting-notes-automation',
+                                jsonData: {
+                                    "name": "회의록 자동 생성",
+                                    "nodes": [],
+                                    "id": "meeting-notes-workflow",
+                                    "tags": ["Meeting", "Notes", "AI"]
+                                }
+                            },
+                            { 
+                                id: 302, 
+                                title: '일정 동기화', 
+                                active: false, 
+                                isRunning: false,
+                                description: '여러 캘린더 서비스 간의 일정을 자동으로 동기화하고 중복 일정을 관리하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/calendar-sync',
+                                jsonData: {
+                                    "name": "일정 동기화",
+                                    "nodes": [],
+                                    "id": "calendar-sync-workflow",
+                                    "tags": ["Calendar", "Sync"]
+                                }
+                            },
+                            { 
+                                id: 303, 
+                                title: '참석자 알림', 
+                                active: false, 
+                                isRunning: false,
+                                description: '회의 시작 전 참석자들에게 자동으로 알림을 발송하고 확인 응답을 수집하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/attendee-notification',
+                                jsonData: {
+                                    "name": "참석자 알림",
+                                    "nodes": [],
+                                    "id": "attendee-notification-workflow",
+                                    "tags": ["Meeting", "Notification"]
+                                }
+                            }
                         ]
                     },
                     { 
                         id: 4, title: '학습 자료', type: 'folder', active: false, expanded: false,
                         workflows: [
-                            { id: 401, title: '자료 분류 시스템', active: false, isRunning: false, jsonData: { name: 'Content Classification' } },
-                            { id: 402, title: '진도 추적', active: false, isRunning: false, jsonData: { name: 'Progress Tracking' } },
-                            { id: 403, title: '퀴즈 생성기', active: false, isRunning: false, jsonData: { name: 'Quiz Generator' } }
+                            { 
+                                id: 401, 
+                                title: '자료 분류 시스템', 
+                                active: false, 
+                                isRunning: false,
+                                description: 'AI를 활용해 학습 자료를 자동으로 분류하고 태그를 생성하여 체계적으로 관리하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/content-classification',
+                                jsonData: {
+                                    "name": "자료 분류 시스템",
+                                    "nodes": [],
+                                    "id": "content-classification-workflow",
+                                    "tags": ["Education", "Classification", "AI"]
+                                }
+                            },
+                            { 
+                                id: 402, 
+                                title: '진도 추적', 
+                                active: false, 
+                                isRunning: false,
+                                description: '학습자의 진행 상황을 추적하고 개인화된 학습 계획을 제안하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/progress-tracking',
+                                jsonData: {
+                                    "name": "진도 추적",
+                                    "nodes": [],
+                                    "id": "progress-tracking-workflow",
+                                    "tags": ["Education", "Progress", "Tracking"]
+                                }
+                            },
+                            { 
+                                id: 403, 
+                                title: '퀴즈 생성기', 
+                                active: false, 
+                                isRunning: false,
+                                description: '학습 내용을 바탕으로 자동으로 퀴즈를 생성하고 평가하는 워크플로우입니다.',
+                                n8nUrl: 'https://n8n.io/workflows/quiz-generator',
+                                jsonData: {
+                                    "name": "퀴즈 생성기",
+                                    "nodes": [],
+                                    "id": "quiz-generator-workflow",
+                                    "tags": ["Education", "Quiz", "Generator"]
+                                }
+                            }
                         ]
                     },
                     { id: 5, title: '마케팅 기획', type: 'folder', active: false, expanded: false, chats: [] },
@@ -2450,12 +3297,40 @@
                 const sidebarCollapsed = ref(false);
                 const activeMenu = ref(null);
                 const isDragging = ref(false);
+                const copiedWorkflow = ref(null); // 복사된 워크플로우 저장
+                
+                // 다운로드 알림창 상태
+                const downloadAlert = ref({
+                    show: false,
+                    message: '',
+                    type: 'success' // 'success', 'warning', 'error'
+                });
+
+                // 설정 상태
+                const settings = ref({
+                    theme: 'light', // 'light', 'dark', 'system'
+                    language: 'ko',
+                    autoSaveChat: true,
+                    autoScroll: true,
+                    fontSize: 'medium', // 'small', 'medium', 'large'
+                    autoExecuteWorkflow: false,
+                    workflowNotification: true,
+                    itemsPerPage: 4,
+                    desktopNotification: true,
+                    soundNotification: false
+                });
                 
                 // 워크플로우 패널 관련 상태
                 const workflowPanelOpen = ref(false);
                 const selectedWorkflow = ref(null);
                 const workflowPanelWidth = ref(400);
                 const isResizing = ref(false);
+                
+                // 편집 모드 상태
+                const isEditMode = ref(false);
+                const editingTitle = ref('');
+                const editingDescription = ref('');
+                const editingJsonData = ref('');
                 
                 // 폴더 페이지네이션 관련 상태
                 const currentFolderPage = ref(1);
@@ -2737,6 +3612,55 @@
                 const closeWorkflowPanel = () => {
                     workflowPanelOpen.value = false;
                     selectedWorkflow.value = null;
+                    isEditMode.value = false; // 편집 모드도 해제
+                };
+
+                // 편집 모드 시작
+                const startEdit = () => {
+                    if (selectedWorkflow.value) {
+                        isEditMode.value = true;
+                        editingTitle.value = selectedWorkflow.value.title;
+                        editingDescription.value = selectedWorkflow.value.description || '';
+                        editingJsonData.value = selectedWorkflow.value.jsonData ? 
+                            JSON.stringify(selectedWorkflow.value.jsonData, null, 2) : '';
+                    }
+                };
+
+                // 편집 취소
+                const cancelEdit = () => {
+                    isEditMode.value = false;
+                    editingTitle.value = '';
+                    editingDescription.value = '';
+                    editingJsonData.value = '';
+                };
+
+                // 편집 저장
+                const saveEdit = () => {
+                    if (selectedWorkflow.value) {
+                        try {
+                            // 제목 업데이트
+                            selectedWorkflow.value.title = editingTitle.value.trim();
+                            
+                            // 설명 업데이트
+                            selectedWorkflow.value.description = editingDescription.value.trim();
+                            
+                            // JSON 데이터 업데이트 (유효성 검사 포함)
+                            if (editingJsonData.value.trim()) {
+                                const parsedJson = JSON.parse(editingJsonData.value);
+                                selectedWorkflow.value.jsonData = parsedJson;
+                            }
+                            
+                            // localStorage에 변경사항 저장
+                            localStorage.setItem('folders', JSON.stringify(folders.value));
+                            
+                            // 편집 모드 종료
+                            isEditMode.value = false;
+                            
+                            showDownloadAlert('워크플로우가 성공적으로 수정되었습니다.', 'success');
+                        } catch (error) {
+                            showDownloadAlert('JSON 형식이 올바르지 않습니다. 다시 확인해주세요.', 'error');
+                        }
+                    }
                 };
 
                 const formatJsonWithSyntaxHighlight = (jsonData) => {
@@ -2930,29 +3854,219 @@
 
                 // 헤더 버튼 기능들
                 const downloadJsonFile = () => {
-                    // 현재 채팅에서 생성된 워크플로우 JSON 찾기
-                    const customWorkflows = workflowItems.value.filter(item => item.isCustom && item.jsonData);
-                    
-                    if (customWorkflows.length === 0) {
-                        showMessage('다운로드할 JSON 파일이 없습니다. 먼저 워크플로우를 생성해주세요.');
+                    // 현재 선택된 워크플로우가 있는지 확인
+                    if (!selectedWorkflow.value) {
+                        showDownloadAlert('워크플로우를 먼저 선택해주세요.', 'warning');
                         return;
                     }
                     
-                    // 가장 최근에 생성된 워크플로우 다운로드
-                    const latestWorkflow = customWorkflows[0];
-                    const jsonContent = JSON.stringify(latestWorkflow.jsonData, null, 2);
+                    // 선택된 워크플로우에 JSON 데이터가 있는지 확인
+                    if (!selectedWorkflow.value.jsonData) {
+                        showDownloadAlert('선택된 워크플로우에 JSON 데이터가 없습니다.', 'error');
+                        return;
+                    }
+                    
+                    // JSON 파일 다운로드
+                    const jsonContent = JSON.stringify(selectedWorkflow.value.jsonData, null, 2);
                     const blob = new Blob([jsonContent], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     
                     const link = document.createElement('a');
                     link.href = url;
-                    link.download = `${latestWorkflow.title}.json`;
+                    link.download = `${selectedWorkflow.value.title}.json`;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
                     
-                    showMessage(`"${latestWorkflow.title}.json" 파일이 다운로드되었습니다.`);
+                    showDownloadAlert(`"${selectedWorkflow.value.title}.json" 파일이 다운로드되었습니다.`, 'success');
+                };
+
+                // 다운로드 알림창 표시 함수
+                const showDownloadAlert = (message, type = 'success') => {
+                    downloadAlert.value = {
+                        show: true,
+                        message: message,
+                        type: type
+                    };
+                    
+                    // 3초 후 자동으로 닫기
+                    setTimeout(() => {
+                        downloadAlert.value.show = false;
+                    }, 3000);
+                };
+
+                // 다운로드 알림창 수동으로 닫기
+                const closeDownloadAlert = () => {
+                    downloadAlert.value.show = false;
+                };
+
+                // 설정 관련 함수들
+                const applyTheme = (theme) => {
+                    const root = document.documentElement;
+                    
+                    if (theme === 'dark') {
+                        // 다크모드 색상 팔레트 - 더 세련되고 가시성 좋게
+                        root.style.setProperty('--bg-color', '#0f1419');
+                        root.style.setProperty('--text-color', '#e6e6e6');
+                        root.style.setProperty('--text-secondary', '#8b9499');
+                        root.style.setProperty('--border-color', '#2d3748');
+                        root.style.setProperty('--border-hover', '#4a5568');
+                        
+                        root.style.setProperty('--panel-bg', '#1a202c');
+                        root.style.setProperty('--panel-hover', '#2d3748');
+                        root.style.setProperty('--sidebar-bg', '#171923');
+                        root.style.setProperty('--header-bg', '#1a202c');
+                        
+                        root.style.setProperty('--input-bg', '#2d3748');
+                        root.style.setProperty('--input-border', '#4a5568');
+                        root.style.setProperty('--input-focus', '#68d391');
+                        
+                        root.style.setProperty('--btn-primary', '#68d391');
+                        root.style.setProperty('--btn-primary-hover', '#48bb78');
+                        root.style.setProperty('--btn-secondary', '#718096');
+                        root.style.setProperty('--btn-secondary-hover', '#a0aec0');
+                        
+                        root.style.setProperty('--message-bg-user', 'transparent');
+                        root.style.setProperty('--message-bg-assistant', '#2d3748');
+                        
+                        root.style.setProperty('--dropdown-bg', '#2d3748');
+                        root.style.setProperty('--dropdown-shadow', 'rgba(0, 0, 0, 0.4)');
+                        root.style.setProperty('--modal-bg', '#1a202c');
+                        root.style.setProperty('--modal-overlay', 'rgba(0, 0, 0, 0.8)');
+                        
+                        root.style.setProperty('--success-color', '#68d391');
+                        root.style.setProperty('--warning-color', '#f6ad55');
+                        root.style.setProperty('--error-color', '#fc8181');
+                        
+                        root.style.setProperty('--scrollbar-track', '#2d3748');
+                        root.style.setProperty('--scrollbar-thumb', '#4a5568');
+                        root.style.setProperty('--scrollbar-thumb-hover', '#718096');
+                        
+                    } else if (theme === 'system') {
+                        // 시스템 설정에 따라 자동 결정
+                        const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        applyTheme(isDarkMode ? 'dark' : 'light');
+                        return;
+                    } else {
+                        // 라이트 모드 (기본값 복원)
+                        root.style.setProperty('--bg-color', '#ffffff');
+                        root.style.setProperty('--text-color', '#000000');
+                        root.style.setProperty('--text-secondary', '#6b7280');
+                        root.style.setProperty('--border-color', '#e5e7eb');
+                        root.style.setProperty('--border-hover', '#d1d5db');
+                        
+                        root.style.setProperty('--panel-bg', '#ffffff');
+                        root.style.setProperty('--panel-hover', '#f9fafb');
+                        root.style.setProperty('--sidebar-bg', '#f8f9fa');
+                        root.style.setProperty('--header-bg', '#ffffff');
+                        
+                        root.style.setProperty('--input-bg', '#ffffff');
+                        root.style.setProperty('--input-border', '#d1d5db');
+                        root.style.setProperty('--input-focus', '#67bdc6');
+                        
+                        root.style.setProperty('--btn-primary', '#67bdc6');
+                        root.style.setProperty('--btn-primary-hover', '#5aa7b0');
+                        root.style.setProperty('--btn-secondary', '#6b7280');
+                        root.style.setProperty('--btn-secondary-hover', '#4b5563');
+                        
+                        root.style.setProperty('--message-bg-user', 'transparent');
+                        root.style.setProperty('--message-bg-assistant', '#f7f7f8');
+                        
+                        root.style.setProperty('--dropdown-bg', '#ffffff');
+                        root.style.setProperty('--dropdown-shadow', 'rgba(0, 0, 0, 0.1)');
+                        root.style.setProperty('--modal-bg', '#ffffff');
+                        root.style.setProperty('--modal-overlay', 'rgba(0, 0, 0, 0.5)');
+                        
+                        root.style.setProperty('--success-color', '#10b981');
+                        root.style.setProperty('--warning-color', '#f59e0b');
+                        root.style.setProperty('--error-color', '#ef4444');
+                        
+                        root.style.setProperty('--scrollbar-track', '#f1f1f1');
+                        root.style.setProperty('--scrollbar-thumb', '#c1c1c1');
+                        root.style.setProperty('--scrollbar-thumb-hover', '#a8a8a8');
+                    }
+                };
+
+                const changeTheme = (newTheme) => {
+                    settings.value.theme = newTheme;
+                    applyTheme(newTheme);
+                    saveSettings();
+                    showDownloadAlert(`테마가 ${newTheme === 'light' ? '라이트 모드' : newTheme === 'dark' ? '다크 모드' : '시스템 설정'}로 변경되었습니다.`, 'success');
+                };
+
+                const saveSettings = () => {
+                    localStorage.setItem('appSettings', JSON.stringify(settings.value));
+                };
+
+                const loadSettings = () => {
+                    const savedSettings = localStorage.getItem('appSettings');
+                    if (savedSettings) {
+                        const parsed = JSON.parse(savedSettings);
+                        Object.assign(settings.value, parsed);
+                        applyTheme(settings.value.theme);
+                        applyFontSize(settings.value.fontSize);
+                    }
+                };
+
+                const applyFontSize = (fontSize) => {
+                    const root = document.documentElement;
+                    
+                    switch(fontSize) {
+                        case 'small':
+                            root.style.setProperty('--message-font-size', '14px');
+                            root.style.setProperty('--message-line-height', '1.4');
+                            break;
+                        case 'large':
+                            root.style.setProperty('--message-font-size', '18px');
+                            root.style.setProperty('--message-line-height', '1.6');
+                            break;
+                        default: // medium
+                            root.style.setProperty('--message-font-size', '16px');
+                            root.style.setProperty('--message-line-height', '1.5');
+                    }
+                };
+
+                const changeFontSize = () => {
+                    applyFontSize(settings.value.fontSize);
+                    saveSettings();
+                    showDownloadAlert(`글꼴 크기가 ${settings.value.fontSize === 'small' ? '작게' : settings.value.fontSize === 'large' ? '크게' : '보통'}로 변경되었습니다.`, 'success');
+                };
+
+                const changeItemsPerPage = () => {
+                    folderPageSize.value = parseInt(settings.value.itemsPerPage);
+                    saveSettings();
+                    showDownloadAlert(`페이지당 표시 항목 수가 ${settings.value.itemsPerPage}개로 변경되었습니다.`, 'success');
+                };
+
+                const handleNotificationPermission = async () => {
+                    if (settings.value.desktopNotification) {
+                        if (!("Notification" in window)) {
+                            showDownloadAlert('이 브라우저는 데스크톱 알림을 지원하지 않습니다.', 'error');
+                            settings.value.desktopNotification = false;
+                            return;
+                        }
+
+                        if (Notification.permission === 'denied') {
+                            showDownloadAlert('알림 권한이 거부되었습니다. 브라우저 설정에서 알림을 허용해주세요.', 'warning');
+                            settings.value.desktopNotification = false;
+                            return;
+                        }
+
+                        if (Notification.permission !== 'granted') {
+                            const permission = await Notification.requestPermission();
+                            if (permission !== 'granted') {
+                                showDownloadAlert('알림 권한이 거부되었습니다.', 'warning');
+                                settings.value.desktopNotification = false;
+                                return;
+                            }
+                        }
+                        
+                        showDownloadAlert('데스크톱 알림이 활성화되었습니다.', 'success');
+                    } else {
+                        showDownloadAlert('데스크톱 알림이 비활성화되었습니다.', 'success');
+                    }
+                    saveSettings();
                 };
 
                 // 게시판 관련 상태
@@ -3392,7 +4506,7 @@
                         id: Date.now(),
                         title: newPost.value.title.trim(),
                         content: newPost.value.content.trim(),
-                        author: '현재사용자',
+                        author: currentUser.value?.name || '현재사용자',
                         createdAt: new Date(),
                         views: 0,
                         attachedFile: newPost.value.attachedFile
@@ -3469,6 +4583,38 @@
                 // 모달 상태 관리
                 const showSettingsModal = ref(false);
                 const showHelpModal = ref(false);
+                
+                // 사용자 정보 관리
+                const currentUser = ref(null);
+                
+                // 사용자 정보 로드
+                const loadCurrentUser = () => {
+                    try {
+                        const storedUser = localStorage.getItem('current_user');
+                        if (storedUser) {
+                            currentUser.value = JSON.parse(storedUser);
+                        }
+                    } catch (error) {
+                        console.error('사용자 정보 로드 실패:', error);
+                        currentUser.value = null;
+                    }
+                };
+                
+                // 사용자 이니셜 계산
+                const getUserInitial = computed(() => {
+                    if (currentUser.value?.name) {
+                        return currentUser.value.name.charAt(0).toUpperCase();
+                    }
+                    return 'U';
+                });
+                
+                // 사용자 이름 계산
+                const getUserName = computed(() => {
+                    if (currentUser.value?.name) {
+                        return currentUser.value.name;
+                    }
+                    return '사용자';
+                });
 
                 // 사용자 프로필 관련 함수들
                 const openSettings = () => {
@@ -3502,8 +4648,16 @@
                         localStorage.removeItem('chatHistories');
                         localStorage.removeItem('customWorkflows');
                         
-                        alert('로그아웃되었습니다.');
-                        // 실제 환경에서는 로그인 페이지로 리다이렉트
+                        // 로그인 정보 제거
+                        localStorage.removeItem('current_user');
+                        currentUser.value = null;
+                        
+                        showMessage('로그아웃되었습니다.');
+                        
+                        // 로그인 페이지로 이동
+                        setTimeout(() => {
+                            window.location.href = 'login.html';
+                        }, 1000);
                         // window.location.href = 'login.html';
                     }
                     activeMenu.value = null;
@@ -3671,6 +4825,15 @@
                 
                 // 폴더 내 워크플로우 선택
                 const selectFolderWorkflow = (workflow, folder) => {
+                    // 이미 선택된 워크플로우를 다시 클릭한 경우 패널 닫기
+                    if (workflow.active && selectedWorkflow.value === workflow) {
+                        workflow.active = false;
+                        selectedWorkflow.value = null;
+                        workflowPanelOpen.value = false;
+                        console.log(`워크플로우 패널 닫힘`);
+                        return;
+                    }
+                    
                     // 모든 워크플로우의 active 상태 초기화
                     workflowItems.value.forEach(item => item.active = false);
                     folders.value.forEach(f => {
@@ -3682,10 +4845,9 @@
                     // 선택된 워크플로우만 active
                     workflow.active = true;
                     
-                    // 워크플로우 패널 열기
-                    if (!workflowPanelOpen.value) {
-                        workflowPanelOpen.value = true;
-                    }
+                    // 워크플로우 패널에 선택된 워크플로우 설정
+                    selectedWorkflow.value = workflow;
+                    workflowPanelOpen.value = true;
                     
                     console.log(`폴더 "${folder.title}"의 워크플로우 "${workflow.title}" 선택됨`);
                 };
@@ -3779,9 +4941,34 @@
                             }
                         }
                         
-                        // 활성 폴더가 없으면 기존 방식
-                        addWorkflow(workflowTitle, sampleWorkflowJson);
-                        return `새로운 워크플로우 "${workflowTitle}"가 생성되었습니다. 워크플로우 목록에서 확인하실 수 있습니다.`;
+                        // 활성 폴더가 없으면 새로운 프로젝트 폴더 생성
+                        const currentTime = new Date();
+                        const folderName = `프로젝트 ${currentTime.getMonth() + 1}월 ${currentTime.getDate()}일`;
+                        
+                        // 새로운 프로젝트 폴더 생성
+                        const newFolderId = Date.now();
+                        const newFolder = {
+                            id: newFolderId,
+                            title: folderName,
+                            type: 'folder',
+                            active: false,
+                            expanded: true, // 새로 생성된 폴더는 자동으로 펼쳐짐
+                            workflows: [{
+                                id: Date.now() + 1,
+                                title: workflowTitle,
+                                active: false,
+                                isRunning: false,
+                                jsonData: sampleWorkflowJson
+                            }]
+                        };
+                        
+                        folders.value.unshift(newFolder); // 맨 위에 추가
+                        activeFolderId.value = newFolderId; // 새 폴더를 활성 폴더로 설정
+                        
+                        // localStorage에 폴더 상태 저장
+                        localStorage.setItem('folders', JSON.stringify(folders.value));
+                        
+                        return `새로운 프로젝트 "${folderName}"이 생성되고 워크플로우 "${workflowTitle}"가 추가되었습니다.`;
                     }
                     
                     return null;
@@ -3834,6 +5021,39 @@
                     const newName = prompt('새로운 이름을 입력하세요:', item.title);
                     if (newName && newName.trim()) {
                         item.title = newName.trim();
+                    }
+                    activeMenu.value = null; // 드롭다운 닫기
+                };
+
+                // 워크플로우 복사 함수
+                const copyWorkflow = (workflow) => {
+                    copiedWorkflow.value = {
+                        title: workflow.title,
+                        active: false,
+                        isRunning: false,
+                        jsonData: workflow.jsonData ? { ...workflow.jsonData } : null
+                    };
+                    activeMenu.value = null; // 드롭다운 닫기
+                };
+
+                // 워크플로우 붙여넣기 함수
+                const pasteWorkflow = (folder) => {
+                    if (copiedWorkflow.value) {
+                        const newWorkflow = {
+                            id: Date.now(),
+                            title: `${copiedWorkflow.value.title} 복사본`,
+                            active: false,
+                            isRunning: false,
+                            jsonData: copiedWorkflow.value.jsonData ? { ...copiedWorkflow.value.jsonData } : null
+                        };
+                        
+                        if (!folder.workflows) {
+                            folder.workflows = [];
+                        }
+                        folder.workflows.push(newWorkflow);
+                        
+                        // localStorage에 폴더 상태 저장
+                        localStorage.setItem('folders', JSON.stringify(folders.value));
                     }
                     activeMenu.value = null; // 드롭다운 닫기
                 };
@@ -3891,6 +5111,8 @@
                     document.addEventListener('keydown', handleGlobalKeydown);
                     document.addEventListener('click', closeDropdown);
                     loadFoldersFromLocalStorage(); // 폴더 상태 복원
+                    loadSettings(); // 설정 로드
+                    loadCurrentUser(); // 사용자 정보 로드
                 });
 
                 Vue.onUnmounted(() => {
@@ -3962,6 +5184,21 @@
                     showDropdown,
                     renameItem,
                     deleteItem,
+                    copyWorkflow,
+                    pasteWorkflow,
+                    copiedWorkflow,
+                    // 다운로드 알림창 관련
+                    downloadAlert,
+                    showDownloadAlert,
+                    closeDownloadAlert,
+                    // 설정 관련
+                    settings,
+                    changeTheme,
+                    changeFontSize,
+                    changeItemsPerPage,
+                    handleNotificationPermission,
+                    saveSettings,
+                    loadSettings,
                     // 폴더 페이지네이션
                     currentFolderPage,
                     folderPageSize,
@@ -4024,12 +5261,25 @@
                     showHelpModal,
                     closeSettingsModal,
                     closeHelpModal,
+                    // 사용자 관련
+                    currentUser,
+                    loadCurrentUser,
+                    getUserInitial,
+                    getUserName,
                     workflowPanelOpen,
                     selectedWorkflow,
                     workflowPanelWidth,
                     closeWorkflowPanel,
                     startResize,
                     formatJsonWithSyntaxHighlight,
+                    // 편집 모드 관련
+                    isEditMode,
+                    editingTitle,
+                    editingDescription,
+                    editingJsonData,
+                    startEdit,
+                    cancelEdit,
+                    saveEdit,
                     isLoading,
                     isDeletingPost
                 };
@@ -4104,6 +5354,13 @@
                                                             </svg>
                                                             이름 바꾸기
                                                         </button>
+                                                        <button class="dropdown-item" @click="pasteWorkflow(item)" :disabled="!copiedWorkflow">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                                <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+                                                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                                                            </svg>
+                                                            붙여넣기
+                                                        </button>
                                                         <button class="dropdown-item delete" @click="deleteItem(item.id, 'folder')">
                                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                                 <path d="M3 6h18"/>
@@ -4145,11 +5402,12 @@
                                                                 </svg>
                                                                 이름 바꾸기
                                                             </button>
-                                                            <button class="dropdown-item" @click="moveWorkflowOutOfFolder(workflow, item)">
+                                                            <button class="dropdown-item" @click="copyWorkflow(workflow)">
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                                    <path d="M3 12h18m-9-9l9 9-9 9"/>
+                                                                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                                                                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
                                                                 </svg>
-                                                                꺼내기
+                                                                복사
                                                             </button>
                                                             <button class="dropdown-item delete" @click="deleteItem(workflow.id, 'folder-workflow', item)">
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -4230,8 +5488,8 @@
 
                         <div class="sidebar-footer">
                             <div class="user-profile" @click="showDropdown('user-profile', 'user', $event)">
-                                <div class="user-avatar">U</div>
-                                <div class="user-name">사용자</div>
+                                <div class="user-avatar">{{ getUserInitial }}</div>
+                                <div class="user-name">{{ getUserName }}</div>
                                 <div class="user-profile-dropdown dropdown-menu" :class="{ show: activeMenu === 'user-user-profile' }" @click.stop>
                                     <button class="dropdown-item" @click="openSettings">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -4280,7 +5538,7 @@
                                     <line x1="9" y1="17" x2="13" y2="17"/>
                                 </svg>
                             </button>
-                            <button class="header-btn-icon primary" @click="goToLogin" title="로그인/회원가입">
+                            <button v-if="!currentUser" class="header-btn-icon primary" @click="goToLogin" title="로그인/회원가입">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                                     <circle cx="12" cy="7" r="4"/>
@@ -4370,13 +5628,36 @@
                         </div>
                         <div class="workflow-panel-content">
                             <div class="workflow-panel-header">
-                                <h3>{{ selectedWorkflow?.title }}</h3>
-                                <button class="panel-close-btn" @click="closeWorkflowPanel" title="패널 닫기">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="18" y1="6" x2="6" y2="18"/>
-                                        <line x1="6" y1="6" x2="18" y2="18"/>
-                                    </svg>
-                                </button>
+                                <h3 v-if="!isEditMode">{{ selectedWorkflow?.title }}</h3>
+                                <input v-if="isEditMode" 
+                                       v-model="editingTitle" 
+                                       class="edit-title-input"
+                                       placeholder="워크플로우 제목을 입력하세요">
+                                <div class="panel-header-buttons">
+                                    <button v-if="!isEditMode" class="panel-edit-btn" @click="startEdit" title="편집">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                            <path d="m15 5 4 4"/>
+                                        </svg>
+                                    </button>
+                                    <button v-if="isEditMode" class="panel-save-btn" @click="saveEdit" title="저장">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M20 6L9 17l-5-5"/>
+                                        </svg>
+                                    </button>
+                                    <button v-if="isEditMode" class="panel-cancel-btn" @click="cancelEdit" title="취소">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"/>
+                                            <line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                    </button>
+                                    <button v-if="!isEditMode" class="panel-close-btn" @click="closeWorkflowPanel" title="패널 닫기">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"/>
+                                            <line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                             
                             <div class="workflow-panel-body">
@@ -4393,16 +5674,26 @@
                                 <div class="panel-section">
                                     <h4>JSON 파일 내용</h4>
                                     <div class="workflow-json">
-                                        <pre v-if="selectedWorkflow?.jsonData" v-html="formatJsonWithSyntaxHighlight(selectedWorkflow.jsonData)"></pre>
-                                        <span v-else class="no-json">JSON 데이터가 없습니다</span>
+                                        <pre v-if="!isEditMode && selectedWorkflow?.jsonData" v-html="formatJsonWithSyntaxHighlight(selectedWorkflow.jsonData)"></pre>
+                                        <textarea v-if="isEditMode" 
+                                                  v-model="editingJsonData" 
+                                                  class="edit-json-textarea"
+                                                  placeholder="JSON 데이터를 입력하세요..."
+                                                  rows="15"></textarea>
+                                        <span v-if="!isEditMode && !selectedWorkflow?.jsonData" class="no-json">JSON 데이터가 없습니다</span>
                                     </div>
                                 </div>
 
                                 <div class="panel-section">
                                     <h4>워크플로우 설명</h4>
                                     <div class="workflow-description">
-                                        <p v-if="selectedWorkflow?.description">{{ selectedWorkflow.description }}</p>
-                                        <span v-else class="no-description">설명이 없습니다</span>
+                                        <p v-if="!isEditMode && selectedWorkflow?.description">{{ selectedWorkflow.description }}</p>
+                                        <textarea v-if="isEditMode" 
+                                                  v-model="editingDescription" 
+                                                  class="edit-description-textarea"
+                                                  placeholder="워크플로우 설명을 입력하세요..."
+                                                  rows="4"></textarea>
+                                        <span v-if="!isEditMode && !selectedWorkflow?.description" class="no-description">설명이 없습니다</span>
                                     </div>
                                 </div>
                             </div>
@@ -4417,22 +5708,37 @@
                                 <button class="modal-close-btn" @click="closeSettingsModal">×</button>
                             </div>
                             <div class="modal-body">
+                                <div v-if="currentUser" class="settings-section">
+                                    <h3>사용자 프로필</h3>
+                                    <div class="setting-item" style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--panel-hover); border-radius: 12px;">
+                                        <div class="user-avatar" style="width: 48px; height: 48px; background: var(--primary-gradient); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600;">{{ getUserInitial }}</div>
+                                        <div>
+                                            <div style="font-size: 16px; font-weight: 600; color: var(--text-color); margin-bottom: 4px;">{{ currentUser.name }}</div>
+                                            <div style="font-size: 14px; color: var(--text-muted);">{{ currentUser.email }}</div>
+                                            <div v-if="currentUser.loginTime" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">로그인: {{ formatDate(new Date(currentUser.loginTime)) }}</div>
+                                        </div>
+                                        <div style="margin-left: auto;">
+                                            <button class="btn-secondary" @click="logout" style="padding: 8px 16px; font-size: 14px;">로그아웃</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <div class="settings-section">
                                     <h3>외관</h3>
                                     <div class="setting-item">
                                         <label>테마</label>
-                                        <select>
-                                            <option>라이트 모드</option>
-                                            <option>다크 모드</option>
-                                            <option>시스템 설정</option>
+                                        <select v-model="settings.theme" @change="changeTheme(settings.theme)">
+                                            <option value="light">라이트 모드</option>
+                                            <option value="dark">다크 모드</option>
+                                            <option value="system">시스템 설정</option>
                                         </select>
                                     </div>
                                     <div class="setting-item">
                                         <label>언어</label>
-                                        <select>
-                                            <option>한국어</option>
-                                            <option>English</option>
-                                            <option>日本語</option>
+                                        <select v-model="settings.language" @change="saveSettings">
+                                            <option value="ko">한국어</option>
+                                            <option value="en">English</option>
+                                            <option value="ja">日本語</option>
                                         </select>
                                     </div>
                                 </div>
@@ -4441,20 +5747,20 @@
                                     <h3>채팅</h3>
                                     <div class="setting-item">
                                         <label>
-                                            <input type="checkbox" checked> 채팅 기록 자동 저장
+                                            <input type="checkbox" v-model="settings.autoSaveChat" @change="saveSettings"> 채팅 기록 자동 저장
                                         </label>
                                     </div>
                                     <div class="setting-item">
                                         <label>
-                                            <input type="checkbox" checked> 자동 스크롤
+                                            <input type="checkbox" v-model="settings.autoScroll" @change="saveSettings"> 자동 스크롤
                                         </label>
                                     </div>
                                     <div class="setting-item">
                                         <label>메시지 글꼴 크기</label>
-                                        <select>
-                                            <option>작게</option>
-                                            <option selected>보통</option>
-                                            <option>크게</option>
+                                        <select v-model="settings.fontSize" @change="changeFontSize">
+                                            <option value="small">작게</option>
+                                            <option value="medium">보통</option>
+                                            <option value="large">크게</option>
                                         </select>
                                     </div>
                                 </div>
@@ -4463,20 +5769,20 @@
                                     <h3>워크플로우</h3>
                                     <div class="setting-item">
                                         <label>
-                                            <input type="checkbox"> 워크플로우 자동 실행
+                                            <input type="checkbox" v-model="settings.autoExecuteWorkflow" @change="saveSettings"> 워크플로우 자동 실행
                                         </label>
                                     </div>
                                     <div class="setting-item">
                                         <label>
-                                            <input type="checkbox" checked> 실행 완료 알림
+                                            <input type="checkbox" v-model="settings.workflowNotification" @change="saveSettings"> 실행 완료 알림
                                         </label>
                                     </div>
                                     <div class="setting-item">
                                         <label>페이지당 표시 항목 수</label>
-                                        <select>
-                                            <option>2개</option>
-                                            <option selected>4개</option>
-                                            <option>6개</option>
+                                        <select v-model="settings.itemsPerPage" @change="changeItemsPerPage">
+                                            <option value="2">2개</option>
+                                            <option value="4">4개</option>
+                                            <option value="6">6개</option>
                                         </select>
                                     </div>
                                 </div>
@@ -4485,12 +5791,12 @@
                                     <h3>알림</h3>
                                     <div class="setting-item">
                                         <label>
-                                            <input type="checkbox" checked> 데스크톱 알림
+                                            <input type="checkbox" v-model="settings.desktopNotification" @change="handleNotificationPermission"> 데스크톱 알림
                                         </label>
                                     </div>
                                     <div class="setting-item">
                                         <label>
-                                            <input type="checkbox"> 소리 알림
+                                            <input type="checkbox" v-model="settings.soundNotification" @change="saveSettings"> 소리 알림
                                         </label>
                                     </div>
                                 </div>
@@ -4639,6 +5945,7 @@
                                                     </svg>
                                                 </button>
                                                 <button 
+                                                    v-if="post.author === (currentUser?.name || '현재사용자')"
                                                     class="delete-btn" 
                                                     :class="{ 'btn-loading': isDeletingPost }"
                                                     @click.stop="deletePost(post)"
@@ -4858,6 +6165,33 @@
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- 다운로드 알림창 -->
+                <div v-if="downloadAlert.show" 
+                     :class="['download-alert', downloadAlert.type, { show: downloadAlert.show }]">
+                    <div class="download-alert-icon">
+                        <svg v-if="downloadAlert.type === 'success'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 6L9 17l-5-5"/>
+                        </svg>
+                        <svg v-else-if="downloadAlert.type === 'warning'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        <svg v-else-if="downloadAlert.type === 'error'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="15" y1="9" x2="9" y2="15"/>
+                            <line x1="9" y1="9" x2="15" y2="15"/>
+                        </svg>
+                    </div>
+                    <div class="download-alert-content">{{ downloadAlert.message }}</div>
+                    <button class="download-alert-close" @click="closeDownloadAlert">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
                 </div>
             `
         }).mount('#app');
