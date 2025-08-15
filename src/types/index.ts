@@ -2,8 +2,17 @@ export interface Message {
   id: number
   type: 'user' | 'assistant'
   content: string
-  files?: string[]
+  files?: UploadedFile[]
   timestamp?: string
+  isStreaming?: boolean
+}
+
+export interface UploadedFile {
+  name: string
+  type: string
+  size: number
+  content?: string
+  jsonData?: any
 }
 
 export interface ChatHistoryItem {

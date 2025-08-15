@@ -1,7 +1,9 @@
+# -*- coding: utf-8 -*-
 import asyncio
 import json
 import httpx
 import os
+import sys
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,9 +12,19 @@ from pydantic import BaseModel
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
+# Windows 콘솔 인코딩 설정
+if sys.platform == "win32":
+    import codecs
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+
 load_dotenv()
 
-app = FastAPI(title="Claude MCP Backend")
+app = FastAPI(
+    title="DA-ZZANY Chat Backend",
+    description="실시간 스트리밍 채팅 백엔드 서버 - n8n 자동화 전문가 Claude",
+    version="1.0.0"
+)
 
 # CORS 설정
 app.add_middleware(
@@ -27,13 +39,26 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
 
-class ClaudeMCPBackend:
+class DAZZANYChatBackend:
     def __init__(self):
-        self.anthropic = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        # Anthropic Claude API 설정
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            print("경고: ANTHROPIC_API_KEY가 설정되지 않았습니다. 모의 응답을 사용합니다.")
+            self.anthropic = None
+            self.mock_mode = True
+        else:
+            self.anthropic = Anthropic(api_key=api_key)
+            self.mock_mode = False
+            
+        # MCP 설정 (n8n 워크플로우 자동화 도구)
         self.mcp_url = "http://localhost:3000/mcp"
         self.auth_token = "4PsvmU2knXt+KTV+d2sOFTly6C9C+9QAwdbqnd9uFVw="
         self.tools = []
         self.sessions = {}  # 세션별 대화 저장
+        
+        mode_text = "Mock" if self.mock_mode else "Claude API"
+        print(f"DA-ZZANY 채팅 백엔드 초기화 완료 (모드: {mode_text})")
         
     async def init_mcp(self):
         if self.tools:  # 이미 초기화됨
@@ -98,6 +123,14 @@ class ClaudeMCPBackend:
                         last_block["cache_control"] = {"type": "ephemeral"}
     
     async def chat_stream(self, message: str, session_id: str):
+        """실시간 스트리밍 채팅 처리"""
+        # Mock 모드일 때는 간단한 응답 스트리밍
+        if self.mock_mode:
+            async for chunk in self._mock_chat_stream(message, session_id):
+                yield chunk
+            return
+            
+        # 실제 Claude API 스트리밍
         await self.init_mcp()
         
         messages = self.get_session_messages(session_id)
@@ -129,7 +162,7 @@ class ClaudeMCPBackend:
                 tools=tools,
                 system=[{
                     "type": "text",
-                    "text": "당신은 n8n 자동화 소프트웨어의 전문가입니다. n8n-MCP 도구를 사용하여 워크플로우를 설계, 구축, 검증하는 역할을 합니다. 정확하고 효율적으로 작업하세요. 노드를 배치하게 된다면 노드의 input과 output을 예상해서 사용자한테 알려주세요. ",
+                    "text": "당신은 DA-ZZANY의 n8n 자동화 워크플로우 전문가입니다. 사용자가 워크플로우 자동화에 대해 질문하면 n8n-MCP 도구를 활용하여 정확하고 효율적인 솔루션을 제공하세요. 노드 배치 시 input/output을 명확히 설명하고, 한국어로 친근하게 답변해주세요.",
                     "cache_control": {"type": "ephemeral"}
                 }],
                 extra_headers={"anthropic-beta": "interleaved-thinking-2025-05-14"},
@@ -209,15 +242,62 @@ class ClaudeMCPBackend:
                 
                 # 도구 실행 후 다시 캐시 컨트롤 적용
                 self.add_cache_control_to_messages(messages)
+    
+    async def _mock_chat_stream(self, message: str, session_id: str):
+        """모의 채팅 스트리밍 (캐디 API가 없을 때)"""
+        # 세션 처리
+        messages = self.get_session_messages(session_id)
+        messages.append({"role": "user", "content": message})
+        
+        # 응답 생성
+        response = self._generate_mock_response(message)
+        
+        # 사고 단계 시뮬레이션
+        yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
+        await asyncio.sleep(0.3)
+        yield f"data: {json.dumps({'type': 'thinking_delta', 'text': '사용자의 질문을 분석하고 있습니다...'})}\n\n"
+        await asyncio.sleep(0.5)
+        yield f"data: {json.dumps({'type': 'thinking_delta', 'text': ' 적절한 응답을 준비하고 있습니다.'})}\n\n"
+        await asyncio.sleep(0.3)
+        yield f"data: {json.dumps({'type': 'thinking_stop'})}\n\n"
+        
+        # 텍스트 스트리밍
+        yield f"data: {json.dumps({'type': 'text_start'})}\n\n"
+        
+        # 문자를 조금씩 스트리밍
+        for char in response:
+            yield f"data: {json.dumps({'type': 'text_delta', 'text': char})}\n\n"
+            await asyncio.sleep(0.02)  # 타이핑 효과
+        
+        # 완료
+        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+        
+        # 세션에 응답 저장
+        messages.append({"role": "assistant", "content": response})
+    
+    def _generate_mock_response(self, message: str) -> str:
+        """모의 응답 생성"""
+        message_lower = message.lower()
+        
+        if "안녕" in message_lower or "hello" in message_lower:
+            return "안녕하세요! 🚀 DA-ZZANY에 오신 것을 환영합니다. 저는 n8n 워크플로우 자동화 전문가입니다. 어떤 작업을 자동화하고 싶으신가요?"
+        elif "워크플로우" in message_lower or "workflow" in message_lower:
+            return "🔧 워크플로우 자동화에 대한 질문이시군요! n8n을 활용한 다양한 자동화 솔루션을 도와드릴 수 있습니다. 예를 들어:\n\n• 데이터 처리 및 변환\n• API 연동 및 데이터 동기화\n• 이메일 자동화 및 알림\n• 파일 처리 및 백업\n• 소셜 미디어 자동 게시\n\n어떤 종류의 자동화를 원하시는지 알려주세요!"
+        elif "채팅" in message_lower or "chat" in message_lower:
+            return "💬 실시간 채팅 시스템이 정상적으로 작동하고 있습니다! 이 시스템은 Server-Sent Events를 통해 실시간 스트리밍을 지원하며, 사고 과정(thinking)과 도구 실행 과정을 실시간으로 볼 수 있습니다."
+        elif "n8n" in message_lower:
+            return "🚬 n8n은 강력한 워크플로우 자동화 도구입니다. 다양한 노드를 연결하여 복잡한 비즈니스 로직을 자동화할 수 있습니다. 특정 n8n 기능에 대해 더 알고 싶으시다면 구체적으로 어떤 부분이 궁금한지 알려주세요!"
+        else:
+            return f"🤔 '{message}'에 대한 질문을 받았습니다. 더 구체적인 정보를 제공해주시면 더 정확한 답변을 드릴 수 있습니다. 워크플로우 자동화와 관련된 어떤 도움이 필요하신가요?"
 
 # 전역 인스턴스
-claude_backend = ClaudeMCPBackend()
+chat_backend = DAZZANYChatBackend()
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
         return StreamingResponse(
-            claude_backend.chat_stream(request.message, request.session_id),
+            chat_backend.chat_stream(request.message, request.session_id),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -228,10 +308,82 @@ async def chat(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/")
+async def root():
+    """루트 엔드포인트"""
+    return {
+        "message": "DA-ZZANY Chat Backend API",
+        "version": "1.0.0",
+        "description": "n8n 워크플로우 자동화 전문가 Claude",
+        "endpoints": {
+            "/chat": "POST - 실시간 스트리밍 채팅",
+            "/health": "GET - 서버 상태 확인",
+            "/sessions/{session_id}/messages": "GET - 세션 메시지 기록",
+            "/sessions/{session_id}": "DELETE - 세션 초기화"
+        }
+    }
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "tools_loaded": len(claude_backend.tools)}
+    """헬스 체크 엔드포인트"""
+    return {
+        "status": "healthy",
+        "backend": "DA-ZZANY Chat Backend",
+        "mode": "Mock" if chat_backend.mock_mode else "Claude API",
+        "tools_loaded": len(chat_backend.tools),
+        "sessions": len(chat_backend.sessions),
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.get("/sessions/{session_id}/messages")
+async def get_session_messages(session_id: str):
+    """특정 세션의 메시지 기록 가져오기"""
+    messages = chat_backend.get_session_messages(session_id)
+    return {
+        "session_id": session_id,
+        "messages": messages,
+        "count": len(messages)
+    }
+
+@app.delete("/sessions/{session_id}")
+async def clear_session(session_id: str):
+    """세션 초기화"""
+    if session_id in chat_backend.sessions:
+        del chat_backend.sessions[session_id]
+        return {"message": f"세션 {session_id}가 초기화되었습니다."}
+    else:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+
+@app.get("/sessions")
+async def list_sessions():
+    """모든 세션 목록 및 정보"""
+    sessions_info = []
+    for session_id, messages in chat_backend.sessions.items():
+        sessions_info.append({
+            "session_id": session_id,
+            "message_count": len(messages),
+            "last_message": messages[-1] if messages else None
+        })
+    
+    return {
+        "total_sessions": len(chat_backend.sessions),
+        "sessions": sessions_info
+    }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    print("DA-ZZANY 채팅 백엔드 서버 시작 중...")
+    mode_text = "Mock (미리보기)" if chat_backend.mock_mode else "Claude API (실제)"
+    print(f"모드: {mode_text}")
+    print("서버 주소: http://localhost:8000")
+    print("API 문서: http://localhost:8000/docs")
+    print("중단하려면 Ctrl+C를 누르세요\n")
+    
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+        reload=True,  # 개발 모드에서 자동 재시작
+        log_level="info"
+    )

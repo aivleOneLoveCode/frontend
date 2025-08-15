@@ -551,8 +551,29 @@
         .folder-workflows.expanded {
             max-height: 300px;  /* 적절한 최대 높이 설정 */
             overflow-y: auto;
+            overflow-x: hidden;
             padding-top: 4px;
             padding-bottom: 4px;
+            scrollbar-width: thin;  /* Firefox */
+            scrollbar-color: transparent transparent;  /* Firefox */
+        }
+        
+        .folder-workflows.expanded::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .folder-workflows.expanded::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .folder-workflows.expanded::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 3px;
+            transition: background 0.2s ease;
+        }
+        
+        .folder-workflows.expanded:hover::-webkit-scrollbar-thumb {
+            background: #d1d5db;
         }
         
         .folder-workflow-item {
@@ -6497,6 +6518,35 @@
                             <line x1="6" y1="6" x2="18" y2="18"/>
                         </svg>
                     </button>
+                </div>
+                    </div>
+
+                    <!-- 워크플로우 패널 -->
+                    <div v-if="workflowPanelOpen" class="workflow-panel" :style="{ width: workflowPanelWidth + 'px' }">
+                        <div class="workflow-panel-header">
+                            <h3>{{ selectedWorkflow?.title || '워크플로우' }}</h3>
+                            <button class="close-btn" @click="closeWorkflowPanel">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div class="workflow-panel-content">
+                            <div v-if="selectedWorkflow" class="workflow-details">
+                                <div class="workflow-info">
+                                    <p><strong>설명:</strong> {{ selectedWorkflow.description }}</p>
+                                    <p v-if="selectedWorkflow.n8nUrl"><strong>n8n URL:</strong> {{ selectedWorkflow.n8nUrl }}</p>
+                                </div>
+                                
+                                <div v-if="selectedWorkflow.jsonData" class="workflow-json">
+                                    <h4>워크플로우 JSON</h4>
+                                    <pre>{{ JSON.stringify(selectedWorkflow.jsonData, null, 2) }}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `
         }).mount('#app');
