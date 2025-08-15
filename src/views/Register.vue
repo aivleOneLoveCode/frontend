@@ -10,10 +10,30 @@
 
       <div class="logo-section">
         <div class="logo">DA-ZZANY</div>
-        <h1 class="logo-title">다시 오신 것을 환영합니다</h1>
+        <h1 class="logo-title">계정을 생성하세요</h1>
       </div>
 
-      <form @submit.prevent="handleLogin">
+      <form @submit.prevent="handleRegister">
+        <div class="form-group">
+          <label class="form-label" for="name">이름</label>
+          <input 
+            type="text" 
+            id="name"
+            class="form-input"
+            :class="{
+              error: validation.name.error,
+              valid: validation.name.valid
+            }"
+            v-model="registerForm.name"
+            placeholder="이름을 입력하세요"
+            @blur="validateField('name')"
+            required
+          >
+          <div v-if="validation.name.message" class="form-help">
+            {{ validation.name.message }}
+          </div>
+        </div>
+
         <div class="form-group">
           <label class="form-label" for="email">이메일</label>
           <input 
@@ -24,7 +44,7 @@
               error: validation.email.error,
               valid: validation.email.valid
             }"
-            v-model="loginForm.email"
+            v-model="registerForm.email"
             placeholder="your@email.com"
             @blur="validateField('email')"
             required
@@ -44,88 +64,113 @@
               error: validation.password.error,
               valid: validation.password.valid
             }"
-            v-model="loginForm.password"
-            placeholder="비밀번호를 입력하세요"
-            @blur="validateField('password')"
+            v-model="registerForm.password"
+            placeholder="8자 이상 입력하세요"
+            @input="validateField('password')"
             required
           >
+          <div v-if="passwordStrength && registerForm.password" class="password-strength">
+            <div class="password-strength-bar" :class="passwordStrengthClass"></div>
+          </div>
           <div v-if="validation.password.message" class="form-help">
             {{ validation.password.message }}
           </div>
         </div>
-        
-        <div class="forgot-password">
-          <router-link to="/forgot-password">비밀번호를 잊으셨나요?</router-link>
+
+        <div class="form-group">
+          <label class="form-label" for="confirmPassword">비밀번호 확인</label>
+          <input 
+            type="password" 
+            id="confirmPassword"
+            class="form-input"
+            :class="{
+              error: validation.confirmPassword.error,
+              valid: validation.confirmPassword.valid
+            }"
+            v-model="registerForm.confirmPassword"
+            placeholder="비밀번호를 다시 입력하세요"
+            @blur="validateField('confirmPassword')"
+            required
+          >
+          <div v-if="validation.confirmPassword.message" class="form-help">
+            {{ validation.confirmPassword.message }}
+          </div>
         </div>
         
         <button type="submit" class="submit-btn" :disabled="authStore.isLoading || !isFormValid">
           <span v-if="authStore.isLoading" class="loading-spinner"></span>
-          {{ authStore.isLoading ? '로그인 중...' : '로그인' }}
+          {{ authStore.isLoading ? '가입 중...' : '회원가입' }}
         </button>
         
         <div class="error-message" :class="{ show: authStore.error }">
           {{ authStore.error }}
         </div>
+        
+        <div class="success-message" :class="{ show: authStore.successMessage }">
+          {{ authStore.successMessage }}
+        </div>
       </form>
 
-      <div class="divider">
-        <span>또는</span>
-      </div>
-
-      <div class="social-login">
-        <button class="social-btn" @click="handleSocialLogin('google')">
-          <svg class="social-icon" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Google로 계속하기
-        </button>
-        
-        <button class="social-btn" @click="handleSocialLogin('github')">
-          <svg class="social-icon" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          GitHub로 계속하기
-        </button>
-      </div>
-
       <div class="auth-footer">
-        계정이 없으신가요? 
-        <router-link to="/register">회원가입</router-link>
+        이미 계정이 있으신가요? 
+        <router-link to="/login">로그인</router-link>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { validateEmail } from '@/utils/helpers'
+import { validateEmail, getPasswordStrength } from '@/utils/helpers'
 
 const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 
-const loginForm = ref({
+const registerForm = ref({
+  name: '',
   email: '',
-  password: ''
+  password: '',
+  confirmPassword: ''
 })
 
 const validation = ref({
+  name: { valid: false, error: false, message: '' },
   email: { valid: false, error: false, message: '' },
-  password: { valid: false, error: false, message: '' }
+  password: { valid: false, error: false, message: '' },
+  confirmPassword: { valid: false, error: false, message: '' }
 })
 
 const isFormValid = computed(() => {
-  return validation.value.email.valid && validation.value.password.valid
+  return validation.value.name.valid && 
+         validation.value.email.valid && 
+         validation.value.password.valid && 
+         validation.value.confirmPassword.valid
 })
+
+const passwordStrength = computed(() => {
+  return getPasswordStrength(registerForm.value.password)
+})
+
+const passwordStrengthClass = computed(() => {
+  const strength = passwordStrength.value.score
+  if (strength <= 2) return 'password-strength-weak'
+  if (strength <= 3) return 'password-strength-medium'
+  return 'password-strength-strong'
+})
+
+const validateName = (name: string) => {
+  return name && name.trim().length >= 2
+}
+
+const validatePassword = (password: string) => {
+  return password && password.length >= 8
+}
 
 const validateField = (fieldName: string) => {
   const field = validation.value[fieldName as keyof typeof validation.value]
-  const value = loginForm.value[fieldName as keyof typeof loginForm.value]
+  const value = registerForm.value[fieldName as keyof typeof registerForm.value]
   
   field.error = false
   field.valid = false
@@ -146,31 +191,68 @@ const validateField = (fieldName: string) => {
         field.valid = true
       }
       break
+
+    case 'name':
+      if (!validateName(value)) {
+        field.error = true
+        field.message = '이름은 2자 이상이어야 합니다.'
+      } else {
+        field.valid = true
+      }
+      break
+
     case 'password':
-      if (value.length < 8) {
+      if (!validatePassword(value)) {
         field.error = true
         field.message = '비밀번호는 8자 이상이어야 합니다.'
       } else {
         field.valid = true
+        const strength = passwordStrength.value.score
+        if (strength <= 2) {
+          field.message = '약한 비밀번호입니다.'
+        } else if (strength <= 3) {
+          field.message = '보통 비밀번호입니다.'
+        } else {
+          field.message = '강한 비밀번호입니다.'
+        }
+      }
+      break
+
+    case 'confirmPassword':
+      if (value !== registerForm.value.password) {
+        field.error = true
+        field.message = '비밀번호가 일치하지 않습니다.'
+      } else {
+        field.valid = true
+        field.message = '비밀번호가 일치합니다.'
       }
       break
   }
 }
 
-const handleLogin = async () => {
-  try {
-    await authStore.login(loginForm.value.email, loginForm.value.password)
-    // 로그인 성공 시 채팅 페이지로 리다이렉트
-    const redirectPath = route.query.redirect as string || '/chat'
-    router.push(redirectPath)
-  } catch (error) {
-    console.error('Login failed:', error)
+// 비밀번호 변경 시 확인 비밀번호 재검증
+watch(() => registerForm.value.password, () => {
+  if (registerForm.value.confirmPassword) {
+    validateField('confirmPassword')
   }
-}
+})
 
-const handleSocialLogin = (provider: string) => {
-  console.log(`${provider} 로그인 요청`)
-  alert(`${provider} 로그인 기능은 준비 중입니다.`)
+const handleRegister = async () => {
+  try {
+    await authStore.register({
+      name: registerForm.value.name,
+      email: registerForm.value.email,
+      password: registerForm.value.password,
+      confirmPassword: registerForm.value.confirmPassword
+    })
+    
+    // 성공 시 2초 후 로그인 페이지로 이동
+    setTimeout(() => {
+      router.push('/login')
+    }, 2000)
+  } catch (error) {
+    console.error('Registration failed:', error)
+  }
 }
 
 const goBack = () => {
@@ -280,34 +362,48 @@ const goBack = () => {
   color: #9ca3af;
 }
 
+.password-strength {
+  margin-top: 8px;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.password-strength-bar {
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.password-strength-weak {
+  width: 33%;
+  background: #dc2626;
+}
+
+.password-strength-medium {
+  width: 66%;
+  background: #f59e0b;
+}
+
+.password-strength-strong {
+  width: 100%;
+  background: #059669;
+}
+
 .form-help {
   font-size: 12px;
   color: #6b7280;
   margin-top: 4px;
 }
 
+.form-input.error + .password-strength + .form-help,
 .form-input.error + .form-help {
   color: #dc2626;
 }
 
+.form-input.valid + .password-strength + .form-help,
 .form-input.valid + .form-help {
   color: #059669;
-}
-
-.forgot-password {
-  text-align: right;
-  margin-bottom: 24px;
-}
-
-.forgot-password a {
-  color: #67bdc6;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.forgot-password a:hover {
-  text-decoration: underline;
 }
 
 .submit-btn {
@@ -362,62 +458,15 @@ const goBack = () => {
   display: block;
 }
 
-.divider {
-  position: relative;
-  text-align: center;
-  margin: 24px 0;
-}
-
-.divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #e5e7eb;
-}
-
-.divider span {
-  background: white;
-  padding: 0 16px;
-  color: #6b7280;
+.success-message {
+  color: #059669;
   font-size: 14px;
+  margin-top: 8px;
+  display: none;
 }
 
-.social-login {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.social-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: white;
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-decoration: none;
-}
-
-.social-btn:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-}
-
-.social-icon {
-  width: 20px;
-  height: 20px;
+.success-message.show {
+  display: block;
 }
 
 .auth-footer {

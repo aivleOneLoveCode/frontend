@@ -1,13 +1,27 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '../stores/auth'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
+    name: 'Welcome',
+    component: () => import('@/views/Welcome.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/chat',
     name: 'Home',
     component: () => import('@/views/Home.vue'),
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: false },
+    children: [
+      {
+        path: '',
+        name: 'Chat',
+        component: () => import('@/views/Chat.vue'),
+        meta: { requiresAuth: false }
+      }
+    ]
   },
   {
     path: '/login',
@@ -16,10 +30,16 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false }
   },
   {
-    path: '/chat',
-    name: 'Chat',
-    component: () => import('@/views/Chat.vue'),
-    meta: { requiresAuth: true }
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/Register.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/ForgotPassword.vue'),
+    meta: { requiresAuth: false }
   },
   {
     path: '/board',
@@ -53,9 +73,9 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
   
-  // 이미 로그인된 상태에서 로그인 페이지 접근 시
-  if (to.name === 'Login' && authStore.isAuthenticated) {
-    next({ name: 'Chat' })
+  // 이미 로그인된 상태에서 인증 페이지 접근 시
+  if (['Login', 'Register', 'ForgotPassword'].includes(to.name as string) && authStore.isAuthenticated) {
+    next({ path: '/chat' })
     return
   }
   

@@ -10,10 +10,11 @@
 
       <div class="logo-section">
         <div class="logo">DA-ZZANY</div>
-        <h1 class="logo-title">다시 오신 것을 환영합니다</h1>
+        <h1 class="logo-title">비밀번호를 재설정하세요</h1>
+        <p class="logo-subtitle">등록된 이메일 주소를 입력하시면<br>비밀번호 재설정 링크를 보내드립니다.</p>
       </div>
 
-      <form @submit.prevent="handleLogin">
+      <form @submit.prevent="handleForgotPassword">
         <div class="form-group">
           <label class="form-label" for="email">이메일</label>
           <input 
@@ -24,8 +25,8 @@
               error: validation.email.error,
               valid: validation.email.valid
             }"
-            v-model="loginForm.email"
-            placeholder="your@email.com"
+            v-model="forgotForm.email"
+            placeholder="등록된 이메일을 입력하세요"
             @blur="validateField('email')"
             required
           >
@@ -34,66 +35,26 @@
           </div>
         </div>
         
-        <div class="form-group">
-          <label class="form-label" for="password">비밀번호</label>
-          <input 
-            type="password" 
-            id="password"
-            class="form-input"
-            :class="{
-              error: validation.password.error,
-              valid: validation.password.valid
-            }"
-            v-model="loginForm.password"
-            placeholder="비밀번호를 입력하세요"
-            @blur="validateField('password')"
-            required
-          >
-          <div v-if="validation.password.message" class="form-help">
-            {{ validation.password.message }}
-          </div>
-        </div>
-        
-        <div class="forgot-password">
-          <router-link to="/forgot-password">비밀번호를 잊으셨나요?</router-link>
-        </div>
-        
         <button type="submit" class="submit-btn" :disabled="authStore.isLoading || !isFormValid">
           <span v-if="authStore.isLoading" class="loading-spinner"></span>
-          {{ authStore.isLoading ? '로그인 중...' : '로그인' }}
+          {{ authStore.isLoading ? '전송 중...' : '비밀번호 재설정 이메일 보내기' }}
         </button>
         
         <div class="error-message" :class="{ show: authStore.error }">
           {{ authStore.error }}
         </div>
+        
+        <div class="success-message" :class="{ show: authStore.successMessage }">
+          {{ authStore.successMessage }}
+        </div>
       </form>
 
-      <div class="divider">
-        <span>또는</span>
-      </div>
-
-      <div class="social-login">
-        <button class="social-btn" @click="handleSocialLogin('google')">
-          <svg class="social-icon" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Google로 계속하기
-        </button>
-        
-        <button class="social-btn" @click="handleSocialLogin('github')">
-          <svg class="social-icon" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          GitHub로 계속하기
-        </button>
-      </div>
-
       <div class="auth-footer">
-        계정이 없으신가요? 
-        <router-link to="/register">회원가입</router-link>
+        <div class="auth-links">
+          <router-link to="/login">로그인으로 돌아가기</router-link>
+          <span class="separator">•</span>
+          <router-link to="/register">회원가입</router-link>
+        </div>
       </div>
     </div>
   </div>
@@ -101,31 +62,28 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { validateEmail } from '@/utils/helpers'
 
 const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 
-const loginForm = ref({
-  email: '',
-  password: ''
+const forgotForm = ref({
+  email: ''
 })
 
 const validation = ref({
-  email: { valid: false, error: false, message: '' },
-  password: { valid: false, error: false, message: '' }
+  email: { valid: false, error: false, message: '' }
 })
 
 const isFormValid = computed(() => {
-  return validation.value.email.valid && validation.value.password.valid
+  return validation.value.email.valid
 })
 
 const validateField = (fieldName: string) => {
   const field = validation.value[fieldName as keyof typeof validation.value]
-  const value = loginForm.value[fieldName as keyof typeof loginForm.value]
+  const value = forgotForm.value[fieldName as keyof typeof forgotForm.value]
   
   field.error = false
   field.valid = false
@@ -146,31 +104,16 @@ const validateField = (fieldName: string) => {
         field.valid = true
       }
       break
-    case 'password':
-      if (value.length < 8) {
-        field.error = true
-        field.message = '비밀번호는 8자 이상이어야 합니다.'
-      } else {
-        field.valid = true
-      }
-      break
   }
 }
 
-const handleLogin = async () => {
+const handleForgotPassword = async () => {
   try {
-    await authStore.login(loginForm.value.email, loginForm.value.password)
-    // 로그인 성공 시 채팅 페이지로 리다이렉트
-    const redirectPath = route.query.redirect as string || '/chat'
-    router.push(redirectPath)
+    await authStore.forgotPassword(forgotForm.value.email)
+    forgotForm.value.email = ''
   } catch (error) {
-    console.error('Login failed:', error)
+    console.error('Forgot password failed:', error)
   }
-}
-
-const handleSocialLogin = (provider: string) => {
-  console.log(`${provider} 로그인 요청`)
-  alert(`${provider} 로그인 기능은 준비 중입니다.`)
 }
 
 const goBack = () => {
@@ -235,11 +178,17 @@ const goBack = () => {
   font-size: 20px;
   font-weight: 600;
   color: #111827;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.logo-subtitle {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .form-label {
@@ -294,22 +243,6 @@ const goBack = () => {
   color: #059669;
 }
 
-.forgot-password {
-  text-align: right;
-  margin-bottom: 24px;
-}
-
-.forgot-password a {
-  color: #67bdc6;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.forgot-password a:hover {
-  text-decoration: underline;
-}
-
 .submit-btn {
   width: 100%;
   background: #67bdc6;
@@ -362,68 +295,32 @@ const goBack = () => {
   display: block;
 }
 
-.divider {
-  position: relative;
-  text-align: center;
-  margin: 24px 0;
-}
-
-.divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #e5e7eb;
-}
-
-.divider span {
-  background: white;
-  padding: 0 16px;
-  color: #6b7280;
+.success-message {
+  color: #059669;
   font-size: 14px;
+  margin-top: 8px;
+  display: none;
 }
 
-.social-login {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.social-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: white;
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-decoration: none;
-}
-
-.social-btn:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-}
-
-.social-icon {
-  width: 20px;
-  height: 20px;
+.success-message.show {
+  display: block;
 }
 
 .auth-footer {
   text-align: center;
   color: #6b7280;
   font-size: 14px;
+}
+
+.auth-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.separator {
+  color: #d1d5db;
 }
 
 .auth-footer a {
@@ -445,6 +342,15 @@ const goBack = () => {
   
   .logo-title {
     font-size: 18px;
+  }
+
+  .auth-links {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .separator {
+    display: none;
   }
 }
 </style>

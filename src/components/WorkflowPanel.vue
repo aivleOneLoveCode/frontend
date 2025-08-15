@@ -7,12 +7,21 @@
     <div class="workflow-panel-content">
       <div class="workflow-panel-header">
         <h3>{{ selectedWorkflow?.title }}</h3>
-        <button class="panel-close-btn" @click="$emit('close-panel')" title="패널 닫기">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+        <div class="header-actions">
+          <button v-if="selectedWorkflow?.jsonData" class="download-btn" @click="downloadJson" title="JSON 다운로드">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </button>
+          <button class="panel-close-btn" @click="$emit('close-panel')" title="패널 닫기">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
       </div>
       
       <div class="workflow-panel-body">
@@ -49,7 +58,7 @@
 <script setup lang="ts">
 import type { WorkflowItem } from '../types'
 
-defineProps<{
+const props = defineProps<{
   selectedWorkflow: WorkflowItem | null
   workflowPanelWidth: number
 }>()
@@ -72,6 +81,23 @@ const formatJsonWithSyntaxHighlight = (jsonData: any) => {
     .replace(/:\s*(null)/g, ': <span class="json-null">$1</span>')
   
   return jsonString
+}
+
+const downloadJson = () => {
+  if (!props.selectedWorkflow?.jsonData) return
+  
+  const dataStr = JSON.stringify(props.selectedWorkflow.jsonData, null, 2)
+  const dataBlob = new Blob([dataStr], { type: 'application/json' })
+  const url = URL.createObjectURL(dataBlob)
+  
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${props.selectedWorkflow.title || 'workflow'}.json`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  
+  URL.revokeObjectURL(url)
 }
 </script>
 
@@ -137,6 +163,26 @@ const formatJsonWithSyntaxHighlight = (jsonData: any) => {
   font-size: 18px;
   font-weight: 600;
   color: #111827;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.download-btn {
+  background: #10a37f;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  transition: all 0.2s;
+}
+
+.download-btn:hover {
+  background: #0f8a6a;
 }
 
 .panel-close-btn {
