@@ -1,8 +1,43 @@
 import { defineStore } from 'pinia'
 import { chatService } from '@/services/chat'
 
+interface Message {
+  id: number
+  type: 'user' | 'assistant'
+  content: string
+  files?: string[]
+  timestamp: Date
+  isError?: boolean
+  isStreaming?: boolean
+}
+
+interface ChatHistory {
+  id: number
+  title: string
+  active: boolean
+  messages: Message[]
+  deleted?: boolean
+}
+
+interface ChatState {
+  chatHistories: ChatHistory[]
+  currentChatId: number | null
+  messages: Message[]
+  isLoading: boolean
+  isStreaming: boolean
+  streamingMessage: Message | null
+}
+
+interface FileData {
+  name: string
+}
+
+interface FileUpload extends File {
+  name: string
+}
+
 export const useChatStore = defineStore('chat', {
-  state: () => ({
+  state: (): ChatState => ({
     chatHistories: [],
     currentChatId: null,
     messages: [],
@@ -12,22 +47,22 @@ export const useChatStore = defineStore('chat', {
   }),
 
   getters: {
-    currentChat: (state) => {
+    currentChat: (state): ChatHistory | undefined => {
       return state.chatHistories.find(chat => chat.id === state.currentChatId)
     },
     
-    activeChatHistories: (state) => {
+    activeChatHistories: (state): ChatHistory[] => {
       return state.chatHistories.filter(chat => !chat.deleted)
     },
 
-    currentMessages: (state) => {
+    currentMessages: (state): Message[] => {
       const currentChat = state.chatHistories.find(chat => chat.id === state.currentChatId)
       return currentChat?.messages || []
     }
   },
 
   actions: {
-    async loadChatHistories() {
+    async loadChatHistories(): Promise<void> {
       try {
         this.isLoading = true
         const histories = await chatService.getChatHistory()
@@ -39,7 +74,7 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    async createNewChat(title = null) {
+    async createNewChat(title: string | null = null): Promise<ChatHistory> {
       try {
         const chatTitle = title || `새로운 채팅 ${new Date().toLocaleString('ko-KR')}`
         const newChat = await chatService.createChat(chatTitle)
@@ -64,7 +99,7 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    async selectChat(chatId) {
+    async selectChat(chatId: number): Promise<void> {
       // 모든 채팅의 active 상태 변경
       this.chatHistories.forEach(chat => {
         chat.active = chat.id === chatId
@@ -77,7 +112,7 @@ export const useChatStore = defineStore('chat', {
       this.messages = selectedChat?.messages || []
     },
 
-    async sendMessage(content, files = []) {
+    async sendMessage(content: string, files: FileData[] = []): Promise<any> {
       if (!this.currentChatId) {
         // 현재 활성 채팅이 없으면 새로 생성
         const firstWords = content.slice(0, 30)
@@ -86,9 +121,9 @@ export const useChatStore = defineStore('chat', {
 
       try {
         // 사용자 메시지 추가
-        const userMessage = {
+        const userMessage: Message = {
           id: Date.now(),
-          type: 'user',
+          type: 'user' as const,
           content,
           files: files.map(file => file.name),
           timestamp: new Date()
@@ -97,12 +132,12 @@ export const useChatStore = defineStore('chat', {
         this.addMessage(userMessage)
         
         // 서버로 메시지 전송
-        const response = await chatService.sendMessage(this.currentChatId, content, files)
+        const response = await chatService.sendMessage(this.currentChatId!, content, files as FileUpload[])
         
         // AI 응답 메시지 추가
-        const aiMessage = {
+        const aiMessage: Message = {
           id: response.id,
-          type: 'assistant',
+          type: 'assistant' as const,
           content: response.content,
           timestamp: new Date(response.timestamp)
         }
@@ -114,9 +149,9 @@ export const useChatStore = defineStore('chat', {
         console.error('Failed to send message:', error)
         
         // 에러 메시지 추가
-        const errorMessage = {
+        const errorMessage: Message = {
           id: Date.now() + 1,
-          type: 'assistant',
+          type: 'assistant' as const,
           content: '죄송합니다. 메시지 전송 중 오류가 발생했습니다. 다시 시도해 주세요.',
           timestamp: new Date(),
           isError: true
@@ -127,7 +162,7 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    async streamMessage(content, files = []) {
+    async streamMessage(content: string, files: FileData[] = []): Promise<void> {
       if (!this.currentChatId) {
         const firstWords = content.slice(0, 30)
         await this.createNewChat(firstWords + (content.length > 30 ? '...' : ''))
@@ -135,9 +170,9 @@ export const useChatStore = defineStore('chat', {
 
       try {
         // 사용자 메시지 추가
-        const userMessage = {
+        const userMessage: Message = {
           id: Date.now(),
-          type: 'user',
+          type: 'user' as const,
           content,
           files: files.map(file => file.name),
           timestamp: new Date()
@@ -146,7 +181,7 @@ export const useChatStore = defineStore('chat', {
         this.addMessage(userMessage)
         
         // 스트리밍 메시지 초기화
-        const streamingMessage = {
+        const streamingMessage: Message = {
           id: Date.now() + 1,
           type: 'assistant',
           content: '',
@@ -159,7 +194,7 @@ export const useChatStore = defineStore('chat', {
         this.streamingMessage = streamingMessage
         
         // 스트리밍 시작
-        const eventSource = chatService.streamMessage(this.currentChatId, content)
+        const eventSource = chatService.streamMessage(this.currentChatId!, content)
         
         eventSource.onmessage = (event) => {
           const data = JSON.parse(event.data)
@@ -194,7 +229,7 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    addMessage(message) {
+    addMessage(message: Message): void {
       // 현재 채팅의 메시지 배열에 추가
       const currentChat = this.chatHistories.find(chat => chat.id === this.currentChatId)
       if (currentChat) {
@@ -205,7 +240,7 @@ export const useChatStore = defineStore('chat', {
       this.messages.push(message)
     },
 
-    async deleteChat(chatId) {
+    async deleteChat(chatId: number): Promise<void> {
       try {
         await chatService.deleteChat(chatId)
         
@@ -227,7 +262,7 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    async updateChatTitle(chatId, newTitle) {
+    async updateChatTitle(chatId: number, newTitle: string): Promise<void> {
       try {
         await chatService.updateChatTitle(chatId, newTitle)
         
@@ -243,7 +278,7 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    clearCurrentChat() {
+    clearCurrentChat(): void {
       this.currentChatId = null
       this.messages = []
       this.chatHistories.forEach(chat => chat.active = false)

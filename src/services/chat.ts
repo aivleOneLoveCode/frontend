@@ -1,4 +1,9 @@
-import api from './api.js'
+import api from './api'
+
+interface FileUpload extends File {
+  name: string
+}
+
 
 export const chatService = {
   // 채팅 기록 가져오기
@@ -8,13 +13,13 @@ export const chatService = {
   },
 
   // 특정 채팅 조회
-  async getChat(chatId) {
+  async getChat(chatId: number) {
     const response = await api.get(`/chats/${chatId}`)
     return response.data
   },
 
   // 새 채팅 생성
-  async createChat(title = null) {
+  async createChat(title: string | null = null) {
     const response = await api.post('/chats', { 
       title: title || `새로운 채팅 ${new Date().toLocaleString('ko-KR')}` 
     })
@@ -22,25 +27,25 @@ export const chatService = {
   },
 
   // 채팅 제목 수정
-  async updateChatTitle(chatId, title) {
+  async updateChatTitle(chatId: number, title: string) {
     const response = await api.patch(`/chats/${chatId}`, { title })
     return response.data
   },
 
   // 채팅 삭제
-  async deleteChat(chatId) {
+  async deleteChat(chatId: number) {
     const response = await api.delete(`/chats/${chatId}`)
     return response.data
   },
 
   // 메시지 전송
-  async sendMessage(chatId, content, files = []) {
+  async sendMessage(chatId: number, content: string, _files: FileUpload[] = []) {
     const formData = new FormData()
     formData.append('content', content)
-    formData.append('chatId', chatId)
+    formData.append('chatId', chatId.toString())
     
     // 파일 첨부
-    files.forEach(file => {
+    _files.forEach((file: File) => {
       formData.append('files', file)
     })
 
@@ -54,30 +59,25 @@ export const chatService = {
   },
 
   // 스트리밍 메시지 (Server-Sent Events)
-  streamMessage(chatId, content, files = []) {
-    const token = localStorage.getItem('auth_token')
+  streamMessage(chatId: number, content: string, _files: FileUpload[] = []) {
+    const _token = localStorage.getItem('auth_token')
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
     
     // URL 파라미터 구성
     const params = new URLSearchParams({
-      chatId,
+      chatId: chatId.toString(),
       content
     })
 
     const eventSource = new EventSource(
-      `${baseUrl}/messages/stream?${params}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
+      `${baseUrl}/messages/stream?${params}`
     )
 
     return eventSource
   },
 
   // WebSocket을 사용한 실시간 채팅 (선택사항)
-  connectWebSocket(chatId, onMessage, onError) {
+  connectWebSocket(chatId: number, onMessage: (data: any) => void, onError?: (error: any) => void) {
     const token = localStorage.getItem('auth_token')
     const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000/ws'
     
@@ -105,25 +105,25 @@ export const chatService = {
   },
 
   // 메시지 좋아요/싫어요
-  async rateMessage(messageId, rating) {
+  async rateMessage(messageId: number, rating: 'like' | 'dislike') {
     const response = await api.post(`/messages/${messageId}/rate`, { rating })
     return response.data
   },
 
   // 메시지 수정 (사용자 메시지만)
-  async editMessage(messageId, newContent) {
+  async editMessage(messageId: number, newContent: string) {
     const response = await api.patch(`/messages/${messageId}`, { content: newContent })
     return response.data
   },
 
   // 메시지 삭제
-  async deleteMessage(messageId) {
+  async deleteMessage(messageId: number) {
     const response = await api.delete(`/messages/${messageId}`)
     return response.data
   },
 
   // 채팅 검색
-  async searchChats(query) {
+  async searchChats(query: string) {
     const response = await api.get('/chats/search', {
       params: { q: query }
     })
@@ -131,16 +131,16 @@ export const chatService = {
   },
 
   // 메시지 검색
-  async searchMessages(query, chatId = null) {
+  async searchMessages(query: string, chatId: number | null = null) {
     const params = { q: query }
-    if (chatId) params.chatId = chatId
+    if (chatId) (params as any).chatId = chatId
 
     const response = await api.get('/messages/search', { params })
     return response.data
   },
 
   // 채팅 내보내기
-  async exportChat(chatId, format = 'json') {
+  async exportChat(chatId: number, format: 'json' | 'pdf' = 'json') {
     const response = await api.get(`/chats/${chatId}/export`, {
       params: { format },
       responseType: format === 'pdf' ? 'blob' : 'json'

@@ -82,7 +82,7 @@ export function useFileHandling() {
   const handleDragLeave = (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!e.currentTarget?.contains(e.relatedTarget as Node)) {
+    if (!(e.currentTarget as Element)?.contains(e.relatedTarget as Node)) {
       isDragging.value = false
     }
   }

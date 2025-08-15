@@ -131,7 +131,7 @@ const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
-const showDropdown = (itemId: number, type: string, event: Event) => {
+const showDropdown = (itemId: string | number, type: string, event: Event) => {
   event.stopPropagation()
   const menuKey = type + '-' + itemId
   
@@ -186,7 +186,7 @@ const closeBoardPanel = () => {
 }
 
 const goToLogin = () => {
-  window.location.href = 'login.html'
+  router.push('/login')
 }
 
 // 글로벌 이벤트
@@ -201,7 +201,7 @@ const closeDropdown = () => {
   activeMenu.value = null
 }
 
-let connectionInterval: NodeJS.Timeout
+let connectionInterval: number
 
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalKeydown)

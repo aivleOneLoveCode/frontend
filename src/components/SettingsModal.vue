@@ -109,6 +109,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { t, setLanguage, getCurrentLanguage } from '@/utils/i18n'
 
 interface User {
@@ -137,6 +138,8 @@ defineProps<{
 const emit = defineEmits<{
   close: []
 }>()
+
+const router = useRouter()
 
 // 사용자 정보
 const currentUser = ref<User | null>(null)
@@ -427,9 +430,9 @@ const logout = () => {
     console.log('로그아웃되었습니다.')
     
     closeModal()
-    
+
     // 로그인 페이지로 이동
-    window.location.href = 'login.html'
+    router.push('/login')
   }
 }
 

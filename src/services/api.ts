@@ -1,4 +1,18 @@
-import axios from 'axios'
+import axios, { InternalAxiosRequestConfig } from 'axios'
+
+interface RefreshTokenResponse {
+  access_token: string
+}
+
+declare global {
+  interface ImportMeta {
+    env: {
+      VITE_API_BASE_URL?: string
+      VITE_WS_BASE_URL?: string
+      DEV?: boolean
+    }
+  }
+}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -10,9 +24,9 @@ const api = axios.create({
 
 // 요청 인터셉터 (토큰 자동 추가)
 api.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('auth_token')
-    if (token) {
+    if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
     
@@ -39,7 +53,7 @@ api.interceptors.response.use(
     
     return response
   },
-  async (error) => {
+  async (error: any) => {
     const originalRequest = error.config
 
     // 개발 환경에서 에러 로그 출력
@@ -55,7 +69,7 @@ api.interceptors.response.use(
         // 토큰 갱신 시도
         const refreshToken = localStorage.getItem('refresh_token')
         if (refreshToken) {
-          const response = await api.post('/auth/refresh', { refresh_token: refreshToken })
+          const response = await api.post<RefreshTokenResponse>('/auth/refresh', { refresh_token: refreshToken })
           const { access_token } = response.data
           
           localStorage.setItem('auth_token', access_token)

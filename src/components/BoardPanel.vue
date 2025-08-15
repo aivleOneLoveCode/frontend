@@ -180,7 +180,7 @@
                         <line x1="12" y1="15" x2="12" y2="3"/>
                       </svg>
                       <p>JSON 파일을 선택하거나 여기에 드래그하세요</p>
-                      <button type="button" class="file-select-btn" @click="$refs.fileInput.click()">
+                      <button type="button" class="file-select-btn" @click="fileInput?.click()">
                         파일 선택
                       </button>
                     </div>
@@ -301,7 +301,8 @@ interface Emits {
   (e: 'close'): void
 }
 
-const props = defineProps<Props>()
+// Props are used directly in template
+defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // 상태
@@ -363,86 +364,6 @@ const posts = ref<Post[]>([
     createdAt: new Date('2024-01-11'),
     views: 41
   },
-  {
-    id: 6,
-    title: 'Pinia 상태 관리 패턴',
-    content: 'Pinia를 사용한 Vue.js 애플리케이션의 상태 관리 패턴과 모범 사례를 소개합니다.',
-    author: '상태관리전문가',
-    createdAt: new Date('2024-01-10'),
-    views: 38
-  },
-  {
-    id: 7,
-    title: 'Vue Router 고급 라우팅',
-    content: 'Vue Router의 고급 기능을 활용한 복잡한 라우팅 구조와 네비게이션 가드를 구현하는 방법을 설명합니다.',
-    author: '라우팅전문가',
-    createdAt: new Date('2024-01-09'),
-    views: 33
-  },
-  {
-    id: 8,
-    title: 'CSS Grid와 Flexbox 활용',
-    content: 'CSS Grid와 Flexbox를 활용한 반응형 레이아웃 구현 방법과 실용적인 예제를 제공합니다.',
-    author: 'CSS전문가',
-    createdAt: new Date('2024-01-08'),
-    views: 47
-  },
-  {
-    id: 9,
-    title: 'JavaScript 비동기 프로그래밍',
-    content: 'JavaScript의 비동기 프로그래밍 패턴과 Promise, async/await를 활용한 효율적인 코드 작성법을 다룹니다.',
-    author: 'JS전문가',
-    createdAt: new Date('2024-01-07'),
-    views: 52
-  },
-  {
-    id: 10,
-    title: 'Git 워크플로우 전략',
-    content: '팀 개발을 위한 Git 워크플로우 전략과 브랜치 관리 방법을 소개합니다.',
-    author: 'Git전문가',
-    createdAt: new Date('2024-01-06'),
-    views: 39
-  },
-  {
-    id: 11,
-    title: 'Docker 컨테이너 배포',
-    content: 'Docker를 사용한 애플리케이션 컨테이너화와 배포 자동화 방법을 설명합니다.',
-    author: 'DevOps전문가',
-    createdAt: new Date('2024-01-05'),
-    views: 44
-  },
-  {
-    id: 12,
-    title: 'API 설계 원칙',
-    content: 'RESTful API 설계의 기본 원칙과 모범 사례를 소개합니다.',
-    author: 'API전문가',
-    createdAt: new Date('2024-01-04'),
-    views: 36
-  },
-  {
-    id: 13,
-    title: '데이터베이스 최적화 기법',
-    content: '데이터베이스 성능 최적화를 위한 인덱싱과 쿼리 튜닝 기법을 다룹니다.',
-    author: 'DB전문가',
-    createdAt: new Date('2024-01-03'),
-    views: 49
-  },
-  {
-    id: 14,
-    title: '보안 코딩 가이드',
-    content: '웹 애플리케이션 개발 시 주의해야 할 보안 취약점과 방어 기법을 설명합니다.',
-    author: '보안전문가',
-    createdAt: new Date('2024-01-02'),
-    views: 42
-  },
-  {
-    id: 15,
-    title: '성능 모니터링 도구',
-    content: '웹 애플리케이션의 성능을 모니터링하고 분석하는 다양한 도구와 방법을 소개합니다.',
-    author: '성능전문가',
-    createdAt: new Date('2024-01-01'),
-    views: 35
-  }
 ])
 
 // 계산된 속성

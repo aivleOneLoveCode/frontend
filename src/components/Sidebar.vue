@@ -239,6 +239,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import SettingsModal from './SettingsModal.vue'
 import HelpModal from './HelpModal.vue'
 import { useTranslation } from '@/utils/i18n'
@@ -248,7 +249,6 @@ import type { ChatHistoryItem } from '../types'
 const props = defineProps<{
   collapsed: boolean
   chatHistoryItems: ChatHistoryItem[]
-  activeMenu: string | null
 }>()
 
 const emit = defineEmits<{
@@ -262,17 +262,19 @@ const emit = defineEmits<{
   'delete-item': [id: number, type: string, folder?: Folder]
 }>()
 
+const router = useRouter()
+
 // 폴더 관리 composable
-const { folders, activeFolderId, saveFoldersToLocalStorage, loadFoldersFromLocalStorage, toggleFolder: toggleFolderComposable } = useFolderManagement()
+const { folders, saveFoldersToLocalStorage, loadFoldersFromLocalStorage, toggleFolder: toggleFolderComposable } = useFolderManagement()
 
 // 상태 관리 변수들
 const copiedWorkflow = ref<Workflow | null>(null)
-const isDragging = ref(false)
 
 // 사용자 관련 상태
 const currentUser = ref<any>(null)
 const showSettingsModal = ref(false)
 const showHelpModal = ref(false)
+const activeMenu = ref<string | null>(null)
 
 // 다국어 지원
 const { t } = useTranslation()
@@ -370,7 +372,7 @@ const selectFolderWorkflow = (workflow: Workflow, folder: Folder) => {
   emit('select-workflow', workflow)
 }
 
-const renameItem = (item: any, type: string, folder?: Folder) => {
+const renameItem = (item: any, _type: string, _folder?: Folder) => {
   const newName = prompt(t('enter_new_name', { current: item.title }), item.title)
   if (newName && newName.trim()) {
     item.title = newName.trim()
@@ -521,7 +523,7 @@ const logout = () => {
     console.log('로그아웃되었습니다.')
     
     // 로그인 페이지로 이동
-    window.location.href = 'login.html'
+    router.push('/login')
   }
   activeMenu.value = null
 }

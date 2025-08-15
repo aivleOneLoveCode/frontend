@@ -70,7 +70,7 @@
         📁 {{ t('drop_files_here') }}
       </div>
       <input type="file" @change="$emit('handle-file-upload', $event)" style="display: none;" ref="fileInput" multiple>
-      <button class="file-upload-btn" :title="t('file_upload')" @click="$refs.fileInput?.click()">
+      <button class="file-upload-btn" :title="t('file_upload')" @click="fileInput?.click()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
         </svg>
@@ -101,9 +101,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, nextTick, watch, onMounted } from 'vue'
 import type { Message } from '../types'
 import { useTranslation } from '@/utils/i18n'
+
+const fileInput = ref<HTMLInputElement>()
 
 interface ExampleWorkflow {
   title: string
@@ -138,7 +140,6 @@ const emit = defineEmits<{
   'remove-uploaded-file': [index: number]
 }>()
 
-const fileInput = ref<HTMLInputElement>()
 const textareaRef = ref<HTMLTextAreaElement>()
 const { t } = useTranslation()
 

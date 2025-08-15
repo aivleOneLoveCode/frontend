@@ -1,8 +1,44 @@
 import { defineStore } from 'pinia'
 import { workflowService } from '@/services/workflow'
 
+interface WorkflowNode {
+  id: string
+  name: string
+  type: string
+}
+
+interface WorkflowJsonData {
+  name: string
+  nodes: WorkflowNode[]
+}
+
+interface Workflow {
+  id: number
+  title: string
+  active: boolean
+  description?: string
+  n8nUrl?: string
+  jsonData?: WorkflowJsonData
+  isCustom: boolean
+}
+
+interface WorkflowState {
+  workflows: Workflow[]
+  selectedWorkflow: Workflow | null
+  isWorkflowPanelOpen: boolean
+  workflowPanelWidth: number
+  isLoading: boolean
+}
+
+interface WorkflowData {
+  title: string
+  description?: string
+  jsonData?: WorkflowJsonData
+  isCustom?: boolean
+}
+
 export const useWorkflowStore = defineStore('workflow', {
-  state: () => ({
+  state: (): WorkflowState => ({
     workflows: [],
     selectedWorkflow: null,
     isWorkflowPanelOpen: false,
@@ -11,13 +47,13 @@ export const useWorkflowStore = defineStore('workflow', {
   }),
 
   getters: {
-    customWorkflows: (state) => state.workflows.filter(w => w.isCustom),
-    defaultWorkflows: (state) => state.workflows.filter(w => !w.isCustom),
-    activeWorkflow: (state) => state.workflows.find(w => w.active)
+    customWorkflows: (state): Workflow[] => state.workflows.filter(w => w.isCustom),
+    defaultWorkflows: (state): Workflow[] => state.workflows.filter(w => !w.isCustom),
+    activeWorkflow: (state): Workflow | undefined => state.workflows.find(w => w.active)
   },
 
   actions: {
-    async loadWorkflows() {
+    async loadWorkflows(): Promise<void> {
       try {
         this.isLoading = true
         
@@ -96,7 +132,7 @@ export const useWorkflowStore = defineStore('workflow', {
       }
     },
 
-    async createWorkflow(workflowData) {
+    async createWorkflow(workflowData: WorkflowData): Promise<Workflow> {
       try {
         const newWorkflow = await workflowService.createWorkflow(workflowData)
         
@@ -117,7 +153,7 @@ export const useWorkflowStore = defineStore('workflow', {
       }
     },
 
-    async updateWorkflow(workflowId, updateData) {
+    async updateWorkflow(workflowId: number, updateData: Partial<WorkflowData>): Promise<Workflow> {
       try {
         const updatedWorkflow = await workflowService.updateWorkflow(workflowId, updateData)
         
@@ -134,7 +170,7 @@ export const useWorkflowStore = defineStore('workflow', {
       }
     },
 
-    async deleteWorkflow(workflowId) {
+    async deleteWorkflow(workflowId: number): Promise<void> {
       try {
         await workflowService.deleteWorkflow(workflowId)
         
@@ -156,7 +192,7 @@ export const useWorkflowStore = defineStore('workflow', {
       }
     },
 
-    selectWorkflow(workflow) {
+    selectWorkflow(workflow: Workflow): void {
       // 모든 워크플로우의 active 상태를 false로 변경
       this.workflows.forEach(w => w.active = false)
       
@@ -168,16 +204,16 @@ export const useWorkflowStore = defineStore('workflow', {
       this.isWorkflowPanelOpen = true
     },
 
-    closeWorkflowPanel() {
+    closeWorkflowPanel(): void {
       this.isWorkflowPanelOpen = false
       this.selectedWorkflow = null
     },
 
-    setWorkflowPanelWidth(width) {
+    setWorkflowPanelWidth(width: number): void {
       this.workflowPanelWidth = Math.max(300, Math.min(800, width))
     },
 
-    async uploadWorkflowFromJson(jsonData) {
+    async uploadWorkflowFromJson(jsonData: WorkflowJsonData): Promise<Workflow> {
       try {
         // JSON 데이터에서 워크플로우 정보 추출
         const workflowTitle = jsonData.name || '업로드된 워크플로우'
@@ -198,7 +234,7 @@ export const useWorkflowStore = defineStore('workflow', {
       }
     },
 
-    parseJsonToWorkflow(jsonString) {
+    parseJsonToWorkflow(jsonString: string): WorkflowJsonData {
       try {
         const jsonData = JSON.parse(jsonString)
         

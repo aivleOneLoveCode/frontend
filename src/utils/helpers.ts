@@ -1,10 +1,10 @@
 // 날짜 포맷팅
-export const formatDate = (date) => {
+export const formatDate = (date: string | Date | null): string => {
   if (!date) return ''
   
   const d = new Date(date)
   const now = new Date()
-  const diffTime = now - d
+  const diffTime = now.getTime() - d.getTime()
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
   
   if (diffDays === 0) {
@@ -26,7 +26,7 @@ export const formatDate = (date) => {
 }
 
 // 파일 크기 포맷팅
-export const formatFileSize = (bytes) => {
+export const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes'
   
   const k = 1024
@@ -37,20 +37,33 @@ export const formatFileSize = (bytes) => {
 }
 
 // 텍스트 줄임 처리
-export const truncateText = (text, maxLength = 100) => {
+export const truncateText = (text: string | null, maxLength: number = 100): string => {
   if (!text) return ''
   if (text.length <= maxLength) return text
   return text.substring(0, maxLength) + '...'
 }
 
 // 이메일 유효성 검사
-export const validateEmail = (email) => {
+export const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
+interface PasswordStrength {
+  score: number
+  level: 'none' | 'weak' | 'medium' | 'strong'
+  message: string
+  checks?: {
+    length: boolean
+    lowercase: boolean
+    uppercase: boolean
+    numbers: boolean
+    symbols: boolean
+  }
+}
+
 // 비밀번호 강도 검사
-export const getPasswordStrength = (password) => {
+export const getPasswordStrength = (password: string): PasswordStrength => {
   if (!password) return { score: 0, level: 'none', message: '' }
   
   let score = 0
@@ -66,7 +79,8 @@ export const getPasswordStrength = (password) => {
     if (check) score++
   })
   
-  let level, message
+  let level: 'weak' | 'medium' | 'strong'
+  let message: string
   if (score <= 2) {
     level = 'weak'
     message = '약함'
@@ -82,10 +96,10 @@ export const getPasswordStrength = (password) => {
 }
 
 // 디바운스 함수
-export const debounce = (func, wait) => {
-  let timeout
+export const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): ((...args: Parameters<T>) => void) => {
+  let timeout: number | undefined
   return function executedFunction(...args) {
-    const later = () => {
+    const later = (): void => {
       clearTimeout(timeout)
       func(...args)
     }
@@ -95,13 +109,11 @@ export const debounce = (func, wait) => {
 }
 
 // 쓰로틀 함수
-export const throttle = (func, limit) => {
-  let inThrottle
-  return function() {
-    const args = arguments
-    const context = this
+export const throttle = <T extends (...args: any[]) => any>(func: T, limit: number): ((...args: Parameters<T>) => void) => {
+  let inThrottle: boolean = false
+  return function(this: any, ...args: Parameters<T>) {
     if (!inThrottle) {
-      func.apply(context, args)
+      func.apply(this, args)
       inThrottle = true
       setTimeout(() => inThrottle = false, limit)
     }
@@ -110,7 +122,7 @@ export const throttle = (func, limit) => {
 
 // 로컬 스토리지 헬퍼
 export const storage = {
-  get(key, defaultValue = null) {
+  get<T = any>(key: string, defaultValue: T | null = null): T | null {
     try {
       const item = localStorage.getItem(key)
       return item ? JSON.parse(item) : defaultValue
@@ -120,7 +132,7 @@ export const storage = {
     }
   },
   
-  set(key, value) {
+  set<T = any>(key: string, value: T): boolean {
     try {
       localStorage.setItem(key, JSON.stringify(value))
       return true
@@ -130,7 +142,7 @@ export const storage = {
     }
   },
   
-  remove(key) {
+  remove(key: string): boolean {
     try {
       localStorage.removeItem(key)
       return true
@@ -140,7 +152,7 @@ export const storage = {
     }
   },
   
-  clear() {
+  clear(): boolean {
     try {
       localStorage.clear()
       return true
@@ -152,8 +164,8 @@ export const storage = {
 }
 
 // URL 파라미터 추출
-export const getUrlParams = () => {
-  const params = {}
+export const getUrlParams = (): Record<string, string> => {
+  const params: Record<string, string> = {}
   const searchParams = new URLSearchParams(window.location.search)
   
   for (const [key, value] of searchParams) {
@@ -164,7 +176,7 @@ export const getUrlParams = () => {
 }
 
 // 파일 다운로드
-export const downloadFile = (data, filename, type = 'application/json') => {
+export const downloadFile = (data: string | Blob, filename: string, type: string = 'application/json'): void => {
   const blob = new Blob([data], { type })
   const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -179,14 +191,18 @@ export const downloadFile = (data, filename, type = 'application/json') => {
 }
 
 // 파일 읽기 (JSON)
-export const readJsonFile = (file) => {
+export const readJsonFile = (file: File): Promise<any> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     
     reader.onload = (event) => {
       try {
-        const jsonData = JSON.parse(event.target.result)
-        resolve(jsonData)
+        if (event.target?.result && typeof event.target.result === 'string') {
+          const jsonData = JSON.parse(event.target.result)
+          resolve(jsonData)
+        } else {
+          reject(new Error('파일을 읽을 수 없습니다.'))
+        }
       } catch (error) {
         reject(new Error('유효하지 않은 JSON 파일입니다.'))
       }
@@ -201,7 +217,7 @@ export const readJsonFile = (file) => {
 }
 
 // 클립보드에 복사
-export const copyToClipboard = async (text) => {
+export const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
     await navigator.clipboard.writeText(text)
     return true
@@ -230,7 +246,7 @@ export const copyToClipboard = async (text) => {
 // 색상 유틸리티
 export const colors = {
   // HEX를 RGB로 변환
-  hexToRgb(hex) {
+  hexToRgb(hex: string): { r: number; g: number; b: number } | null {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
     return result ? {
       r: parseInt(result[1], 16),
@@ -240,25 +256,25 @@ export const colors = {
   },
   
   // RGB를 HEX로 변환
-  rgbToHex(r, g, b) {
+  rgbToHex(r: number, g: number, b: number): string {
     return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
   },
   
   // 색상의 밝기 계산
-  getBrightness(hex) {
+  getBrightness(hex: string): number {
     const rgb = this.hexToRgb(hex)
     if (!rgb) return 0
     return (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000
   },
   
   // 밝은 색상인지 판단
-  isLight(hex) {
+  isLight(hex: string): boolean {
     return this.getBrightness(hex) > 127
   }
 }
 
 // 에러 처리 유틸리티
-export const handleError = (error, defaultMessage = '오류가 발생했습니다.') => {
+export const handleError = (error: any, defaultMessage = '오류가 발생했습니다.'): string => {
   console.error('Error:', error)
   
   if (error.response) {
@@ -274,24 +290,25 @@ export const handleError = (error, defaultMessage = '오류가 발생했습니�
 }
 
 // 랜덤 ID 생성
-export const generateId = (prefix = '') => {
+export const generateId = (prefix = ''): string => {
   const timestamp = Date.now()
   const random = Math.random().toString(36).substring(2, 8)
   return `${prefix}${timestamp}-${random}`
 }
 
 // 객체 깊은 복사
-export const deepClone = (obj) => {
+export const deepClone = <T>(obj: T): T => {
   if (obj === null || typeof obj !== 'object') return obj
-  if (obj instanceof Date) return new Date(obj.getTime())
-  if (obj instanceof Array) return obj.map(item => deepClone(item))
+  if (obj instanceof Date) return new Date(obj.getTime()) as T
+  if (obj instanceof Array) return obj.map(item => deepClone(item)) as T
   if (typeof obj === 'object') {
-    const clonedObj = {}
+    const clonedObj: Record<string, any> = {}
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
-        clonedObj[key] = deepClone(obj[key])
+        clonedObj[key] = deepClone((obj as any)[key])
       }
     }
-    return clonedObj
+    return clonedObj as T
   }
+  return obj
 }

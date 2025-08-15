@@ -249,274 +249,238 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { validateEmail, getPasswordStrength } from '@/utils/helpers'
 
-export default {
-  name: 'LoginView',
-  setup() {
-    const router = useRouter()
-    const authStore = useAuthStore()
-    
-    const currentTab = ref('login')
+const router = useRouter()
+const authStore = useAuthStore()
 
-    // 폼 데이터
-    const loginForm = ref({
-      email: '',
-      password: ''
-    })
+const currentTab = ref<'login' | 'register' | 'forgot'>('login')
 
-    const registerForm = ref({
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: ''
-    })
+// 폼 데이터
+const loginForm = ref({
+  email: '',
+  password: ''
+})
 
-    const forgotForm = ref({
-      email: ''
-    })
+const registerForm = ref({
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: ''
+})
 
-    // 검증 상태
-    const loginValidation = ref({
-      email: { valid: false, error: false, message: '' },
-      password: { valid: false, error: false, message: '' }
-    })
+const forgotForm = ref({
+  email: ''
+})
 
-    const registerValidation = ref({
-      name: { valid: false, error: false, message: '' },
-      email: { valid: false, error: false, message: '' },
-      password: { valid: false, error: false, message: '' },
-      confirmPassword: { valid: false, error: false, message: '' }
-    })
+// 검증 상태
+const loginValidation = ref({
+  email: { valid: false, error: false, message: '' },
+  password: { valid: false, error: false, message: '' }
+})
 
-    const forgotValidation = ref({
-      email: { valid: false, error: false, message: '' }
-    })
+const registerValidation = ref({
+  name: { valid: false, error: false, message: '' },
+  email: { valid: false, error: false, message: '' },
+  password: { valid: false, error: false, message: '' },
+  confirmPassword: { valid: false, error: false, message: '' }
+})
 
-    // Computed Properties
-    const isLoginFormValid = computed(() => {
-      return loginValidation.value.email.valid && 
-             loginValidation.value.password.valid
-    })
+const forgotValidation = ref({
+  email: { valid: false, error: false, message: '' }
+})
 
-    const isRegisterFormValid = computed(() => {
-      return registerValidation.value.name.valid && 
-             registerValidation.value.email.valid && 
-             registerValidation.value.password.valid && 
-             registerValidation.value.confirmPassword.valid
-    })
+// Computed Properties
+const isLoginFormValid = computed(() => {
+  return loginValidation.value.email.valid && 
+         loginValidation.value.password.valid
+})
 
-    const isForgotFormValid = computed(() => {
-      return forgotValidation.value.email.valid
-    })
+const isRegisterFormValid = computed(() => {
+  return registerValidation.value.name.valid && 
+         registerValidation.value.email.valid && 
+         registerValidation.value.password.valid && 
+         registerValidation.value.confirmPassword.valid
+})
 
-    const passwordStrength = computed(() => {
-      return getPasswordStrength(registerForm.value.password)
-    })
+const isForgotFormValid = computed(() => {
+  return forgotValidation.value.email.valid
+})
 
-    const passwordStrengthClass = computed(() => {
-      const strength = passwordStrength.value.score
-      if (strength <= 2) return 'password-strength-weak'
-      if (strength <= 3) return 'password-strength-medium'
-      return 'password-strength-strong'
-    })
+const passwordStrength = computed(() => {
+  return getPasswordStrength(registerForm.value.password)
+})
 
-    // 유틸리티 함수들
-    const validateName = (name) => {
-      return name && name.trim().length >= 2
-    }
+const passwordStrengthClass = computed(() => {
+  const strength = passwordStrength.value.score
+  if (strength <= 2) return 'password-strength-weak'
+  if (strength <= 3) return 'password-strength-medium'
+  return 'password-strength-strong'
+})
 
-    const validatePassword = (password) => {
-      return password && password.length >= 8
-    }
+// 유틸리티 함수들
+const validateName = (name: string) => {
+  return name && name.trim().length >= 2
+}
 
-    // 필드 검증 함수
-    const validateField = (formType, fieldName) => {
-      let validation
-      let value
+const validatePassword = (password: string) => {
+  return password && password.length >= 8
+}
 
-      switch (formType) {
-        case 'login':
-          validation = loginValidation.value
-          value = loginForm.value[fieldName]
-          break
-        case 'register':
-          validation = registerValidation.value
-          value = registerForm.value[fieldName]
-          break
-        case 'forgot':
-          validation = forgotValidation.value
-          value = forgotForm.value[fieldName]
-          break
-      }
+// 필드 검증 함수
+const validateField = (formType: 'login' | 'register' | 'forgot', fieldName: string) => {
+  let validation: any
+  let value: string
 
-      if (!validation || !validation[fieldName]) return
+  switch (formType) {
+    case 'login':
+      validation = loginValidation.value
+      value = loginForm.value[fieldName as keyof typeof loginForm.value]
+      break
+    case 'register':
+      validation = registerValidation.value
+      value = registerForm.value[fieldName as keyof typeof registerForm.value]
+      break
+    case 'forgot':
+      validation = forgotValidation.value
+      value = forgotForm.value[fieldName as keyof typeof forgotForm.value]
+      break
+  }
 
-      const field = validation[fieldName]
-      field.error = false
-      field.valid = false
-      field.message = ''
+  if (!validation || !validation[fieldName]) return
 
-      if (!value || value.trim() === '') {
+  const field = validation[fieldName]
+  field.error = false
+  field.valid = false
+  field.message = ''
+
+  if (!value || value.trim() === '') {
+    field.error = true
+    field.message = '필수 입력 항목입니다.'
+    return
+  }
+
+  switch (fieldName) {
+    case 'email':
+      if (!validateEmail(value)) {
         field.error = true
-        field.message = '필수 입력 항목입니다.'
-        return
+        field.message = '올바른 이메일 형식이 아닙니다.'
+      } else {
+        field.valid = true
+        field.message = ''
       }
+      break
 
-      switch (fieldName) {
-        case 'email':
-          if (!validateEmail(value)) {
-            field.error = true
-            field.message = '올바른 이메일 형식이 아닙니다.'
+    case 'name':
+      if (!validateName(value)) {
+        field.error = true
+        field.message = '이름은 2자 이상이어야 합니다.'
+      } else {
+        field.valid = true
+        field.message = ''
+      }
+      break
+
+    case 'password':
+      if (!validatePassword(value)) {
+        field.error = true
+        field.message = '비밀번호는 8자 이상이어야 합니다.'
+      } else {
+        field.valid = true
+        if (formType === 'register') {
+          const strength = passwordStrength.value.score
+          if (strength <= 2) {
+            field.message = '약한 비밀번호입니다.'
+          } else if (strength <= 3) {
+            field.message = '보통 비밀번호입니다.'
           } else {
-            field.valid = true
-            field.message = ''
+            field.message = '강한 비밀번호입니다.'
           }
-          break
-
-        case 'name':
-          if (!validateName(value)) {
-            field.error = true
-            field.message = '이름은 2자 이상이어야 합니다.'
-          } else {
-            field.valid = true
-            field.message = ''
-          }
-          break
-
-        case 'password':
-          if (!validatePassword(value)) {
-            field.error = true
-            field.message = '비밀번호는 8자 이상이어야 합니다.'
-          } else {
-            field.valid = true
-            if (formType === 'register') {
-              const strength = passwordStrength.value.score
-              if (strength <= 2) {
-                field.message = '약한 비밀번호입니다.'
-              } else if (strength <= 3) {
-                field.message = '보통 비밀번호입니다.'
-              } else {
-                field.message = '강한 비밀번호입니다.'
-              }
-            }
-          }
-          break
-
-        case 'confirmPassword':
-          if (value !== registerForm.value.password) {
-            field.error = true
-            field.message = '비밀번호가 일치하지 않습니다.'
-          } else {
-            field.valid = true
-            field.message = '비밀번호가 일치합니다.'
-          }
-          break
+        }
       }
-    }
+      break
 
-    // Watchers
-    watch(() => registerForm.value.password, () => {
-      if (registerForm.value.confirmPassword) {
-        validateField('register', 'confirmPassword')
+    case 'confirmPassword':
+      if (value !== registerForm.value.password) {
+        field.error = true
+        field.message = '비밀번호가 일치하지 않습니다.'
+      } else {
+        field.valid = true
+        field.message = '비밀번호가 일치합니다.'
       }
-    })
-
-    // 탭 변경
-    const setTab = (tab) => {
-      currentTab.value = tab
-      authStore.clearMessages()
-    }
-
-    // 로그인 처리
-    const handleLogin = async () => {
-      try {
-        await authStore.login(loginForm.value.email, loginForm.value.password)
-        router.push('/')
-      } catch (error) {
-        console.error('Login failed:', error)
-      }
-    }
-
-    // 회원가입 처리
-    const handleRegister = async () => {
-      try {
-        await authStore.register({
-          name: registerForm.value.name,
-          email: registerForm.value.email,
-          password: registerForm.value.password,
-          confirmPassword: registerForm.value.confirmPassword
-        })
-        
-        // 성공 시 2초 후 로그인 탭으로 전환
-        setTimeout(() => {
-          setTab('login')
-          registerForm.value = { name: '', email: '', password: '', confirmPassword: '' }
-        }, 2000)
-      } catch (error) {
-        console.error('Registration failed:', error)
-      }
-    }
-
-    // 비밀번호 찾기 처리
-    const handleForgotPassword = async () => {
-      try {
-        await authStore.forgotPassword(forgotForm.value.email)
-        forgotForm.value.email = ''
-      } catch (error) {
-        console.error('Forgot password failed:', error)
-      }
-    }
-
-    // 소셜 로그인 처리
-    const handleSocialLogin = (provider) => {
-      console.log(`${provider} 로그인 요청`)
-      // 실제로는 OAuth 플로우 시작
-      alert(`${provider} 로그인 기능은 준비 중입니다.`)
-    }
-
-    // 메인 페이지로 돌아가기
-    const goBack = () => {
-      router.push('/')
-    }
-
-    return {
-      // 반응형 데이터
-      currentTab,
-      loginForm,
-      registerForm,
-      forgotForm,
-      
-      // 검증 상태
-      loginValidation,
-      registerValidation,
-      forgotValidation,
-      
-      // Auth Store
-      authStore,
-      
-      // Computed Properties
-      isLoginFormValid,
-      isRegisterFormValid,
-      isForgotFormValid,
-      passwordStrength,
-      passwordStrengthClass,
-      
-      // 메서드
-      setTab,
-      validateField,
-      handleLogin,
-      handleRegister,
-      handleForgotPassword,
-      handleSocialLogin,
-      goBack
-    }
+      break
   }
 }
+
+// Watchers
+watch(() => registerForm.value.password, () => {
+  if (registerForm.value.confirmPassword) {
+    validateField('register', 'confirmPassword')
+  }
+})
+
+// 탭 변경
+const setTab = (tab: 'login' | 'register' | 'forgot') => {
+  currentTab.value = tab
+  authStore.clearMessages()
+}
+
+// 로그인 처리
+const handleLogin = async () => {
+  try {
+    await authStore.login(loginForm.value.email, loginForm.value.password)
+    router.push('/')
+  } catch (error) {
+    console.error('Login failed:', error)
+  }
+}
+
+// 회원가입 처리
+const handleRegister = async () => {
+  try {
+    await authStore.register({
+      name: registerForm.value.name,
+      email: registerForm.value.email,
+      password: registerForm.value.password,
+      confirmPassword: registerForm.value.confirmPassword
+    })
+    
+    // 성공 시 2초 후 로그인 탭으로 전환
+    setTimeout(() => {
+      setTab('login')
+      registerForm.value = { name: '', email: '', password: '', confirmPassword: '' }
+    }, 2000)
+  } catch (error) {
+    console.error('Registration failed:', error)
+  }
+}
+
+// 비밀번호 찾기 처리
+const handleForgotPassword = async () => {
+  try {
+    await authStore.forgotPassword(forgotForm.value.email)
+    forgotForm.value.email = ''
+  } catch (error) {
+    console.error('Forgot password failed:', error)
+  }
+}
+
+// 소셜 로그인 처리
+const handleSocialLogin = (provider: string) => {
+  console.log(`${provider} 로그인 요청`)
+  // 실제로는 OAuth 플로우 시작
+  alert(`${provider} 로그인 기능은 준비 중입니다.`)
+}
+
+// 메인 페이지로 돌아가기
+const goBack = () => {
+  router.push('/')
+}
+
 </script>
 
 <style scoped>

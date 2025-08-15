@@ -4,7 +4,7 @@
   "description": "DA-ZZANY Vue.js 3 워크플로우 관리 애플리케이션",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 5173",
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
     "serve": "vite preview --port 3000",

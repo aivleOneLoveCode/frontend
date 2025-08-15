@@ -1,4 +1,64 @@
-import api from './api.js'
+import api from './api'
+
+interface WorkflowNode {
+  id: string
+  name: string
+  type: string
+  position?: [number, number]
+  parameters?: Record<string, any>
+}
+
+interface WorkflowConnection {
+  [nodeId: string]: {
+    [outputIndex: string]: Array<{
+      node: string
+      type: string
+      index: number
+    }>
+  }
+}
+
+interface WorkflowJsonData {
+  name: string
+  description?: string
+  nodes: WorkflowNode[]
+  connections?: WorkflowConnection
+  version?: string
+}
+
+interface WorkflowData {
+  title: string
+  description?: string
+  jsonData?: WorkflowJsonData
+  n8nUrl?: string
+  isCustom?: boolean
+  variables?: Record<string, any>
+}
+
+interface ShareSettings {
+  isPublic: boolean
+  sharedUsers?: string[]
+  permissions?: 'read' | 'write' | 'admin'
+}
+
+// This interface may be used in future implementations
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface ExecutionData {
+  input_data?: Record<string, any>
+}
+
+interface ValidationResult {
+  valid: boolean
+  message: string
+}
+
+interface ParsedWorkflow {
+  title: string
+  description: string
+  jsonData: WorkflowJsonData
+  nodeCount: number
+  version: string
+}
 
 export const workflowService = {
   // 모든 워크플로우 가져오기
@@ -14,13 +74,13 @@ export const workflowService = {
   },
 
   // 특정 워크플로우 조회
-  async getWorkflow(workflowId) {
+  async getWorkflow(workflowId: number) {
     const response = await api.get(`/workflows/${workflowId}`)
     return response.data
   },
 
   // 새 워크플로우 생성
-  async createWorkflow(workflowData) {
+  async createWorkflow(workflowData: WorkflowData) {
     const response = await api.post('/workflows', {
       title: workflowData.title,
       description: workflowData.description,
@@ -32,7 +92,7 @@ export const workflowService = {
   },
 
   // 워크플로우 수정
-  async updateWorkflow(workflowId, updateData) {
+  async updateWorkflow(workflowId: number, updateData: Partial<WorkflowData>) {
     const response = await api.patch(`/workflows/${workflowId}`, {
       title: updateData.title,
       description: updateData.description,
@@ -43,13 +103,13 @@ export const workflowService = {
   },
 
   // 워크플로우 삭제
-  async deleteWorkflow(workflowId) {
+  async deleteWorkflow(workflowId: number) {
     const response = await api.delete(`/workflows/${workflowId}`)
     return response.data
   },
 
   // 워크플로우 실행
-  async executeWorkflow(workflowId, inputData = {}) {
+  async executeWorkflow(workflowId: number, inputData: Record<string, any> = {}) {
     const response = await api.post(`/workflows/${workflowId}/execute`, {
       input_data: inputData
     })
@@ -57,13 +117,13 @@ export const workflowService = {
   },
 
   // 워크플로우 실행 상태 조회
-  async getExecutionStatus(executionId) {
+  async getExecutionStatus(executionId: string) {
     const response = await api.get(`/workflows/executions/${executionId}`)
     return response.data
   },
 
   // 워크플로우 실행 기록
-  async getExecutionHistory(workflowId, page = 1, limit = 20) {
+  async getExecutionHistory(workflowId: number, page: number = 1, limit: number = 20) {
     const response = await api.get(`/workflows/${workflowId}/executions`, {
       params: { page, limit }
     })
@@ -71,7 +131,7 @@ export const workflowService = {
   },
 
   // JSON 파일로 워크플로우 업로드
-  async uploadWorkflowFromJson(jsonData) {
+  async uploadWorkflowFromJson(jsonData: WorkflowJsonData) {
     const response = await api.post('/workflows/upload', {
       json_data: jsonData
     })
@@ -79,13 +139,13 @@ export const workflowService = {
   },
 
   // 워크플로우 JSON 내보내기
-  async exportWorkflow(workflowId) {
+  async exportWorkflow(workflowId: number) {
     const response = await api.get(`/workflows/${workflowId}/export`)
     return response.data
   },
 
   // 워크플로우 복제
-  async cloneWorkflow(workflowId, newTitle = null) {
+  async cloneWorkflow(workflowId: number, newTitle: string | null = null) {
     const response = await api.post(`/workflows/${workflowId}/clone`, {
       title: newTitle
     })
@@ -93,7 +153,7 @@ export const workflowService = {
   },
 
   // 워크플로우 공유
-  async shareWorkflow(workflowId, shareSettings) {
+  async shareWorkflow(workflowId: number, shareSettings: ShareSettings) {
     const response = await api.post(`/workflows/${workflowId}/share`, {
       is_public: shareSettings.isPublic,
       shared_users: shareSettings.sharedUsers || [],
@@ -109,7 +169,7 @@ export const workflowService = {
   },
 
   // 워크플로우 검색
-  async searchWorkflows(query) {
+  async searchWorkflows(query: string) {
     const response = await api.get('/workflows/search', {
       params: { q: query }
     })
@@ -117,7 +177,7 @@ export const workflowService = {
   },
 
   // 워크플로우 카테고리별 조회
-  async getWorkflowsByCategory(category) {
+  async getWorkflowsByCategory(category: string) {
     const response = await api.get('/workflows', {
       params: { category }
     })
@@ -131,7 +191,7 @@ export const workflowService = {
   },
 
   // 템플릿에서 워크플로우 생성
-  async createFromTemplate(templateId, customData = {}) {
+  async createFromTemplate(templateId: number, customData: Partial<WorkflowData> = {}) {
     const response = await api.post(`/workflows/templates/${templateId}/create`, {
       title: customData.title,
       description: customData.description,
@@ -141,13 +201,13 @@ export const workflowService = {
   },
 
   // 워크플로우 통계
-  async getWorkflowStats(workflowId) {
+  async getWorkflowStats(workflowId: number) {
     const response = await api.get(`/workflows/${workflowId}/stats`)
     return response.data
   },
 
   // n8n 워크플로우 유효성 검증
-  validateN8nWorkflow(jsonData) {
+  validateN8nWorkflow(jsonData: WorkflowJsonData): ValidationResult {
     try {
       // 기본적인 n8n 워크플로우 구조 검증
       if (!jsonData.name) {
@@ -187,12 +247,12 @@ export const workflowService = {
 
       return { valid: true, message: '유효한 n8n 워크플로우입니다.' }
     } catch (error) {
-      return { valid: false, message: error.message }
+      return { valid: false, message: (error as Error).message || 'Unknown error occurred' }
     }
   },
 
   // JSON 문자열을 워크플로우 객체로 파싱
-  parseJsonToWorkflow(jsonString) {
+  parseJsonToWorkflow(jsonString: string): ParsedWorkflow {
     try {
       const jsonData = JSON.parse(jsonString)
       const validation = this.validateN8nWorkflow(jsonData)
