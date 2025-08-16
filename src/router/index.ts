@@ -13,13 +13,13 @@ const routes: RouteRecordRaw[] = [
     path: '/chat',
     name: 'Home',
     component: () => import('@/views/Home.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: true },
     children: [
       {
         path: '',
         name: 'Chat',
         component: () => import('@/views/Chat.vue'),
-        meta: { requiresAuth: false }
+        meta: { requiresAuth: true }
       }
     ]
   },
@@ -45,7 +45,7 @@ const routes: RouteRecordRaw[] = [
     path: '/board',
     name: 'Board',
     component: () => import('@/views/Board.vue'),
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: true }
   },
   {
     path: '/:pathMatch(.*)*',

@@ -1,4 +1,5 @@
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { registerSelectionClearCallback } from '../utils/workflowSelection'
 
 interface Workflow {
   id: number
@@ -165,6 +166,17 @@ export const folders = ref<Folder[]>([
 export const activeFolderId = ref<number | null>(null)
 
 export function useFolderManagement() {
+  const clearFolderWorkflowSelections = () => {
+    folders.value.forEach(folder => {
+      if (folder.workflows) {
+        folder.workflows.forEach(workflow => workflow.active = false)
+      }
+    })
+  }
+
+  onMounted(() => {
+    registerSelectionClearCallback(clearFolderWorkflowSelections)
+  })
   // localStorage 저장/복원 기능
   const saveFoldersToLocalStorage = () => {
     try {

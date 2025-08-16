@@ -5,15 +5,11 @@
       v-if="isAuthenticated"
       :collapsed="sidebarCollapsed"
       :chatHistoryItems="chatHistoryItems"
-      :workflowItems="workflowItems"
-      :activeMenu="activeMenu"
       @toggle-sidebar="toggleSidebar"
       @new-chat="newChat"
+      @new-project="handleNewProject"
       @select-chat="selectChatHistory"
-      @select-workflow="selectWorkflow"
-      @show-dropdown="showDropdown"
-      @rename-item="renameItem"
-      @delete-item="deleteItem"
+      @select-workflow="handleSelectWorkflow"
     />
 
     <!-- 메인 컨텐츠 -->
@@ -53,7 +49,7 @@
       v-if="isAuthenticated && workflowPanelOpen"
       :selectedWorkflow="selectedWorkflow"
       :workflowPanelWidth="workflowPanelWidth"
-      @close-panel="closeWorkflowPanel"
+      @close-panel="closeWorkflowPanelGlobally"
       @start-resize="startResize"
     />
 
@@ -66,15 +62,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.ts'
-import Sidebar from '@/components/Sidebar.vue'
+import Sidebar from '@/views/Sidebar.vue'
 import Header from '@/components/Header.vue'
 import WorkflowPanel from '@/components/WorkflowPanel.vue'
 import BoardPanel from '@/components/BoardPanel.vue'
 import { useChatManagement } from '@/composables/useChatManagement'
 import { useWorkflowManagement } from '@/composables/useWorkflowManagement'
+import { initializeWorkflowSelection, closeWorkflowPanelGlobally } from '@/utils/workflowSelection'
 import type { ChatHistoryItem, WorkflowItem } from '@/types'
 
 const router = useRouter()
@@ -113,13 +110,11 @@ const {
   selectedWorkflow,
   workflowPanelWidth,
   selectWorkflow,
-  closeWorkflowPanel,
   startResize
 } = useWorkflowManagement()
 
 // UI 상태
 const sidebarCollapsed = ref(false)
-const activeMenu = ref<string | null>(null)
 const boardPanelOpen = ref(false)
 
 // UI 메서드
@@ -127,50 +122,15 @@ const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
-const showDropdown = (itemId: string | number, type: string, event: Event) => {
-  event.stopPropagation()
-  const menuKey = type + '-' + itemId
-  
-  if (activeMenu.value === menuKey) {
-    activeMenu.value = null
-  } else {
-    activeMenu.value = menuKey
-    
-    nextTick(() => {
-      const button = (event.target as HTMLElement).closest('.item-menu-btn') as HTMLElement
-      const dropdown = button?.parentElement?.querySelector('.dropdown-menu') as HTMLElement
-      if (button && dropdown) {
-        const rect = button.getBoundingClientRect()
-        dropdown.style.top = rect.top + 'px'
-        dropdown.style.left = (rect.right + 8) + 'px'
-      }
-    })
-  }
+const handleSelectWorkflow = (workflow: any) => {
+  // 워크플로우 선택 시 패널 열기
+  selectWorkflow(workflow)
 }
 
-const renameItem = (item: ChatHistoryItem | WorkflowItem) => {
-  const newName = prompt('새로운 이름을 입력하세요:', item.title)
-  if (newName && newName.trim()) {
-    item.title = newName.trim()
-  }
-  activeMenu.value = null
+const handleNewProject = () => {
+  console.log('새 프로젝트 생성')
 }
 
-const deleteItem = (itemId: number, type: string) => {
-  if (confirm('정말로 삭제하시겠습니까?')) {
-    if (type === 'workflow') {
-      const index = workflowItems.value.findIndex(item => item.id === itemId)
-      if (index > -1) workflowItems.value.splice(index, 1)
-    } else if (type === 'chat') {
-      const index = chatHistoryItems.value.findIndex(item => item.id === itemId)
-      if (index > -1) chatHistoryItems.value.splice(index, 1)
-      if (currentChatId.value === itemId) {
-        newChat()
-      }
-    }
-  }
-  activeMenu.value = null
-}
 
 // 헤더 액션
 const goToBoard = () => {
@@ -198,15 +158,14 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
   }
 }
 
-const closeDropdown = () => {
-  activeMenu.value = null
-}
 
 let connectionInterval: number
 
 onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown)
-  document.addEventListener('click', closeDropdown)
+  
+  // 워크플로우 선택 상태 초기화
+  initializeWorkflowSelection()
   
   // 인증 상태 확인
   await authStore.checkAuthStatus()
@@ -219,7 +178,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
-  document.removeEventListener('click', closeDropdown)
   if (connectionInterval) {
     clearInterval(connectionInterval)
   }

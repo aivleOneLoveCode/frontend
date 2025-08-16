@@ -67,44 +67,27 @@ export const workflowService = {
     return response.data
   },
 
-  // 사용자 커스텀 워크플로우만 가져오기
-  async getCustomWorkflows() {
-    const response = await api.get('/workflows?custom=true')
-    return response.data
-  },
-
-  // 특정 워크플로우 조회
-  async getWorkflow(workflowId: number) {
-    const response = await api.get(`/workflows/${workflowId}`)
-    return response.data
-  },
-
-  // 새 워크플로우 생성
-  async createWorkflow(workflowData: WorkflowData) {
-    const response = await api.post('/workflows', {
-      title: workflowData.title,
-      description: workflowData.description,
-      json_data: workflowData.jsonData,
-      n8n_url: workflowData.n8nUrl,
-      is_custom: workflowData.isCustom || true
-    })
-    return response.data
-  },
-
-  // 워크플로우 수정
-  async updateWorkflow(workflowId: number, updateData: Partial<WorkflowData>) {
-    const response = await api.patch(`/workflows/${workflowId}`, {
-      title: updateData.title,
-      description: updateData.description,
-      json_data: updateData.jsonData,
-      n8n_url: updateData.n8nUrl
-    })
-    return response.data
-  },
-
   // 워크플로우 삭제
-  async deleteWorkflow(workflowId: number) {
-    const response = await api.delete(`/workflows/${workflowId}`)
+  async deleteWorkflow(n8nWorkflowId: string) {
+    const response = await api.delete(`/workflows/${n8nWorkflowId}`)
+    return response.data
+  },
+
+  // 워크플로우 이름 변경
+  async updateWorkflowName(n8nWorkflowId: string, name: string) {
+    const response = await api.put(`/workflows/${n8nWorkflowId}/name`, { name })
+    return response.data
+  },
+
+  // 워크플로우 상태 토글 (활성화/비활성화)
+  async toggleWorkflowStatus(n8nWorkflowId: string) {
+    const response = await api.post(`/workflows/${n8nWorkflowId}/toggle`)
+    return response.data
+  },
+
+  // 워크플로우를 프로젝트에 할당/제거
+  async assignWorkflowToProject(n8nWorkflowId: string, projectId: number | null) {
+    const response = await api.put(`/workflows/${n8nWorkflowId}/project`, { project_id: projectId })
     return response.data
   },
 
