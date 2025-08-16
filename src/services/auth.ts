@@ -58,6 +58,7 @@ export const authService = {
     return response.data
   },
 
+
   // 비밀번호 재설정 요청
   async forgotPassword(email: string) {
     const response = await api.post('/auth/forgot-password', { email })
@@ -77,12 +78,6 @@ export const authService = {
   async socialLogin(provider: string, authData: SocialAuthData) {
     const response = await api.post(`/auth/social/${provider}`, authData)
     const { access_token, refresh_token, user } = response.data
-    
-    // 토큰 저장
-    localStorage.setItem('auth_token', access_token)
-    if (refresh_token) {
-      localStorage.setItem('refresh_token', refresh_token)
-    }
     
     return { token: access_token, user }
   },
@@ -104,15 +99,8 @@ export const authService = {
 
   // 로그아웃
   async logout() {
-    try {
-      await api.post('/auth/logout')
-    } catch (error) {
-      console.error('Logout API call failed:', error)
-    } finally {
-      // 토큰 제거는 항상 실행
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('refresh_token')
-    }
+    // 백엔드에 별도 로그아웃 API가 없으므로 로컬 정리는 store에서 처리
+    return Promise.resolve()
   },
 
   // 현재 사용자 정보 가져오기
@@ -121,19 +109,9 @@ export const authService = {
     return response.data
   },
 
-  // 토큰 갱신
+  // 토큰 갱신 (현재 백엔드에서 지원하지 않음)
   async refreshToken() {
-    const refreshToken = localStorage.getItem('refresh_token')
-    if (!refreshToken) {
-      throw new Error('No refresh token available')
-    }
-
-    const response = await api.post('/auth/refresh', {
-      refresh_token: refreshToken
-    })
-    
-    const { access_token } = response.data
-    return { token: access_token }
+    throw new Error('Refresh token not supported')
   },
 
   // 사용자 프로필 업데이트

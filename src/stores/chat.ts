@@ -233,24 +233,19 @@ export const useChatStore = defineStore('chat', {
       
       console.log('📤 요청 본문:', requestBody)
 
-      try {
-        const response = await fetch('http://localhost:8000/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(requestBody)
-        })
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody)
+      })
 
-        console.log('📥 응답 상태:', response.status, response.statusText)
+      console.log('📥 응답 상태:', response.status, response.statusText)
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-      } catch (fetchError) {
-        console.error('❌ Fetch 에러:', fetchError)
-        throw fetchError
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
       const reader = response.body?.getReader()

@@ -14,12 +14,14 @@ from fastapi import FastAPI, HTTPException, Depends, status, Response, Header, R
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
 
+app = FastAPI(title="Claude MCP Multi-User Backend")
 app = FastAPI(title="Claude MCP Multi-User Backend")
 
 # CORS 설정
@@ -30,6 +32,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# JWT 설정
+JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 24
+
+security = HTTPBearer()
+
+# Pydantic 모델들
+class UserRegister(BaseModel):
+    email: str
+    first_name: str
+    last_name: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
 
 # JWT 설정
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this")
@@ -810,6 +830,8 @@ class ClaudeMCPBackend:
         self.tools = []
         self.request_count = 0
         self.db = DatabaseManager()
+        self.request_count = 0
+        self.db = DatabaseManager()
         
     async def init_mcp(self):
         if self.tools:
@@ -831,6 +853,30 @@ class ClaudeMCPBackend:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] MCP 도구 {len(self.tools)}개 로드 완료")
     
     def convert_tools(self):
+        # 사용할 툴 목록 (9개로 제한)
+        allowed_tools = {
+            "search_nodes",
+            "list_nodes", 
+            "get_node_info",
+            "validate_workflow",
+            "n8n_create_workflow",
+            "n8n_update_full_workflow",
+            "n8n_delete_workflow",
+            "n8n_list_workflows",
+            "n8n_get_workflow"
+        }
+        
+        # 허용된 툴만 필터링해서 반환
+        filtered_tools = []
+        for tool in self.tools:
+            if tool["name"] in allowed_tools:
+                filtered_tools.append({
+                    "name": tool["name"],
+                    "description": tool.get("description", ""),
+                    "input_schema": tool.get("inputSchema", {"type": "object", "properties": {}})
+                })
+        
+        return filtered_tools
         # 사용할 툴 목록 (9개로 제한)
         allowed_tools = {
             "search_nodes",
@@ -1006,6 +1052,7 @@ class ClaudeMCPBackend:
                         if event.delta.type == "text_delta":
                             yield f"data: {json.dumps({'type': 'text_delta', 'text': event.delta.text})}\n\n"
                             await asyncio.sleep(0)
+                            await asyncio.sleep(0)
                     
                     elif event.type == "content_block_stop":
                         if hasattr(event.content_block, 'type'):
@@ -1015,6 +1062,8 @@ class ClaudeMCPBackend:
                                 yield f"data: {json.dumps({'type': 'tool_use_stop'})}\n\n"
                 
                 # Usage 로그 출력 및 메시지 추출
+                message_obj = stream.get_final_message()
+                usage = message_obj.usage
                 message_obj = stream.get_final_message()
                 usage = message_obj.usage
                 
@@ -1037,8 +1086,25 @@ class ClaudeMCPBackend:
                 messages.append({"role": "assistant", "content": assistant_content})
                 
                 tool_blocks = [b for b in message_obj.content if b.type == 'tool_use']
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] REQUEST #{request_id} USAGE - Input: {usage.input_tokens}, Output: {usage.output_tokens}, Cache Create: {cache_creation}, Cache Read: {cache_read}")
+                
+                # response_content를 JSON 직렬화 가능한 형태로 변환
+                assistant_content = []
+                for block in message_obj.content:
+                    if hasattr(block, 'model_dump'):
+                        assistant_content.append(block.model_dump())
+                    else:
+                        assistant_content.append({"type": "text", "text": str(block)})
+                
+                # 어시스턴트 응답을 데이터베이스에 저장
+                self.db.save_message(session_id, "assistant", json.dumps(assistant_content, ensure_ascii=False))
+                
+                messages.append({"role": "assistant", "content": assistant_content})
+                
+                tool_blocks = [b for b in message_obj.content if b.type == 'tool_use']
                 
                 if not tool_blocks:
+                    yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
                     yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
                     yield f"data: {json.dumps({'type': 'complete'})}\n\n"
                     break
@@ -1049,6 +1115,7 @@ class ClaudeMCPBackend:
                     yield f"data: {json.dumps({'type': 'tool_execution', 'name': tool.name, 'input': tool.input})}\n\n"
                     
                     try:
+                        result = await self.call_tool(tool.name, tool.input, user_api_key)
                         result = await self.call_tool(tool.name, tool.input, user_api_key)
                         yield f"data: {json.dumps({'type': 'tool_result', 'name': tool.name, 'result': result[:200] + ('...' if len(result) > 200 else '')})}\n\n"
                         
@@ -1066,6 +1133,8 @@ class ClaudeMCPBackend:
                             "content": f"오류: {error_msg}"
                         })
                 
+                # 도구 결과를 DB에 저장하고 메시지에 추가
+                self.db.save_message(session_id, "user", json.dumps(tool_results, ensure_ascii=False))
                 # 도구 결과를 DB에 저장하고 메시지에 추가
                 self.db.save_message(session_id, "user", json.dumps(tool_results, ensure_ascii=False))
                 messages.append({"role": "user", "content": tool_results})
@@ -1297,9 +1366,22 @@ async def chat(request: Request):
         print(f"[DEBUG] JSON 파싱 실패: {e}")
         raise HTTPException(status_code=422, detail="Invalid JSON")
     
-    # 임시로 토큰 검증 비활성화 (테스트용)
-    print(f"[DEBUG] 토큰 검증 비활성화 - 테스트 모드")
-    current_user = {"user_id": "test-user-123", "email": "admin@admin.com"}
+    # JWT 토큰 검증
+    try:
+        auth_header = request.headers.get('authorization') or request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="Authorization header missing or invalid")
+        
+        token = auth_header.split(' ')[1]
+        import jwt
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        current_user = {"user_id": payload.get("user_id"), "email": payload.get("email")}
+        print(f"[DEBUG] 토큰 검증 성공: user_id={current_user['user_id']}")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except Exception as e:
+        print(f"[DEBUG] 토큰 검증 실패: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
     
     try:
         # 프론트엔드에서 받은 content를 그대로 처리

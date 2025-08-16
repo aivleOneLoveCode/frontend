@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { authService } from '@/services/auth'
-import { storage } from '@/utils/helpers'
+import { setTokenProvider } from '@/services/api'
 
 interface User {
   user_id: string
@@ -37,7 +37,7 @@ interface LoginResult {
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: null,
-    token: storage.get('auth_token'),
+    token: null,
     isAuthenticated: false,
     isLoading: false,
     error: '',
@@ -52,6 +52,11 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    // 스토어 초기화 시 API 서비스에 토큰 제공자 설정
+    initTokenProvider() {
+      setTokenProvider(() => this.token)
+    },
+
     clearMessages() {
       this.error = ''
       this.successMessage = ''
@@ -73,10 +78,14 @@ export const useAuthStore = defineStore('auth', {
         this.token = token
         this.isAuthenticated = true
         
-        storage.set('auth_token', this.token)
-        storage.set('current_user', this.user)
+        // 토큰 제공자 설정 (중요!)
+        this.initTokenProvider()
         
-        return { success: true, user: this.user }
+        // localStorage에 토큰과 사용자 정보 저장
+        localStorage.setItem('auth_token', this.token!)
+        localStorage.setItem('user', JSON.stringify(this.user))
+        
+        return { success: true, user: this.user as User }
       } catch (error: any) {
         console.error('Login failed:', error)
         this.error = error.response?.data?.detail || '로그인 중 오류가 발생했습니다.'
@@ -169,40 +178,37 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout(): Promise<void> {
-      try {
-        // 실제 API 호출은 나중에 백엔드 연동 시 추가
-        // if (this.token) {
-        //   await authService.logout()
-        // }
-      } catch (error) {
-        console.error('Logout error:', error)
-      } finally {
-        this.token = null
-        this.user = null
-        this.isAuthenticated = false
-        storage.remove('auth_token')
-        storage.remove('current_user')
-        this.clearMessages()
-      }
+      // JWT는 stateless이므로 클라이언트에서만 토큰 삭제
+      this.token = null
+      this.user = null
+      this.isAuthenticated = false
+      
+      // localStorage에서 토큰 제거 (표준 로그아웃 방식)
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('user')
+      
+      this.clearMessages()
+      console.log('[Auth] Logout completed - token cleared from localStorage')
     },
 
     async checkAuthStatus(): Promise<void> {
-      const token = storage.get('auth_token')
-      const user = storage.get('current_user')
+      // localStorage에서 토큰 복구 (새로고침 시 로그인 상태 유지)
+      const token = localStorage.getItem('auth_token')
+      const userStr = localStorage.getItem('user')
       
-      if (!token || !user) {
-        this.isAuthenticated = false
-        return
-      }
-
-      try {
-        this.token = token
-        this.user = user
-        this.isAuthenticated = true
-      } catch (error) {
-        console.error('Auth check failed:', error)
-        // 토큰이 유효하지 않으면 로그아웃 처리
-        this.logout()
+      if (token && userStr) {
+        try {
+          const user = JSON.parse(userStr)
+          this.token = token
+          this.user = user
+          this.isAuthenticated = true
+          this.initTokenProvider()
+          console.log('[Auth] Login status restored from localStorage')
+        } catch (error) {
+          console.error('Failed to restore auth status:', error)
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('user')
+        }
       }
     },
 

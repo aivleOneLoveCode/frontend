@@ -13,13 +13,13 @@ const routes: RouteRecordRaw[] = [
     path: '/chat',
     name: 'Home',
     component: () => import('@/views/Home.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: true },
     children: [
       {
         path: '',
         name: 'Chat',
         component: () => import('@/views/Chat.vue'),
-        meta: { requiresAuth: false }
+        meta: { requiresAuth: true }
       }
     ]
   },
@@ -45,7 +45,7 @@ const routes: RouteRecordRaw[] = [
     path: '/board',
     name: 'Board',
     component: () => import('@/views/Board.vue'),
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: true }
   },
   {
     path: '/:pathMatch(.*)*',
@@ -62,6 +62,11 @@ const router = createRouter({
 // 네비게이션 가드
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
+  
+  // 첫 방문 시 localStorage에서 인증 상태 복구
+  if (!authStore.isAuthenticated) {
+    await authStore.checkAuthStatus()
+  }
   
   // 인증이 필요한 페이지인지 확인
   if (to.meta.requiresAuth) {

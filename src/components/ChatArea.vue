@@ -154,7 +154,7 @@
         rows="1"
         @keydown="$emit('handle-keydown', $event)"
       ></textarea>
-      <button class="send-btn" @click="console.log('🚨 [ChatArea] send-message 이벤트 발생!'); $emit('send-message')" :disabled="!inputText.trim()" :title="t('send_message')">
+      <button class="send-btn" @click="console.log('🚨 [ChatArea] 버튼 클릭! inputText:', inputText); $emit('send-message')" :disabled="!inputText.trim()" :title="t('send_message')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m5 12 7-7 7 7"/>
           <path d="M12 19V5"/>

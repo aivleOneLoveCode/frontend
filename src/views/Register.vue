@@ -14,23 +14,45 @@
       </div>
 
       <form @submit.prevent="handleRegister">
-        <div class="form-group">
-          <label class="form-label" for="name">이름</label>
-          <input 
-            type="text" 
-            id="name"
-            class="form-input"
-            :class="{
-              error: validation.name.error,
-              valid: validation.name.valid
-            }"
-            v-model="registerForm.name"
-            placeholder="이름을 입력하세요"
-            @blur="validateField('name')"
-            required
-          >
-          <div v-if="validation.name.message" class="form-help">
-            {{ validation.name.message }}
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="firstName">성</label>
+            <input 
+              type="text" 
+              id="firstName"
+              class="form-input"
+              :class="{
+                error: validation.firstName.error,
+                valid: validation.firstName.valid
+              }"
+              v-model="registerForm.firstName"
+              placeholder="성을 입력하세요"
+              @blur="validateField('firstName')"
+              required
+            >
+            <div v-if="validation.firstName.message" class="form-help">
+              {{ validation.firstName.message }}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="lastName">이름</label>
+            <input 
+              type="text" 
+              id="lastName"
+              class="form-input"
+              :class="{
+                error: validation.lastName.error,
+                valid: validation.lastName.valid
+              }"
+              v-model="registerForm.lastName"
+              placeholder="이름을 입력하세요"
+              @blur="validateField('lastName')"
+              required
+            >
+            <div v-if="validation.lastName.message" class="form-help">
+              {{ validation.lastName.message }}
+            </div>
           </div>
         </div>
 
@@ -102,8 +124,13 @@
           {{ authStore.isLoading ? '가입 중...' : '회원가입' }}
         </button>
         
-        <div class="error-message" :class="{ show: authStore.error }">
-          {{ authStore.error }}
+        <div v-if="authStore.error" class="error-message show">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          {{ getErrorMessage(authStore.error) }}
         </div>
         
         <div class="success-message" :class="{ show: authStore.successMessage }">
@@ -129,21 +156,24 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const registerForm = ref({
-  name: '',
+  firstName: '',
+  lastName: '',
   email: '',
   password: '',
   confirmPassword: ''
 })
 
 const validation = ref({
-  name: { valid: false, error: false, message: '' },
+  firstName: { valid: false, error: false, message: '' },
+  lastName: { valid: false, error: false, message: '' },
   email: { valid: false, error: false, message: '' },
   password: { valid: false, error: false, message: '' },
   confirmPassword: { valid: false, error: false, message: '' }
 })
 
 const isFormValid = computed(() => {
-  return validation.value.name.valid && 
+  return validation.value.firstName.valid && 
+         validation.value.lastName.valid &&
          validation.value.email.valid && 
          validation.value.password.valid && 
          validation.value.confirmPassword.valid
@@ -161,7 +191,7 @@ const passwordStrengthClass = computed(() => {
 })
 
 const validateName = (name: string) => {
-  return name && name.trim().length >= 2
+  return name && name.trim().length >= 1
 }
 
 const validatePassword = (password: string) => {
@@ -192,10 +222,19 @@ const validateField = (fieldName: string) => {
       }
       break
 
-    case 'name':
+    case 'firstName':
       if (!validateName(value)) {
         field.error = true
-        field.message = '이름은 2자 이상이어야 합니다.'
+        field.message = '성을 입력해주세요.'
+      } else {
+        field.valid = true
+      }
+      break
+
+    case 'lastName':
+      if (!validateName(value)) {
+        field.error = true
+        field.message = '이름을 입력해주세요.'
       } else {
         field.valid = true
       }
@@ -239,20 +278,50 @@ watch(() => registerForm.value.password, () => {
 
 const handleRegister = async () => {
   try {
+    // 에러 메시지 초기화
+    authStore.clearMessages()
+    
     await authStore.register({
-      name: registerForm.value.name,
+      first_name: registerForm.value.firstName,
+      last_name: registerForm.value.lastName,
       email: registerForm.value.email,
       password: registerForm.value.password,
       confirmPassword: registerForm.value.confirmPassword
     })
     
-    // 성공 시 2초 후 로그인 페이지로 이동
-    setTimeout(() => {
-      router.push('/login')
-    }, 2000)
+    // 성공 시 채팅 페이지로 리다이렉트 (자동 로그인됨)
+    router.push('/chat')
   } catch (error) {
     console.error('Registration failed:', error)
+    // 에러는 authStore에서 처리됨
   }
+}
+
+// 에러 메시지를 사용자 친화적으로 변환
+const getErrorMessage = (error: string): string => {
+  if (error.includes('이미 존재하는 이메일')) {
+    return '이미 사용 중인 이메일입니다. 다른 이메일을 사용해주세요.'
+  }
+  if (error.includes('이메일이 이미 등록되어 있습니다')) {
+    return '이미 가입된 이메일입니다. 로그인을 시도해주세요.'
+  }
+  if (error.includes('비밀번호가 일치하지 않습니다')) {
+    return '비밀번호가 일치하지 않습니다. 다시 확인해주세요.'
+  }
+  if (error.includes('네트워크') || error.includes('연결')) {
+    return '네트워크 연결을 확인해주세요.'
+  }
+  if (error.includes('서버')) {
+    return '서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
+  }
+  if (error.includes('HTTP 400')) {
+    return '입력한 정보를 다시 확인해주세요.'
+  }
+  if (error.includes('HTTP 500')) {
+    return '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+  }
+  // 기본 에러 메시지
+  return error || '회원가입 중 오류가 발생했습니다. 다시 시도해주세요.'
 }
 
 const goBack = () => {
@@ -318,6 +387,17 @@ const goBack = () => {
   font-weight: 600;
   color: #111827;
   margin-bottom: 8px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.form-row .form-group {
+  flex: 1;
+  margin-bottom: 0;
 }
 
 .form-group {
@@ -448,14 +528,33 @@ const goBack = () => {
 }
 
 .error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 16px;
   color: #dc2626;
   font-size: 14px;
-  margin-top: 8px;
-  display: none;
+  font-weight: 500;
+  animation: shake 0.5s ease-in-out;
+}
+
+.error-message svg {
+  flex-shrink: 0;
+  color: #dc2626;
 }
 
 .error-message.show {
-  display: block;
+  display: flex;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
 .success-message {

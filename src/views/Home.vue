@@ -4,16 +4,9 @@
     <Sidebar
       v-if="isAuthenticated"
       :collapsed="sidebarCollapsed"
-      :chatHistoryItems="chatHistoryItems"
-      :workflowItems="workflowItems"
-      :activeMenu="activeMenu"
       @toggle-sidebar="toggleSidebar"
-      @new-chat="newChat"
-      @select-chat="selectChatHistory"
-      @select-workflow="selectWorkflow"
-      @show-dropdown="showDropdown"
-      @rename-item="renameItem"
-      @delete-item="deleteItem"
+      @new-project="handleNewProject"
+      @select-workflow="handleSelectWorkflow"
     />
 
     <!-- 메인 컨텐츠 -->
@@ -30,22 +23,7 @@
       />
       
       <!-- 라우터 뷰 (Chat 컴포넌트가 여기에 렌더링) -->
-      <router-view 
-        :messages="messages"
-        :inputText="inputText"
-        :showWelcome="showWelcome"
-        :isDragging="isDragging"
-        :uploadedFiles="uploadedFiles"
-        @send-message="sendMessage"
-        @handle-keydown="handleKeydown"
-        @handle-file-upload="handleFileUpload"
-        @handle-drag-enter="handleDragEnter"
-        @handle-drag-over="handleDragOver"
-        @handle-drag-leave="handleDragLeave"
-        @handle-drop="handleDrop"
-        @update:input-text="inputText = $event"
-        @remove-uploaded-file="removeUploadedFile"
-      />
+      <router-view />
     </div>
 
     <!-- 워크플로우 패널 -->
@@ -53,7 +31,7 @@
       v-if="isAuthenticated && workflowPanelOpen"
       :selectedWorkflow="selectedWorkflow"
       :workflowPanelWidth="workflowPanelWidth"
-      @close-panel="closeWorkflowPanel"
+      @close-panel="closeWorkflowPanelGlobally"
       @start-resize="startResize"
     />
 
@@ -66,165 +44,43 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.ts'
 import { useChatStore } from '@/stores/chat.ts'
-import Sidebar from '@/components/Sidebar.vue'
+import Sidebar from '@/views/Sidebar.vue'
 import Header from '@/components/Header.vue'
 import WorkflowPanel from '@/components/WorkflowPanel.vue'
 import BoardPanel from '@/components/BoardPanel.vue'
-import { FileUploadService, type UploadedFile } from '@/services/fileUpload'
-import type { ChatHistoryItem, WorkflowItem } from '@/types'
+import { initializeWorkflowSelection, closeWorkflowPanelGlobally, globalSelectedWorkflow, globalWorkflowPanelOpen } from '@/utils/workflowSelection'
+import type { WorkflowItem } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const chatStore = useChatStore()
+const chatStore = useChatStore() // 백엔드 연결 확인용
 
 // 인증 상태
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 
-// 채팅 관련 상태
-const inputText = ref('')
-const isDragging = ref(false)
+// 백엔드 연결 상태
 const isBackendConnected = ref(false)
 const backendStatus = ref('연결 중...')
 
-// Computed properties
-const messages = computed(() => chatStore.currentMessages)
-const showWelcome = computed(() => messages.value.length === 0)
-const uploadedFiles = computed(() => chatStore.uploadedFiles)
-const chatHistoryItems = computed(() => 
-  chatStore.sessions.map(session => ({
-    id: session.session_id,
-    title: session.title,
-    active: session.active
-  }))
-)
 
-// 워크플로우 관련 (임시로 빈 상태)
-const workflowItems = ref<WorkflowItem[]>([])
-const selectedWorkflow = ref<WorkflowItem | null>(null)
-const workflowPanelOpen = ref(false)
+// 워크플로우 관련 상태 - 글로벌 상태와 연동
+const selectedWorkflow = globalSelectedWorkflow
+const workflowPanelOpen = globalWorkflowPanelOpen
 const workflowPanelWidth = ref(400)
 
 // UI 상태
 const sidebarCollapsed = ref(false)
-const activeMenu = ref<string | null>(null)
 const boardPanelOpen = ref(false)
+const activeMenu = ref<string | null>(null)
 
-// 채팅 기능
-const sendMessage = async () => {
-  console.log('🚨 [Home.vue] sendMessage 함수 호출됨!')
-  console.log('🚨 [Home.vue] inputText:', inputText.value)
-  console.log('🚨 [Home.vue] uploadedFiles:', uploadedFiles.value)
-  
-  if (!inputText.value.trim() && uploadedFiles.value.length === 0) return
-  if (!chatStore.canSendMessage) return
+// Connection interval 관리
+let connectionInterval: number | null = null
 
-  try {
-    console.log('🚨 [Home.vue] chatStore.sendMessage 호출 전')
-    await chatStore.sendMessage(inputText.value, uploadedFiles.value)
-    console.log('🚨 [Home.vue] chatStore.sendMessage 호출 후')
-    inputText.value = ''
-  } catch (error) {
-    console.error('메시지 전송 실패:', error)
-  }
-}
 
-const newChat = () => {
-  chatStore.startNewChat()
-  inputText.value = ''
-}
-
-const selectChatHistory = (chatId: string) => {
-  chatStore.selectSession(chatId)
-}
-
-// 파일 처리
-const handleFileUpload = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  if (!input.files) return
-
-  for (const file of Array.from(input.files)) {
-    try {
-      if (FileUploadService.isSupportedFileType(file)) {
-        const processedFile = await FileUploadService.processUploadedFile(file)
-        chatStore.addUploadedFile(processedFile)
-      } else {
-        alert('지원하지 않는 파일 형식입니다.')
-      }
-    } catch (error) {
-      console.error('파일 처리 오류:', error)
-      alert('파일 처리 중 오류가 발생했습니다.')
-    }
-  }
-  
-  // 입력 초기화
-  input.value = ''
-}
-
-const handleDragEnter = (event: DragEvent) => {
-  event.preventDefault()
-  isDragging.value = true
-}
-
-const handleDragOver = (event: DragEvent) => {
-  event.preventDefault()
-}
-
-const handleDragLeave = (event: DragEvent) => {
-  event.preventDefault()
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const x = event.clientX
-  const y = event.clientY
-  
-  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-    isDragging.value = false
-  }
-}
-
-const handleDrop = async (event: DragEvent) => {
-  event.preventDefault()
-  isDragging.value = false
-  
-  const files = event.dataTransfer?.files
-  if (!files) return
-
-  for (const file of Array.from(files)) {
-    try {
-      if (FileUploadService.isSupportedFileType(file)) {
-        const processedFile = await FileUploadService.processUploadedFile(file)
-        chatStore.addUploadedFile(processedFile)
-      } else {
-        alert(`지원하지 않는 파일 형식입니다: ${file.name}`)
-      }
-    } catch (error) {
-      console.error('파일 처리 오류:', error)
-      alert(`파일 처리 중 오류가 발생했습니다: ${file.name}`)
-    }
-  }
-}
-
-const removeUploadedFile = (index: number) => {
-  chatStore.removeUploadedFile(index)
-}
-
-const handleKeydown = (event: KeyboardEvent) => {
-  console.log('🚨 [Home.vue] handleKeydown 호출됨! key:', event.key)
-  if (event.key === 'Enter') {
-    if (event.shiftKey) {
-      // Shift+Enter: 줄바꿈 (기본 동작)
-      console.log('🚨 [Home.vue] Shift+Enter 감지 - 줄바꿈')
-      return
-    } else {
-      // Enter: 메시지 전송
-      console.log('🚨 [Home.vue] Enter 감지 - sendMessage 호출!')
-      event.preventDefault()
-      sendMessage()
-    }
-  }
-}
 
 // 백엔드 연결 확인
 const checkBackendConnection = async () => {
@@ -243,71 +99,23 @@ const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
-const showDropdown = (itemId: string | number, type: string, event: Event) => {
-  event.stopPropagation()
-  const menuKey = type + '-' + itemId
-  
-  if (activeMenu.value === menuKey) {
-    activeMenu.value = null
-  } else {
-    activeMenu.value = menuKey
-    
-    nextTick(() => {
-      const button = (event.target as HTMLElement).closest('.item-menu-btn') as HTMLElement
-      const dropdown = button?.parentElement?.querySelector('.dropdown-menu') as HTMLElement
-      if (button && dropdown) {
-        const rect = button.getBoundingClientRect()
-        dropdown.style.top = rect.top + 'px'
-        dropdown.style.left = (rect.right + 8) + 'px'
-      }
-    })
-  }
+
+// 워크플로우 관련 메서드 - 글로벌 함수 사용
+const handleSelectWorkflow = (workflow: any) => {
+  // 글로벌 상태가 이미 관리되므로 추가 처리 불필요
+  console.log('워크플로우 선택됨:', workflow.name)
 }
 
-const renameItem = async (item: ChatHistoryItem | WorkflowItem) => {
-  const newName = prompt('새로운 이름을 입력하세요:', item.title)
-  if (newName && newName.trim()) {
-    try {
-      if ('session_id' in item) {
-        // 세션 이름 변경
-        await chatStore.updateSessionTitle(item.id as string, newName.trim())
-      }
-    } catch (error) {
-      console.error('이름 변경 실패:', error)
-      alert('이름 변경에 실패했습니다.')
-    }
-  }
-  activeMenu.value = null
-}
-
-const deleteItem = async (itemId: number | string, type: string) => {
-  if (confirm('정말로 삭제하시겠습니까?')) {
-    try {
-      if (type === 'chat') {
-        await chatStore.deleteSession(itemId as string)
-      }
-    } catch (error) {
-      console.error('삭제 실패:', error)
-      alert('삭제에 실패했습니다.')
-    }
-  }
-  activeMenu.value = null
-}
-
-// 워크플로우 관련 (임시)
-const selectWorkflow = (workflow: WorkflowItem) => {
-  selectedWorkflow.value = workflow
-  workflowPanelOpen.value = true
-}
-
-const closeWorkflowPanel = () => {
-  workflowPanelOpen.value = false
-  selectedWorkflow.value = null
-}
 
 const startResize = () => {
-  // 리사이즈 로직 (임시)
+  // 리사이즈 로직 구현 필요
+  console.log('워크플로우 패널 리사이즈')
 }
+
+const handleNewProject = () => {
+  console.log('새 프로젝트 생성')
+}
+
 
 // 헤더 액션
 const goToBoard = () => {
@@ -331,17 +139,35 @@ const closeBoardPanel = () => {
   boardPanelOpen.value = false
 }
 
+// 전역 키보드 이벤트 처리
+const handleGlobalKeydown = (event: KeyboardEvent) => {
+  // ESC 키로 메뉴 닫기
+  if (event.key === 'Escape') {
+    activeMenu.value = null
+  }
+}
+
 // 컴포넌트 마운트
 onMounted(async () => {
-  if (isAuthenticated.value) {
-    await chatStore.loadSessions()
-    await checkBackendConnection()
-  }
+  document.addEventListener('keydown', handleGlobalKeydown)
+  
+  // 워크플로우 선택 상태 초기화
+  initializeWorkflowSelection()
+  
+  // 인증 상태 확인
+  await authStore.checkAuthStatus()
+  
+  
+  // 백엔드 연결 확인 (1회만)
+  await checkBackendConnection()
 })
 
 // 클린업
 onUnmounted(() => {
-  // 필요시 정리 작업
+  document.removeEventListener('keydown', handleGlobalKeydown)
+  if (connectionInterval) {
+    clearInterval(connectionInterval)
+  }
 })
 </script>
 

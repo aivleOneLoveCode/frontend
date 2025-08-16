@@ -22,17 +22,34 @@ const api = axios.create({
   }
 })
 
+// 디버그: 실제 baseURL 확인
+console.log('[API] Base URL:', api.defaults.baseURL)
+
+// 전역 토큰 관리 함수 (store에서 설정)
+let getAuthToken: (() => string | null) | null = null
+
+export const setTokenProvider = (provider: () => string | null) => {
+  getAuthToken = provider
+}
+
 // 요청 인터셉터 (토큰 자동 추가)
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('auth_token')
+    // store에서 제공하는 토큰 getter 사용
+    const token = getAuthToken ? getAuthToken() : null
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
     
+    // 디버그: 토큰 확인
+    if (import.meta.env.DEV) {
+      console.log('[API] Token:', token ? `${token.substring(0, 20)}...` : 'None')
+    }
+    
     // 개발 환경에서 로그 출력
     if (import.meta.env.DEV) {
-      console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`)
+      console.log(`[API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`)
+      console.log(`[API Request Data]`, config.data)
     }
     
     return config
@@ -58,35 +75,13 @@ api.interceptors.response.use(
 
     // 개발 환경에서 에러 로그 출력
     if (import.meta.env.DEV) {
-      console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.response?.status)
+      console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.baseURL}${error.config?.url}`, error.response?.status)
+      console.error(`[API Error Response]`, error.response?.data)
     }
 
     // 401 Unauthorized - 토큰 만료 또는 유효하지 않음
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-
-      try {
-        // 토큰 갱신 시도
-        const refreshToken = localStorage.getItem('refresh_token')
-        if (refreshToken) {
-          const response = await api.post<RefreshTokenResponse>('/auth/refresh', { refresh_token: refreshToken })
-          const { access_token } = response.data
-          
-          localStorage.setItem('auth_token', access_token)
-          
-          // 원래 요청을 새 토큰으로 재시도
-          originalRequest.headers.Authorization = `Bearer ${access_token}`
-          return api(originalRequest)
-        }
-      } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError)
-      }
-
-      // 토큰 갱신 실패 시 로그아웃 처리
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('refresh_token')
-      
-      // 로그인 페이지로 리다이렉트 (라우터 사용)
+    if (error.response?.status === 401) {
+      // 로그인 페이지로 리다이렉트 (store에서 logout 처리됨)
       if (typeof window !== 'undefined') {
         window.location.href = '/login'
       }

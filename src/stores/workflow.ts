@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { workflowService } from '@/services/workflow'
+import { selectWorkflowGlobally, registerSelectionClearCallback } from '@/utils/workflowSelection'
 
 interface WorkflowNode {
   id: string
@@ -193,15 +194,18 @@ export const useWorkflowStore = defineStore('workflow', {
     },
 
     selectWorkflow(workflow: Workflow): void {
-      // 모든 워크플로우의 active 상태를 false로 변경
-      this.workflows.forEach(w => w.active = false)
+      selectWorkflowGlobally(workflow)
       
-      // 선택된 워크플로우만 active로 변경
-      workflow.active = true
-      
-      // 워크플로우 패널 열기
+      // 로컬 패널 상태 업데이트 (전역 상태와 동기화를 위해)
       this.selectedWorkflow = workflow
       this.isWorkflowPanelOpen = true
+    },
+
+    initSelectionClearCallback(): void {
+      const clearStoreSelections = () => {
+        this.workflows.forEach(w => w.active = false)
+      }
+      registerSelectionClearCallback(clearStoreSelections)
     },
 
     closeWorkflowPanel(): void {

@@ -36,6 +36,7 @@ build/
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.db
 
 # Temporary files
 *.tmp

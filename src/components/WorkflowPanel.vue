@@ -6,7 +6,7 @@
     </div>
     <div class="workflow-panel-content">
       <div class="workflow-panel-header">
-        <h3>{{ selectedWorkflow?.title }}</h3>
+        <h3>{{ selectedWorkflow?.name }}</h3>
         <div class="header-actions">
           <button v-if="selectedWorkflow?.jsonData" class="download-btn" @click="downloadJson" title="JSON 다운로드">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

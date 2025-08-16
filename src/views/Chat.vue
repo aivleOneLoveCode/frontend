@@ -21,31 +21,134 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from 'vue'
 import ChatArea from '@/components/ChatArea.vue'
+import { useChatStore } from '@/stores/chat'
+import { FileUploadService } from '@/services/fileUpload'
 
-// Props (부모 컴포넌트인 Home.vue에서 전달받음)
-defineProps<{
-  messages: any[]
-  inputText: string
-  showWelcome: boolean
-  isDragging: boolean
-  uploadedFiles: any[]
-}>()
+const chatStore = useChatStore()
 
-// Events (부모 컴포넌트로 전달)
-defineEmits<{
-  'send-message': [message: string, files?: File[]]
-  'handle-keydown': [event: KeyboardEvent]
-  'handle-file-upload': [files: FileList]
-  'handle-drag-enter': [event: DragEvent]
-  'handle-drag-over': [event: DragEvent]
-  'handle-drag-leave': [event: DragEvent]
-  'handle-drop': [event: DragEvent]
-  'update:input-text': [value: string]
-  'remove-uploaded-file': [index: number]
-}>()
+// 채팅 관련 상태
+const inputText = ref('')
+const isDragging = ref(false)
 
-// 파일 관련 유틸리티 함수들은 부모에서 전달받지 않고 직접 정의
+// Computed properties
+const messages = computed(() => chatStore.currentMessages)
+const showWelcome = computed(() => messages.value.length === 0)
+const uploadedFiles = computed(() => chatStore.uploadedFiles)
+
+// 채팅 기능
+const sendMessage = async () => {
+  console.log('🚨 [Chat.vue] sendMessage 함수 호출됨!')
+  console.log('🚨 [Chat.vue] inputText:', inputText.value)
+  console.log('🚨 [Chat.vue] uploadedFiles:', uploadedFiles.value)
+  console.log('🚨 [Chat.vue] canSendMessage:', chatStore.canSendMessage)
+  
+  if (!inputText.value.trim() && uploadedFiles.value.length === 0) {
+    console.log('🚨 [Chat.vue] 메시지가 비어있음 - 종료')
+    return
+  }
+  if (!chatStore.canSendMessage) {
+    console.log('🚨 [Chat.vue] canSendMessage가 false - 종료')
+    return
+  }
+
+  try {
+    console.log('🚨 [Chat.vue] chatStore.sendMessage 호출 전')
+    await chatStore.sendMessage(inputText.value, uploadedFiles.value)
+    console.log('🚨 [Chat.vue] chatStore.sendMessage 호출 후')
+    inputText.value = ''
+  } catch (error) {
+    console.error('🚨 [Chat.vue] 메시지 전송 실패:', error)
+  }
+}
+
+// 파일 처리
+const handleFileUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (!input.files) return
+
+  for (const file of Array.from(input.files)) {
+    try {
+      if (FileUploadService.isSupportedFileType(file)) {
+        const processedFile = await FileUploadService.processUploadedFile(file)
+        chatStore.addUploadedFile(processedFile)
+      } else {
+        alert('지원하지 않는 파일 형식입니다.')
+      }
+    } catch (error) {
+      console.error('파일 처리 오류:', error)
+      alert('파일 처리 중 오류가 발생했습니다.')
+    }
+  }
+  
+  // 입력 초기화
+  input.value = ''
+}
+
+const handleDragEnter = (event: DragEvent) => {
+  event.preventDefault()
+  isDragging.value = true
+}
+
+const handleDragOver = (event: DragEvent) => {
+  event.preventDefault()
+}
+
+const handleDragLeave = (event: DragEvent) => {
+  event.preventDefault()
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const x = event.clientX
+  const y = event.clientY
+  
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    isDragging.value = false
+  }
+}
+
+const handleDrop = async (event: DragEvent) => {
+  event.preventDefault()
+  isDragging.value = false
+  
+  const files = event.dataTransfer?.files
+  if (!files) return
+
+  for (const file of Array.from(files)) {
+    try {
+      if (FileUploadService.isSupportedFileType(file)) {
+        const processedFile = await FileUploadService.processUploadedFile(file)
+        chatStore.addUploadedFile(processedFile)
+      } else {
+        alert(`지원하지 않는 파일 형식입니다: ${file.name}`)
+      }
+    } catch (error) {
+      console.error('파일 처리 오류:', error)
+      alert(`파일 처리 중 오류가 발생했습니다: ${file.name}`)
+    }
+  }
+}
+
+const removeUploadedFile = (index: number) => {
+  chatStore.removeUploadedFile(index)
+}
+
+const handleKeydown = (event: KeyboardEvent) => {
+  console.log('🚨 [Chat.vue] handleKeydown 호출됨! key:', event.key)
+  if (event.key === 'Enter') {
+    if (event.shiftKey) {
+      // Shift+Enter: 줄바꿈 (기본 동작)
+      console.log('🚨 [Chat.vue] Shift+Enter 감지 - 줄바꿈')
+      return
+    } else {
+      // Enter: 메시지 전송
+      console.log('🚨 [Chat.vue] Enter 감지 - sendMessage 호출!')
+      event.preventDefault()
+      sendMessage()
+    }
+  }
+}
+
+// 파일 관련 유틸리티 함수들
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes'
   const k = 1024
