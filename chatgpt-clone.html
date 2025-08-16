@@ -1658,6 +1658,209 @@
             flex: 1;
         }
 
+        /* 새로운 메시지 타입 스타일 */
+        
+        /* 토글 가능한 메시지 */
+        .collapsible-message {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .collapsible-header:hover {
+            background: #f1f5f9;
+        }
+
+        .collapsible-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-icon {
+            font-size: 12px;
+            color: #64748b;
+            transition: transform 0.2s;
+        }
+
+        .toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            padding: 0 16px 16px 16px;
+            border-top: 1px solid #e2e8f0;
+            background: #ffffff;
+        }
+
+        /* Thinking 메시지 */
+        .thinking-message {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .thinking-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+            color: #8b5cf6;
+        }
+
+        .thinking-title {
+            font-weight: 500;
+            color: #475569;
+            font-size: 14px;
+        }
+
+        .thinking-text {
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            margin-top: 8px;
+        }
+
+        /* Tool 메시지 */
+        .tool-message {
+            border-left: 4px solid #22c55e;
+        }
+
+        .tool-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+            color: #22c55e;
+        }
+
+        .tool-title {
+            font-weight: 500;
+            color: #475569;
+            font-size: 14px;
+        }
+
+        .tool-text {
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            margin-top: 8px;
+        }
+
+        /* Error 메시지 */
+        .error-message {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #fef2f2;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #ef4444;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 8px 0;
+        }
+
+        .error-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+            color: #ef4444;
+        }
+
+        .error-content {
+            flex: 1;
+        }
+
+        .error-title {
+            font-weight: 500;
+            color: #475569;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .error-text {
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        /* 깔끔한 일반 메시지 */
+        .clean-message {
+            margin: 16px 0;
+        }
+
+        .user-message {
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #3b82f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            order: 2;
+        }
+
+        .user-text {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 18px 18px 4px 18px;
+            max-width: 70%;
+            font-size: 15px;
+            line-height: 1.5;
+            order: 1;
+        }
+
+        .assistant-message {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .assistant-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #10b981;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .assistant-text {
+            background: transparent;
+            color: #374151;
+            font-size: 15px;
+            line-height: 1.6;
+            flex: 1;
+            padding: 8px 0;
+        }
+
+        .typing-indicator {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
         /* 프로필 메뉴 모달 */
         .modal-overlay {
             position: fixed;
@@ -2860,6 +3063,13 @@
     <div id="app"></div>
 
     <script>
+        // Vue 앱과 충돌 방지 - 5177 포트에서는 실행하지 않음
+        if (window.location.port === '5177') {
+            console.log('Vue 앱 환경 감지 - chatgpt-clone.html JavaScript 비활성화');
+        } else {
+            console.log('chatgpt-clone.html 환경 - JavaScript 활성화');
+        }
+        
         const { createApp, ref, computed, nextTick, watch, onMounted } = Vue;
 
         // 실시간 채팅 클래스 (기본 구조)
@@ -2908,15 +3118,43 @@
             }
             
             async streamChat(message, onUpdate) {
+                let token = localStorage.getItem('auth_token');
+                console.log('🔑 [HTML] localStorage 토큰:', token);
+                
+                // 토큰이 없거나 'null' 문자열인 경우 처리
+                if (!token || token === 'null' || token === 'undefined') {
+                    console.log('🔑 [HTML] 토큰이 없음 - 임시 토큰 생성');
+                    // 임시 테스트 토큰 생성
+                    token = 'test-token-' + Date.now();
+                    localStorage.setItem('auth_token', token);
+                    console.log('🔑 [HTML] 임시 토큰 생성됨:', token);
+                }
+                
+                console.log('🔑 [HTML] 최종 사용할 토큰:', token);
+                
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                    console.log('🔑 [HTML] Authorization 헤더 추가됨:', headers['Authorization']);
+                } else {
+                    console.error('🔑 [HTML] 토큰이 없어서 Authorization 헤더 추가 안됨');
+                }
+                
+                const requestBody = {
+                    content: [{ type: 'text', text: message }],
+                    session_id: this.sessionId
+                };
+                
+                console.log('📤 [HTML] 요청 데이터:', requestBody);
+                console.log('📤 [HTML] 헤더:', headers);
+                
                 const response = await fetch(`${this.backendUrl}/chat`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: message,
-                        session_id: this.sessionId
-                    })
+                    headers: headers,
+                    body: JSON.stringify(requestBody)
                 });
                 
                 if (!response.ok) {
@@ -3037,43 +3275,144 @@
                     });
                 };
                 
-                // 스트리밍 업데이트 처리
+                // 현재 활성 메시지들을 추적하는 변수들
+                let currentThinkingMessage = null;
+                let currentToolMessage = null;
+                let currentResponseMessage = null;
+                
+                // 스트리밍 업데이트 처리 - 각 상태별로 별도 메시지 생성
                 const handleStreamingUpdate = (data, assistantMessage) => {
                     console.log('📡 스트리밍 데이터:', data);
                     
+                    const currentChat = chatHistoryItems.value.find(chat => chat.id === currentChatId.value);
+                    
                     switch (data.type) {
                         case 'thinking_start':
-                            assistantMessage.content = '🤔 생각 중...';
+                            // 새로운 "생각 중" 메시지 생성
+                            currentThinkingMessage = {
+                                id: Date.now() + Math.random(),
+                                type: 'assistant',
+                                content: '🤔 생각 중...',
+                                isStreaming: true,
+                                messageType: 'thinking',
+                                expanded: true // 기본적으로 펼쳐진 상태
+                            };
+                            messages.value.push(currentThinkingMessage);
+                            if (currentChat) {
+                                currentChat.messages.push(currentThinkingMessage);
+                            }
                             break;
                             
                         case 'thinking_delta':
-                            if (data.text) {
-                                assistantMessage.content = '🤔 생각 중: ' + data.text.substring(0, 50) + '...';
+                            if (currentThinkingMessage && data.text) {
+                                currentThinkingMessage.content += data.text;
                             }
                             break;
                             
                         case 'thinking_stop':
-                            assistantMessage.content = '💬 답변 준비 중...';
+                            if (currentThinkingMessage) {
+                                currentThinkingMessage.isStreaming = false;
+                                currentThinkingMessage.content += '\n\n✅ 생각 완료';
+                            }
                             break;
                             
                         case 'text_start':
-                            assistantMessage.content = '';
+                            // 새로운 "응답" 메시지 생성
+                            currentResponseMessage = {
+                                id: Date.now() + Math.random(),
+                                type: 'assistant',
+                                content: '',
+                                isStreaming: true,
+                                messageType: 'response'
+                            };
+                            messages.value.push(currentResponseMessage);
+                            if (currentChat) {
+                                currentChat.messages.push(currentResponseMessage);
+                            }
                             break;
                             
                         case 'text_delta':
-                            if (data.text) {
-                                assistantMessage.content += data.text;
+                            if (currentResponseMessage && data.text) {
+                                currentResponseMessage.content += data.text;
+                            }
+                            break;
+                            
+                        case 'text_stop':
+                            if (currentResponseMessage) {
+                                currentResponseMessage.isStreaming = false;
+                            }
+                            break;
+                            
+                        case 'tool_use_start':
+                            // 새로운 "도구 사용" 메시지 생성
+                            currentToolMessage = {
+                                id: Date.now() + Math.random(),
+                                type: 'assistant',
+                                content: `🔧 도구 사용: ${data.name}`,
+                                isStreaming: true,
+                                messageType: 'tool',
+                                expanded: true // 기본적으로 펼쳐진 상태
+                            };
+                            messages.value.push(currentToolMessage);
+                            if (currentChat) {
+                                currentChat.messages.push(currentToolMessage);
+                            }
+                            break;
+                            
+                        case 'tool_execution':
+                            if (currentToolMessage) {
+                                currentToolMessage.content += `\n⚙️ 실행 중: ${data.name}`;
+                                if (data.input) {
+                                    currentToolMessage.content += `\n📝 입력: ${JSON.stringify(data.input, null, 2)}`;
+                                }
+                            }
+                            break;
+                            
+                        case 'tool_result':
+                            if (currentToolMessage) {
+                                currentToolMessage.content += `\n✅ 결과: ${data.result}`;
+                            }
+                            break;
+                            
+                        case 'tool_error':
+                            if (currentToolMessage) {
+                                currentToolMessage.content += `\n❌ 오류: ${data.error}`;
+                                currentToolMessage.isStreaming = false;
+                            }
+                            break;
+                            
+                        case 'tool_stop':
+                            if (currentToolMessage) {
+                                currentToolMessage.isStreaming = false;
                             }
                             break;
                             
                         case 'complete':
+                            // 모든 활성 메시지 완료 처리
+                            if (currentThinkingMessage) currentThinkingMessage.isStreaming = false;
+                            if (currentToolMessage) currentToolMessage.isStreaming = false;
+                            if (currentResponseMessage) currentResponseMessage.isStreaming = false;
+                            
+                            // 기존 assistantMessage는 숨기거나 제거
+                            assistantMessage.content = '';
                             assistantMessage.isStreaming = false;
+                            
                             console.log('✅ 스트리밍 완료');
                             break;
                             
                         case 'error':
-                            assistantMessage.content = '❌ 오류: ' + data.message;
-                            assistantMessage.isStreaming = false;
+                            // 오류 메시지를 별도로 추가
+                            const errorMessage = {
+                                id: Date.now() + Math.random(),
+                                type: 'assistant',
+                                content: `❌ 오류: ${data.message}`,
+                                isStreaming: false,
+                                messageType: 'error'
+                            };
+                            messages.value.push(errorMessage);
+                            if (currentChat) {
+                                currentChat.messages.push(errorMessage);
+                            }
                             break;
                     }
                     
@@ -3083,6 +3422,11 @@
                     nextTick(() => {
                         scrollToBottom();
                     });
+                };
+
+                // 토글 메시지 함수
+                const toggleMessage = (message) => {
+                    message.expanded = !message.expanded;
                 };
 
                 const chatHistoryItems = ref([
@@ -3776,6 +4120,9 @@
                 ];
 
                 const sendMessage = () => {
+                    console.log('🚨 [HTML] sendMessage 함수 호출됨!');
+                    console.log('🚨 [HTML] inputText:', inputText.value);
+                    
                     if (!inputText.value.trim()) return;
 
                     const currentInput = inputText.value;
@@ -3850,9 +4197,12 @@
                 };
 
                 const handleKeydown = (event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault();
-                        sendMessage();
+                    // Vue 앱과 충돌 방지 - chatgpt-clone.html에서만 실행
+                    if (window.location.pathname.includes('chatgpt-clone.html')) {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault();
+                            sendMessage();
+                        }
                     }
                 };
 
@@ -5471,6 +5821,7 @@
                     checkBackendConnection,
                     testStreamingChat,
                     handleStreamingUpdate,
+                    toggleMessage,
                     chatHistoryItems,
                     folders,
                     currentChatId,
@@ -5898,12 +6249,58 @@
                             <div class="messages-inner">
                                 <div v-for="message in messages" 
                                      :key="message.id"
-                                     :class="['message', message.type]">
-                                    <div class="message-avatar">
-                                        {{ message.type === 'user' ? 'U' : 'AI' }}
+                                     :class="['message', message.type, message.messageType || 'default']">
+                                    
+                                    <!-- Thinking 메시지 -->
+                                    <div v-if="message.messageType === 'thinking'" class="collapsible-message thinking-message">
+                                        <div class="collapsible-header" @click="toggleMessage(message)">
+                                            <div class="collapsible-left">
+                                                <div class="thinking-icon">🤔</div>
+                                                <div class="thinking-title">생각 중...</div>
+                                            </div>
+                                            <div class="toggle-icon" :class="{ 'collapsed': !message.expanded }">▼</div>
+                                        </div>
+                                        <div v-if="message.expanded" class="collapsible-content">
+                                            <div class="thinking-text">{{ message.content }}</div>
+                                        </div>
                                     </div>
-                                    <div class="message-content">
-                                        {{ message.content }}
+                                    
+                                    <!-- Tool 메시지 -->
+                                    <div v-else-if="message.messageType === 'tool'" class="collapsible-message tool-message">
+                                        <div class="collapsible-header" @click="toggleMessage(message)">
+                                            <div class="collapsible-left">
+                                                <div class="tool-icon">🔧</div>
+                                                <div class="tool-title">도구 사용</div>
+                                            </div>
+                                            <div class="toggle-icon" :class="{ 'collapsed': !message.expanded }">▼</div>
+                                        </div>
+                                        <div v-if="message.expanded" class="collapsible-content">
+                                            <div class="tool-text">{{ message.content }}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Error 메시지 -->
+                                    <div v-else-if="message.messageType === 'error'" class="error-message">
+                                        <div class="error-icon">❌</div>
+                                        <div class="error-content">
+                                            <div class="error-title">오류 발생</div>
+                                            <div class="error-text">{{ message.content }}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 일반 메시지 (사용자, 응답) -->
+                                    <div v-else class="clean-message" :class="message.type">
+                                        <div v-if="message.type === 'user'" class="user-message">
+                                            <div class="user-avatar">👤</div>
+                                            <div class="user-text">{{ message.content }}</div>
+                                        </div>
+                                        <div v-else class="assistant-message">
+                                            <div class="assistant-avatar">🤖</div>
+                                            <div class="assistant-text">
+                                                {{ message.content }}
+                                                <span v-if="message.isStreaming" class="typing-indicator"> ⌨️</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

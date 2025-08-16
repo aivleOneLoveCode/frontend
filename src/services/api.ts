@@ -15,8 +15,8 @@ declare global {
 }
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 10000,
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  timeout: 30000, // 긴 스트리밍 요청을 위해 타임아웃 증가
   headers: {
     'Content-Type': 'application/json'
   }

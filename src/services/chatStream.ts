@@ -1,8 +1,14 @@
-// DA-ZZANY 실시간 채팅 스트림 서비스 (HTML과 동일)
+// DA-ZZANY 실시간 채팅 스트림 서비스 (고도화된 백엔드 연동)
 export interface StreamUpdate {
-  type: 'thinking_start' | 'thinking_delta' | 'thinking_stop' | 'text_start' | 'text_delta' | 'complete' | 'error'
+  type: 'thinking_start' | 'thinking_delta' | 'thinking_stop' | 'text_start' | 'text_delta' | 'complete' | 'error' | 'session_created' | 'session_id' | 'tool_execution' | 'tool_result' | 'tool_error' | 'tool_use_start'
   text?: string
   message?: string
+  session_id?: string
+  title?: string
+  name?: string
+  input?: any
+  result?: string
+  error?: string
 }
 
 export class DAZZANYChatStream {
@@ -22,12 +28,31 @@ export class DAZZANYChatStream {
 
   async checkBackend(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.backendUrl}/health`)
-      if (response.ok) {
-        const data = await response.json()
+      // JWT 토큰 확인
+      const token = localStorage.getItem('auth_token')
+      if (!token) {
+        console.warn('⚠️ 인증 토큰이 없습니다 - 로그인이 필요합니다')
+        this.isConnected = false
+        return false
+      }
+
+      // /sessions 엔드포인트로 연결 체크 (토큰 검증도 함께)
+      const response = await fetch(`${this.backendUrl}/sessions`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.status === 200) {
         this.isConnected = true
-        console.log('✅ 백엔드 연결 성공:', data)
+        console.log('✅ 백엔드 연결 및 인증 성공')
         return true
+      } else if (response.status === 401) {
+        console.warn('⚠️ 인증 실패 - 토큰이 유효하지 않습니다')
+        this.isConnected = false
+        return false
       } else {
         this.isConnected = false
         console.warn('⚠️ 백엔드 연결 실패:', response.status)
@@ -40,7 +65,7 @@ export class DAZZANYChatStream {
     }
   }
 
-  async sendMessage(message: string, onUpdate: (data: StreamUpdate) => void): Promise<void> {
+  async sendMessage(content: any[], sessionId?: string, onUpdate?: (data: StreamUpdate) => void): Promise<void> {
     if (this.isProcessing) {
       console.warn('⚠️ 이미 처리 중인 메시지가 있습니다.')
       return
@@ -49,24 +74,45 @@ export class DAZZANYChatStream {
     this.isProcessing = true
 
     try {
-      await this.streamChat(message, onUpdate)
+      await this.streamChat(content, sessionId, onUpdate || (() => {}))
     } catch (error) {
       console.error('채팅 오류:', error)
-      onUpdate({ type: 'error', message: '오류가 발생했습니다: ' + (error as Error).message })
+      if (onUpdate) {
+        onUpdate({ type: 'error', message: '오류가 발생했습니다: ' + (error as Error).message })
+      }
     } finally {
       this.isProcessing = false
     }
   }
 
-  private async streamChat(message: string, onUpdate: (data: StreamUpdate) => void): Promise<void> {
-    const response = await fetch(`${this.backendUrl}/chat`, {
+  // P-test 방식의 authenticated fetch 메서드 추가
+  private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      throw new Error('인증 토큰이 없습니다. 로그인이 필요합니다.')
+    }
+
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      ...options.headers
+    }
+
+    return fetch(url, {
+      ...options,
+      headers
+    })
+  }
+
+  private async streamChat(content: any[], sessionId?: string, onUpdate?: (data: StreamUpdate) => void): Promise<void> {
+    // P-test 방식으로 authenticatedFetch 사용
+    const response = await this.authenticatedFetch(`${this.backendUrl}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        message: message,
-        session_id: this.sessionId
+        content: content,
+        session_id: sessionId
       })
     })
 
@@ -88,7 +134,9 @@ export class DAZZANYChatStream {
         
         if (done) {
           console.log('✅ 스트리밍 완료')
-          onUpdate({ type: 'complete' })
+          if (onUpdate) {
+            onUpdate({ type: 'complete' })
+          }
           break
         }
 
@@ -100,7 +148,9 @@ export class DAZZANYChatStream {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.substring(6))
-              onUpdate(data)
+              if (onUpdate) {
+                onUpdate(data)
+              }
             } catch (error) {
               console.error('JSON 파싱 오류:', error, 'Line:', line)
             }

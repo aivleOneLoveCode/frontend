@@ -12,6 +12,9 @@ build/
 .env
 .env.local
 .env.*.local
+.env.backup
+.env.development
+.env.production
 
 # Log files
 *.log
@@ -54,3 +57,12 @@ Thumbs.db
 # Legacy HTML files (백업용)
 chatgpt-clone.html.bak
 login.html.bak
+
+# Database files
+*.db
+claude_multi_user.db
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class

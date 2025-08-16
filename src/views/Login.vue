@@ -147,9 +147,9 @@ const validateField = (fieldName: string) => {
       }
       break
     case 'password':
-      if (value.length < 8) {
+      if (value.length < 3) {
         field.error = true
-        field.message = '비밀번호는 8자 이상이어야 합니다.'
+        field.message = '비밀번호를 입력해주세요.'
       } else {
         field.valid = true
       }
@@ -159,12 +159,14 @@ const validateField = (fieldName: string) => {
 
 const handleLogin = async () => {
   try {
+    console.log('[Login] 로그인 시도:', loginForm.value.email)
     await authStore.login(loginForm.value.email, loginForm.value.password)
+    console.log('[Login] 로그인 성공, 리다이렉트 중...')
     // 로그인 성공 시 채팅 페이지로 리다이렉트
     const redirectPath = route.query.redirect as string || '/chat'
     router.push(redirectPath)
   } catch (error) {
-    console.error('Login failed:', error)
+    console.error('[Login] 로그인 실패:', error)
   }
 }
 

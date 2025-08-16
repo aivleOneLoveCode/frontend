@@ -1,15 +1,17 @@
-// 파일 업로드 및 처리 서비스 (HTML과 동일)
+// 파일 업로드 및 처리 서비스 (고도화된 백엔드 연동)
 export interface UploadedFile {
   name: string
   type: string
   size: number
   content?: string
   jsonData?: any
+  base64?: string
+  contentBlock?: any
 }
 
 export class FileUploadService {
   
-  // HTML의 processUploadedFile 함수와 동일
+  // 고도화된 백엔드에 맞춘 파일 처리 (이미지, PDF 지원)
   static async processUploadedFile(file: File): Promise<UploadedFile> {
     const fileType = file.type
     const fileName = file.name
@@ -18,6 +20,14 @@ export class FileUploadService {
       name: fileName,
       type: fileType,
       size: file.size
+    }
+
+    // 파일 크기 제한 확인
+    if (fileType.startsWith('image/') && file.size > 5 * 1024 * 1024) {
+      throw new Error('이미지 파일은 5MB 이하만 업로드 가능합니다.')
+    }
+    if (fileType === 'application/pdf' && file.size > 32 * 1024 * 1024) {
+      throw new Error('PDF 파일은 32MB 이하만 업로드 가능합니다.')
     }
     
     // JSON 파일인 경우 워크플로우로 처리
@@ -54,16 +64,51 @@ export class FileUploadService {
       }
     }
     
-    // 이미지 파일 처리
-    else if (fileType.startsWith('image/')) {
-      console.log('이미지 파일 업로드됨:', fileName)
-      return uploadedFile
+    // 이미지 파일 처리 (JPEG, PNG, GIF, WebP)
+    else if (fileType.startsWith('image/') && ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(fileType)) {
+      try {
+        const base64 = await this.readFileAsBase64(file)
+        uploadedFile.base64 = base64
+        uploadedFile.contentBlock = {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: fileType,
+            data: base64
+          }
+        }
+        console.log('이미지 파일 업로드됨:', fileName)
+        return uploadedFile
+      } catch (error) {
+        console.error('이미지 파일 처리 오류:', error)
+        throw new Error('이미지 파일을 처리할 수 없습니다.')
+      }
     }
     
-    // 기타 파일 처리
+    // PDF 파일 처리
+    else if (fileType === 'application/pdf') {
+      try {
+        const base64 = await this.readFileAsBase64(file)
+        uploadedFile.base64 = base64
+        uploadedFile.contentBlock = {
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: base64
+          }
+        }
+        console.log('PDF 파일 업로드됨:', fileName)
+        return uploadedFile
+      } catch (error) {
+        console.error('PDF 파일 처리 오류:', error)
+        throw new Error('PDF 파일을 처리할 수 없습니다.')
+      }
+    }
+    
+    // 지원하지 않는 파일 형식
     else {
-      console.log('기타 파일 업로드됨:', fileName)
-      return uploadedFile
+      throw new Error('지원하지 않는 파일 형식입니다. 이미지(JPEG, PNG, GIF, WebP) 또는 PDF 파일만 업로드 가능합니다.')
     }
   }
   
@@ -85,6 +130,28 @@ export class FileUploadService {
       }
       
       reader.readAsText(file, 'utf-8')
+    })
+  }
+
+  // 파일을 Base64로 읽기
+  private static readFileAsBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          const base64 = (event.target.result as string).split(',')[1] // "data:image/png;base64," 제거
+          resolve(base64)
+        } else {
+          reject(new Error('파일을 읽을 수 없습니다.'))
+        }
+      }
+      
+      reader.onerror = () => {
+        reject(new Error('파일 읽기 중 오류가 발생했습니다.'))
+      }
+      
+      reader.readAsDataURL(file)
     })
   }
   
@@ -113,30 +180,48 @@ export class FileUploadService {
     return '📄'
   }
   
-  // 지원되는 파일 타입 확인
+  // 지원되는 파일 타입 확인 (고도화된 백엔드에 맞춤)
   static isSupportedFileType(file: File): boolean {
     const supportedTypes = [
       'application/json',
       'text/plain',
       'text/markdown',
-      'text/csv',
-      'text/html',
-      'text/css',
-      'text/javascript',
-      'application/javascript',
       'image/jpeg',
-      'image/png',
+      'image/png', 
       'image/gif',
       'image/webp',
-      'image/svg+xml'
+      'application/pdf'
     ]
     
     const supportedExtensions = [
-      '.json', '.txt', '.md', '.csv', '.html', '.css', '.js', '.ts',
-      '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'
+      '.json', '.txt', '.md',
+      '.jpg', '.jpeg', '.png', '.gif', '.webp',
+      '.pdf'
     ]
     
     return supportedTypes.includes(file.type) || 
            supportedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
+  }
+
+  // Claude 백엔드용 content block 배열 생성
+  static createContentBlocks(text: string, files: UploadedFile[]): any[] {
+    const blocks: any[] = []
+    
+    // 텍스트 블록 추가
+    if (text.trim()) {
+      blocks.push({
+        type: "text",
+        text: text
+      })
+    }
+    
+    // 파일 블록들 추가
+    files.forEach(file => {
+      if (file.contentBlock) {
+        blocks.push(file.contentBlock)
+      }
+    })
+    
+    return blocks
   }
 }

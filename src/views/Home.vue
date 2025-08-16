@@ -69,58 +69,174 @@
 import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.ts'
+import { useChatStore } from '@/stores/chat.ts'
 import Sidebar from '@/components/Sidebar.vue'
 import Header from '@/components/Header.vue'
 import WorkflowPanel from '@/components/WorkflowPanel.vue'
 import BoardPanel from '@/components/BoardPanel.vue'
-import { useChatManagement } from '@/composables/useChatManagement'
-import { useWorkflowManagement } from '@/composables/useWorkflowManagement'
+import { FileUploadService, type UploadedFile } from '@/services/fileUpload'
 import type { ChatHistoryItem, WorkflowItem } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 
 // 인증 상태
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 
-// 상태 관리
-const { 
-  messages,
-  inputText,
-  showWelcome,
-  chatHistoryItems,
-  currentChatId,
-  uploadedFiles,
-  isDragging,
-  isBackendConnected,
-  backendStatus,
-  sendMessage,
-  newChat,
-  selectChatHistory,
-  handleKeydown,
-  handleFileUpload,
-  handleDragEnter,
-  handleDragOver,
-  handleDragLeave,
-  handleDrop,
-  removeUploadedFile,
-  checkBackendConnection
-} = useChatManagement()
+// 채팅 관련 상태
+const inputText = ref('')
+const isDragging = ref(false)
+const isBackendConnected = ref(false)
+const backendStatus = ref('연결 중...')
 
-const {
-  workflowItems,
-  workflowPanelOpen,
-  selectedWorkflow,
-  workflowPanelWidth,
-  selectWorkflow,
-  closeWorkflowPanel,
-  startResize
-} = useWorkflowManagement()
+// Computed properties
+const messages = computed(() => chatStore.currentMessages)
+const showWelcome = computed(() => messages.value.length === 0)
+const uploadedFiles = computed(() => chatStore.uploadedFiles)
+const chatHistoryItems = computed(() => 
+  chatStore.sessions.map(session => ({
+    id: session.session_id,
+    title: session.title,
+    active: session.active
+  }))
+)
+
+// 워크플로우 관련 (임시로 빈 상태)
+const workflowItems = ref<WorkflowItem[]>([])
+const selectedWorkflow = ref<WorkflowItem | null>(null)
+const workflowPanelOpen = ref(false)
+const workflowPanelWidth = ref(400)
 
 // UI 상태
 const sidebarCollapsed = ref(false)
 const activeMenu = ref<string | null>(null)
 const boardPanelOpen = ref(false)
+
+// 채팅 기능
+const sendMessage = async () => {
+  console.log('🚨 [Home.vue] sendMessage 함수 호출됨!')
+  console.log('🚨 [Home.vue] inputText:', inputText.value)
+  console.log('🚨 [Home.vue] uploadedFiles:', uploadedFiles.value)
+  
+  if (!inputText.value.trim() && uploadedFiles.value.length === 0) return
+  if (!chatStore.canSendMessage) return
+
+  try {
+    console.log('🚨 [Home.vue] chatStore.sendMessage 호출 전')
+    await chatStore.sendMessage(inputText.value, uploadedFiles.value)
+    console.log('🚨 [Home.vue] chatStore.sendMessage 호출 후')
+    inputText.value = ''
+  } catch (error) {
+    console.error('메시지 전송 실패:', error)
+  }
+}
+
+const newChat = () => {
+  chatStore.startNewChat()
+  inputText.value = ''
+}
+
+const selectChatHistory = (chatId: string) => {
+  chatStore.selectSession(chatId)
+}
+
+// 파일 처리
+const handleFileUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (!input.files) return
+
+  for (const file of Array.from(input.files)) {
+    try {
+      if (FileUploadService.isSupportedFileType(file)) {
+        const processedFile = await FileUploadService.processUploadedFile(file)
+        chatStore.addUploadedFile(processedFile)
+      } else {
+        alert('지원하지 않는 파일 형식입니다.')
+      }
+    } catch (error) {
+      console.error('파일 처리 오류:', error)
+      alert('파일 처리 중 오류가 발생했습니다.')
+    }
+  }
+  
+  // 입력 초기화
+  input.value = ''
+}
+
+const handleDragEnter = (event: DragEvent) => {
+  event.preventDefault()
+  isDragging.value = true
+}
+
+const handleDragOver = (event: DragEvent) => {
+  event.preventDefault()
+}
+
+const handleDragLeave = (event: DragEvent) => {
+  event.preventDefault()
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const x = event.clientX
+  const y = event.clientY
+  
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    isDragging.value = false
+  }
+}
+
+const handleDrop = async (event: DragEvent) => {
+  event.preventDefault()
+  isDragging.value = false
+  
+  const files = event.dataTransfer?.files
+  if (!files) return
+
+  for (const file of Array.from(files)) {
+    try {
+      if (FileUploadService.isSupportedFileType(file)) {
+        const processedFile = await FileUploadService.processUploadedFile(file)
+        chatStore.addUploadedFile(processedFile)
+      } else {
+        alert(`지원하지 않는 파일 형식입니다: ${file.name}`)
+      }
+    } catch (error) {
+      console.error('파일 처리 오류:', error)
+      alert(`파일 처리 중 오류가 발생했습니다: ${file.name}`)
+    }
+  }
+}
+
+const removeUploadedFile = (index: number) => {
+  chatStore.removeUploadedFile(index)
+}
+
+const handleKeydown = (event: KeyboardEvent) => {
+  console.log('🚨 [Home.vue] handleKeydown 호출됨! key:', event.key)
+  if (event.key === 'Enter') {
+    if (event.shiftKey) {
+      // Shift+Enter: 줄바꿈 (기본 동작)
+      console.log('🚨 [Home.vue] Shift+Enter 감지 - 줄바꿈')
+      return
+    } else {
+      // Enter: 메시지 전송
+      console.log('🚨 [Home.vue] Enter 감지 - sendMessage 호출!')
+      event.preventDefault()
+      sendMessage()
+    }
+  }
+}
+
+// 백엔드 연결 확인
+const checkBackendConnection = async () => {
+  try {
+    const connected = await chatStore.checkBackendConnection()
+    isBackendConnected.value = connected
+    backendStatus.value = connected ? '연결됨' : '연결 실패'
+  } catch (error) {
+    isBackendConnected.value = false
+    backendStatus.value = '연결 실패'
+  }
+}
 
 // UI 메서드
 const toggleSidebar = () => {
@@ -148,28 +264,49 @@ const showDropdown = (itemId: string | number, type: string, event: Event) => {
   }
 }
 
-const renameItem = (item: ChatHistoryItem | WorkflowItem) => {
+const renameItem = async (item: ChatHistoryItem | WorkflowItem) => {
   const newName = prompt('새로운 이름을 입력하세요:', item.title)
   if (newName && newName.trim()) {
-    item.title = newName.trim()
+    try {
+      if ('session_id' in item) {
+        // 세션 이름 변경
+        await chatStore.updateSessionTitle(item.id as string, newName.trim())
+      }
+    } catch (error) {
+      console.error('이름 변경 실패:', error)
+      alert('이름 변경에 실패했습니다.')
+    }
   }
   activeMenu.value = null
 }
 
-const deleteItem = (itemId: number, type: string) => {
+const deleteItem = async (itemId: number | string, type: string) => {
   if (confirm('정말로 삭제하시겠습니까?')) {
-    if (type === 'workflow') {
-      const index = workflowItems.value.findIndex(item => item.id === itemId)
-      if (index > -1) workflowItems.value.splice(index, 1)
-    } else if (type === 'chat') {
-      const index = chatHistoryItems.value.findIndex(item => item.id === itemId)
-      if (index > -1) chatHistoryItems.value.splice(index, 1)
-      if (currentChatId.value === itemId) {
-        newChat()
+    try {
+      if (type === 'chat') {
+        await chatStore.deleteSession(itemId as string)
       }
+    } catch (error) {
+      console.error('삭제 실패:', error)
+      alert('삭제에 실패했습니다.')
     }
   }
   activeMenu.value = null
+}
+
+// 워크플로우 관련 (임시)
+const selectWorkflow = (workflow: WorkflowItem) => {
+  selectedWorkflow.value = workflow
+  workflowPanelOpen.value = true
+}
+
+const closeWorkflowPanel = () => {
+  workflowPanelOpen.value = false
+  selectedWorkflow.value = null
+}
+
+const startResize = () => {
+  // 리사이즈 로직 (임시)
 }
 
 // 헤더 액션
@@ -177,82 +314,70 @@ const goToBoard = () => {
   router.push('/board')
 }
 
-const closeBoardPanel = () => {
-  boardPanelOpen.value = false
-}
-
 const goToLogin = () => {
   router.push('/login')
 }
 
 const handleLogout = async () => {
-  await authStore.logout()
-  router.push('/')
-}
-
-// 글로벌 이벤트
-const handleGlobalKeydown = (event: KeyboardEvent) => {
-  if (event.ctrlKey && event.shiftKey && event.key === 'O') {
-    event.preventDefault()
-    newChat()
+  try {
+    await authStore.logout()
+    router.push('/login')
+  } catch (error) {
+    console.error('로그아웃 실패:', error)
   }
 }
 
-const closeDropdown = () => {
-  activeMenu.value = null
+const closeBoardPanel = () => {
+  boardPanelOpen.value = false
 }
 
-let connectionInterval: number
-
+// 컴포넌트 마운트
 onMounted(async () => {
-  document.addEventListener('keydown', handleGlobalKeydown)
-  document.addEventListener('click', closeDropdown)
-  
-  // 인증 상태 확인
-  await authStore.checkAuthStatus()
-  
-  // 백엔드 연결 확인
-  checkBackendConnection()
-  // 5초마다 연결 확인
-  connectionInterval = setInterval(checkBackendConnection, 5000)
+  if (isAuthenticated.value) {
+    await chatStore.loadSessions()
+    await checkBackendConnection()
+  }
 })
 
+// 클린업
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleGlobalKeydown)
-  document.removeEventListener('click', closeDropdown)
-  if (connectionInterval) {
-    clearInterval(connectionInterval)
-  }
+  // 필요시 정리 작업
 })
 </script>
 
-<style>
-@import '@/assets/styles/main.css';
-
+<style scoped>
 .app {
-  display: flex;
   height: 100vh;
+  display: flex;
+  background: var(--bg-color);
+  color: var(--text-color);
+  overflow: hidden;
 }
 
-/* 간단 모드 (로그인하지 않은 상태) */
-.app.simple-mode .main-content {
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  transition: margin-right 0.2s ease;
+}
+
+.simple-mode .main-content {
   margin-left: 0;
-  width: 100%;
 }
 
-/* 게시판이 열렸을 때 채팅창 스타일 조정 */
-.app.board-open .main-content {
-  filter: blur(2px);
-  pointer-events: none;
+.board-open .main-content {
+  margin-right: 300px;
 }
 
-.app.board-open .sidebar {
-  filter: blur(2px);
-  pointer-events: none;
-}
-
-.app.board-open .workflow-panel {
-  filter: blur(2px);
-  pointer-events: none;
+@media (max-width: 768px) {
+  .app {
+    flex-direction: column;
+  }
+  
+  .main-content {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
 }
 </style>

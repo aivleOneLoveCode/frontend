@@ -6,7 +6,8 @@ interface LoginCredentials {
 }
 
 interface RegisterData {
-  name: string
+  first_name: string
+  last_name: string
   email: string
   password: string
   confirmPassword?: string
@@ -35,21 +36,25 @@ interface ProfileData {
 export const authService = {
   // 로그인
   async login(credentials: LoginCredentials) {
-    const response = await api.post('/auth/login', credentials)
-    const { access_token, refresh_token, user } = response.data
+    console.log('[Auth Service] API 요청:', credentials)
+    const response = await api.post('/login', credentials)
+    console.log('[Auth Service] API 응답:', response.data)
+    const { access_token, user } = response.data
     
     // 토큰 저장
     localStorage.setItem('auth_token', access_token)
-    if (refresh_token) {
-      localStorage.setItem('refresh_token', refresh_token)
-    }
     
     return { token: access_token, user }
   },
 
   // 회원가입
   async register(userData: RegisterData) {
-    const response = await api.post('/auth/register', userData)
+    const response = await api.post('/register', {
+      email: userData.email,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      password: userData.password
+    })
     return response.data
   },
 
