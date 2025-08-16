@@ -29,7 +29,7 @@
     <!-- 워크플로우 패널 -->
     <WorkflowPanel
       v-if="isAuthenticated && workflowPanelOpen"
-      :selectedWorkflow="selectedWorkflow"
+      :selectedWorkflow="selectedWorkflow as WorkflowItem"
       :workflowPanelWidth="workflowPanelWidth"
       @close-panel="closeWorkflowPanelGlobally"
       @start-resize="startResize"

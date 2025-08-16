@@ -68,7 +68,7 @@ const handleRename = () => {
 
 const handleDelete = () => {
   closeDropdown()
-  emit('delete', props.chatItem.id)
+  emit('delete', Number(props.chatItem.id))
 }
 </script>
 

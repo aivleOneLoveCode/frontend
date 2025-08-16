@@ -609,6 +609,9 @@ const goToLogin = () => {
   font-weight: 900;
   letter-spacing: -0.04em;
   text-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 }
 
 .gradient-text {
@@ -689,15 +692,17 @@ const goToLogin = () => {
 
 .typing-text {
   font-size: 1.4rem;
-  font-weight: 500;
+  font-weight: 700;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: calc(100% - 4rem);
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.4;
   text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .cursor {
@@ -1414,6 +1419,7 @@ const goToLogin = () => {
   
   .typing-text {
     font-size: 1.3rem;
+    font-weight: 700;
   }
   
   .cursor {
@@ -1492,6 +1498,7 @@ const goToLogin = () => {
   
   .typing-text {
     font-size: 1.1rem;
+    font-weight: 700;
   }
   
   .cursor {
