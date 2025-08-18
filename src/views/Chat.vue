@@ -19,6 +19,8 @@
     @handle-drop="handleDrop"
     @update:input-text="inputText = $event"
     @remove-uploaded-file="removeUploadedFile"
+    @share-file-to-board="shareFileToBoard"
+    @share-all-files-to-board="shareAllFilesToBoard"
   />
 </template>
 
@@ -26,9 +28,11 @@
 import { ref, computed } from 'vue'
 import ChatArea from '@/components/ChatArea.vue'
 import { useChatStore } from '@/stores/chat'
+import { useBoardStore } from '@/stores/board'
 import { FileUploadService } from '@/services/fileUpload'
 
 const chatStore = useChatStore()
+const boardStore = useBoardStore()
 
 // 채팅 관련 상태
 const inputText = ref('')
@@ -183,6 +187,40 @@ const getFileIcon = (fileName: string): string => {
     case 'mp3':
     case 'wav': return '🎵'
     default: return '📎'
+  }
+}
+
+// 파일을 게시판에 공유
+const shareFileToBoard = async (file: any, index: number) => {
+  try {
+    await boardStore.shareFileToBoard(file)
+    alert(`${file.name} 파일이 게시판에 성공적으로 공유되었습니다!`)
+    
+    // 공유 후 파일을 업로드 목록에서 제거 (선택사항)
+    // chatStore.removeUploadedFile(index)
+  } catch (error) {
+    console.error('파일 공유 실패:', error)
+    alert('파일 공유 중 오류가 발생했습니다.')
+  }
+}
+
+// 모든 파일을 게시판에 공유
+const shareAllFilesToBoard = async () => {
+  try {
+    const files = uploadedFiles.value
+    if (files.length === 0) {
+      alert('공유할 파일이 없습니다.')
+      return
+    }
+    
+    await boardStore.shareFilesToBoard(files)
+    alert(`${files.length}개의 파일이 게시판에 성공적으로 공유되었습니다!`)
+    
+    // 공유 후 모든 파일을 업로드 목록에서 제거 (선택사항)
+    // files.forEach((_, index) => chatStore.removeUploadedFile(index))
+  } catch (error) {
+    console.error('모든 파일 공유 실패:', error)
+    alert('파일 공유 중 오류가 발생했습니다.')
   }
 }
 </script>

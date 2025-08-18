@@ -100,9 +100,25 @@ export class FileUploadService {
       }
     }
     
-    // 지원하지 않는 파일 형식
+    // 기타 파일 형식 (기본 처리)
     else {
-      throw new Error('지원하지 않는 파일 형식입니다. 이미지(JPEG, PNG, GIF, WebP) 또는 PDF 파일만 업로드 가능합니다.')
+      try {
+        const base64 = await this.readFileAsBase64(file)
+        uploadedFile.base64 = base64
+        uploadedFile.contentBlock = {
+          type: "document",
+          source: {
+            type: "base64", 
+            media_type: fileType || "application/octet-stream",
+            data: base64
+          }
+        }
+        return uploadedFile
+      } catch (error) {
+        console.error('파일 처리 오류:', error)
+        // 바이너리 파일로 처리 실패 시 기본 파일 정보만 저장
+        return uploadedFile
+      }
     }
   }
   
@@ -174,27 +190,10 @@ export class FileUploadService {
     return '📄'
   }
   
-  // 지원되는 파일 타입 확인 (고도화된 백엔드에 맞춤)
+  // 지원되는 파일 타입 확인 (모든 파일 형식 지원)
   static isSupportedFileType(file: File): boolean {
-    const supportedTypes = [
-      'application/json',
-      'text/plain',
-      'text/markdown',
-      'image/jpeg',
-      'image/png', 
-      'image/gif',
-      'image/webp',
-      'application/pdf'
-    ]
-    
-    const supportedExtensions = [
-      '.json', '.txt', '.md',
-      '.jpg', '.jpeg', '.png', '.gif', '.webp',
-      '.pdf'
-    ]
-    
-    return supportedTypes.includes(file.type) || 
-           supportedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
+    // 모든 파일 형식을 지원
+    return true
   }
 
   // Claude 백엔드용 content block 배열 생성

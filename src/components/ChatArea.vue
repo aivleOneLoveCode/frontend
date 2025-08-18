@@ -150,6 +150,12 @@
         <span class="file-icon">{{ getFileIcon(file.type) }}</span>
         <span class="file-name">{{ file.name }}</span>
         <span class="file-size">{{ formatFileSize(file.size) }}</span>
+        <button class="share-file-btn" @click="$emit('share-file-to-board', file, index)" :title="'게시판에 공유'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3h18v18H3zM9 9h6v6H9z"/>
+            <path d="M9 3v6M15 3v6M21 9H15M21 15H15M9 15v6M15 15v6M3 9h6M3 15h6"/>
+          </svg>
+        </button>
         <button class="remove-file-btn" @click="$emit('remove-uploaded-file', index)" :title="t('remove_file')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"/>
@@ -168,6 +174,16 @@
         📁 {{ t('drop_files_here') }}
       </div>
       <input type="file" @change="$emit('handle-file-upload', $event)" style="display: none;" ref="fileInput" multiple>
+      
+      <!-- 모든 파일 공유 버튼 (파일이 있을 때만 표시) -->
+      <button v-if="uploadedFiles.length > 0" class="share-all-files-btn" @click="$emit('share-all-files-to-board')" :title="'모든 파일을 게시판에 공유'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 3h18v18H3zM9 9h6v6H9z"/>
+          <path d="M9 3v6M15 3v6M21 9H15M21 15H15M9 15v6M15 15v6M3 9h6M3 15h6"/>
+        </svg>
+        <span class="file-count-badge">{{ uploadedFiles.length }}</span>
+      </button>
+      
       <button class="file-upload-btn" :title="t('file_upload')" @click="fileInput?.click()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -264,6 +280,8 @@ const emit = defineEmits<{
   'handle-drop': [event: DragEvent]
   'update:input-text': [value: string]
   'remove-uploaded-file': [index: number]
+  'share-file-to-board': [file: any, index: number]
+  'share-all-files-to-board': []
 }>()
 
 const textareaRef = ref<HTMLTextAreaElement>()
@@ -961,6 +979,8 @@ const toggleToolBlock = (event: Event) => {
   background: var(--bg-color);
   padding: 24px;
   border-top: 1px solid var(--border-color);
+  z-index: 100;
+  margin-top: 50px;
 }
 
 .input-wrapper {
@@ -1173,6 +1193,73 @@ const toggleToolBlock = (event: Event) => {
 
 .remove-file-btn svg {
   stroke: currentColor;
+}
+
+.share-file-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.share-file-btn:hover {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.share-file-btn svg {
+  stroke: currentColor;
+}
+
+.share-all-files-btn {
+  position: absolute;
+  left: -45px;
+  bottom: 75px;
+  width: 32px;
+  height: 32px;
+  background: #10b981;
+  border: none;
+  border-radius: 16px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.share-all-files-btn:hover {
+  background: #059669;
+  transform: scale(1.05);
+}
+
+.share-all-files-btn svg {
+  stroke: currentColor;
+}
+
+.file-count-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
 }
 
 /* Thinking 표시 스타일 */
