@@ -70,7 +70,26 @@ const backendStatus = ref('연결 중...')
 // 워크플로우 관련 상태 - 글로벌 상태와 연동
 const selectedWorkflow = globalSelectedWorkflow
 const workflowPanelOpen = globalWorkflowPanelOpen
-const workflowPanelWidth = ref(400)
+// 화면 크기에 따른 기본 패널 너비 계산
+const getDefaultPanelWidth = () => {
+  const screenWidth = window.innerWidth
+  
+  if (screenWidth < 768) {
+    // 모바일: 화면의 90% (최소 300px)
+    return Math.max(screenWidth * 0.9, 300)
+  } else if (screenWidth < 1024) {
+    // 태블릿: 화면의 60% (최소 400px, 최대 600px)
+    return Math.min(Math.max(screenWidth * 0.6, 400), 600)
+  } else if (screenWidth < 1440) {
+    // 작은 데스크톱: 화면의 45% (최소 500px, 최대 700px)
+    return Math.min(Math.max(screenWidth * 0.45, 500), 700)
+  } else {
+    // 큰 데스크톱: 화면의 40% (최소 600px, 최대 1000px)
+    return Math.min(Math.max(screenWidth * 0.4, 600), 1000)
+  }
+}
+
+const workflowPanelWidth = ref(getDefaultPanelWidth())
 
 
 // UI 상태
@@ -113,7 +132,13 @@ const startResize = (event: MouseEvent) => {
   
   const handleMouseMove = (e: MouseEvent) => {
     const deltaX = startX - e.clientX // 왼쪽으로 드래그하면 증가
-    const newWidth = Math.max(300, Math.min(800, startWidth + deltaX)) // 최소 300px, 최대 800px
+    const screenWidth = window.innerWidth
+    
+    // 화면 크기에 따른 동적 최소/최대값
+    const minWidth = screenWidth < 768 ? 250 : 350
+    const maxWidth = Math.min(screenWidth * 0.8, 1200) // 화면의 80% 또는 1200px 중 작은 값
+    
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + deltaX))
     workflowPanelWidth.value = newWidth
   }
   
@@ -170,16 +195,28 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
   }
 }
 
+// 창 크기 변경 감지 및 패널 크기 재조정
+const handleResize = () => {
+  const currentWidth = workflowPanelWidth.value
+  const newDefaultWidth = getDefaultPanelWidth()
+  const screenWidth = window.innerWidth
+  
+  // 현재 패널이 화면에 비해 너무 크면 조정
+  if (currentWidth > screenWidth * 0.8) {
+    workflowPanelWidth.value = newDefaultWidth
+  }
+}
+
 // 컴포넌트 마운트
 onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('resize', handleResize)
   
   // 워크플로우 선택 상태 초기화
   initializeWorkflowSelection()
   
   // 인증 상태 확인
   await authStore.checkAuthStatus()
-  
   
   // 백엔드 연결 확인 (1회만)
   await checkBackendConnection()
@@ -188,6 +225,7 @@ onMounted(async () => {
 // 클린업
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('resize', handleResize)
   if (connectionInterval) {
     clearInterval(connectionInterval)
   }

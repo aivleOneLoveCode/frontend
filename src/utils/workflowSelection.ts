@@ -22,7 +22,7 @@ export const globalSelectedWorkflow = ref<WorkflowItem | FolderWorkflow | null>(
 export const globalWorkflowPanelOpen = ref(false)
 
 // 워크플로우 선택을 위한 전역 함수
-export function selectWorkflowGlobally(workflow: WorkflowItem | FolderWorkflow) {
+export async function selectWorkflowGlobally(workflow: WorkflowItem | FolderWorkflow) {
   // 이미 선택된 워크플로우를 다시 클릭하면 해제
   if (globalSelectedWorkflow.value?.n8n_workflow_id === workflow.n8n_workflow_id) {
     closeWorkflowPanelGlobally()
@@ -34,6 +34,18 @@ export function selectWorkflowGlobally(workflow: WorkflowItem | FolderWorkflow) 
   
   // 선택된 워크플로우 active 상태 설정
   workflow.active = true
+  
+  // JSON 데이터가 없으면 백엔드에서 가져오기
+  if (!workflow.jsonData) {
+    try {
+      const { workflowService } = await import('../services/workflow')
+      const jsonData = await workflowService.getWorkflowJson(workflow.n8n_workflow_id)
+      workflow.jsonData = jsonData
+    } catch (error) {
+      console.error('워크플로우 JSON 로딩 실패:', error)
+      // JSON 로딩 실패해도 패널은 열어서 기본 정보라도 보여줌
+    }
+  }
   
   // 전역 상태 업데이트
   globalSelectedWorkflow.value = workflow

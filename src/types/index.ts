@@ -86,3 +86,81 @@ export interface ApiResponse<T = any> {
 export interface FileUploadEvent extends Event {
   target: HTMLInputElement & EventTarget
 }
+
+// n8n 워크플로우 관련 타입 정의
+export interface N8nNode {
+  id: string
+  name: string
+  type: string
+  typeVersion: number
+  position: [number, number]
+  parameters?: Record<string, any>
+  credentials?: Record<string, any>
+  disabled?: boolean
+  notes?: string
+  notesInFlow?: boolean
+  color?: string
+  continueOnFail?: boolean
+  alwaysOutputData?: boolean
+  executeOnce?: boolean
+  retryOnFail?: boolean
+  maxTries?: number
+  waitBetweenTries?: number
+  onError?: 'stopWorkflow' | 'continueRegularOutput' | 'continueErrorOutput'
+}
+
+export interface N8nConnection {
+  node: string
+  type: string
+  index: number
+}
+
+export interface N8nConnections {
+  [nodeId: string]: {
+    [connectionType: string]: N8nConnection[][]
+  }
+}
+
+export interface N8nWorkflowData {
+  id?: string
+  name?: string
+  nodes: N8nNode[]
+  connections: N8nConnections
+  meta?: {
+    name?: string
+    description?: string
+    tags?: string[]
+    templateCredsSetupCompleted?: boolean
+    instanceId?: string
+  }
+  settings?: {
+    executionOrder?: 'v0' | 'v1'
+    saveManualExecutions?: boolean
+    callerPolicy?: string
+    errorWorkflow?: string
+    timezone?: string
+  }
+  pinData?: Record<string, any>
+  versionId?: string
+  triggerCount?: number
+}
+
+// Vue Flow 관련 타입 (n8n에서 사용)
+export interface CanvasNode {
+  id: string
+  type?: string
+  position: { x: number; y: number }
+  data: any
+  selected?: boolean
+  dragging?: boolean
+}
+
+export interface CanvasConnection {
+  id: string
+  source: string
+  target: string
+  sourceHandle?: string
+  targetHandle?: string
+  type?: string
+  data?: any
+}
