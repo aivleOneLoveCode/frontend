@@ -1,0 +1,3 @@
+[submodule "lib/n8n"]
+	path = lib/n8n
+	url = https://github.com/aivleOneLoveCode/n8n.git

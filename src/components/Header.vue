@@ -93,12 +93,15 @@ const { t } = useTranslation()
 }
 
 .header-btn-icon.logout {
-  background: #dc2626;
-  color: white;
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
 }
 
 .header-btn-icon.logout:hover {
-  background: #b91c1c;
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
 }
 
 /* 백엔드 연결 상태 */
