@@ -1,6 +1,6 @@
 // DA-ZZANY 실시간 채팅 스트림 서비스 (고도화된 백엔드 연동)
 export interface StreamUpdate {
-  type: 'thinking_start' | 'thinking_delta' | 'thinking_stop' | 'text_start' | 'text_delta' | 'complete' | 'error' | 'session_created' | 'session_id' | 'tool_execution' | 'tool_result' | 'tool_error' | 'tool_use_start'
+  type: 'thinking_start' | 'thinking_delta' | 'thinking_stop' | 'text_start' | 'text_delta' | 'complete' | 'error' | 'session_created' | 'session_id' | 'tool_execution' | 'tool_result' | 'tool_error' | 'tool_use_start' | 'cancelled'
   text?: string
   message?: string
   session_id?: string
