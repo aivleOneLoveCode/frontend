@@ -4,16 +4,6 @@ interface RefreshTokenResponse {
   access_token: string
 }
 
-declare global {
-  interface ImportMeta {
-    env: {
-      VITE_API_BASE_URL?: string
-      VITE_WS_BASE_URL?: string
-      DEV?: boolean
-    }
-  }
-}
-
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
   timeout: 30000, // 긴 스트리밍 요청을 위해 타임아웃 증가
@@ -39,8 +29,6 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
     
-    
-    
     return config
   },
   (error) => {
@@ -52,13 +40,9 @@ api.interceptors.request.use(
 // 응답 인터셉터 (에러 처리)
 api.interceptors.response.use(
   (response) => {
-    
     return response
   },
   async (error: any) => {
-    const originalRequest = error.config
-
-
     // 401 Unauthorized - 토큰 만료 또는 유효하지 않음
     if (error.response?.status === 401) {
       // 토큰이 있었는데 401이면 토큰이 만료된 것
