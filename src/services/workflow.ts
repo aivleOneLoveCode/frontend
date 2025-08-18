@@ -127,6 +127,12 @@ export const workflowService = {
     return response.data
   },
 
+  // 워크플로우 JSON 데이터 가져오기 (test/backend 호환)
+  async getWorkflowJson(workflowId: string) {
+    const response = await api.get(`/workflows/${workflowId}/json`)
+    return response.data
+  },
+
   // 워크플로우 복제
   async cloneWorkflow(workflowId: number, newTitle: string | null = null) {
     const response = await api.post(`/workflows/${workflowId}/clone`, {
