@@ -187,9 +187,11 @@ const closeHelpModal = () => {
 }
 
 .expanded-sections {
-  flex: 1;
+  flex: 95;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 토글 버튼들 */

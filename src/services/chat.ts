@@ -84,7 +84,7 @@ export const chatService = {
     const ws = new WebSocket(`${wsBaseUrl}/chat/${chatId}?token=${token}`)
     
     ws.onopen = () => {
-      console.log('WebSocket connected')
+      // WebSocket connected
     }
     
     ws.onmessage = (event) => {
@@ -98,7 +98,7 @@ export const chatService = {
     }
     
     ws.onclose = () => {
-      console.log('WebSocket disconnected')
+      // WebSocket disconnected
     }
     
     return ws

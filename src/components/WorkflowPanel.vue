@@ -92,7 +92,7 @@ const downloadJson = () => {
   
   const link = document.createElement('a')
   link.href = url
-  link.download = `${props.selectedWorkflow.title || 'workflow'}.json`
+  link.download = `${props.selectedWorkflow.name || 'workflow'}.json`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -127,6 +127,8 @@ const downloadJson = () => {
   cursor: col-resize;
   transition: background 0.2s;
   position: relative;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .workflow-panel-resize:hover {
@@ -140,6 +142,7 @@ const downloadJson = () => {
   top: 0;
   width: 20px;
   height: 100%;
+  cursor: col-resize;
 }
 
 .workflow-panel-content {

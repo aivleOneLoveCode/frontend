@@ -8,7 +8,9 @@
     :uploadedFiles="uploadedFiles"
     :formatFileSize="formatFileSize"
     :getFileIcon="getFileIcon"
+    :isProcessing="chatStore.isProcessing"
     @send-message="sendMessage"
+    @stop-message="stopMessage"
     @handle-keydown="handleKeydown"
     @handle-file-upload="handleFileUpload"
     @handle-drag-enter="handleDragEnter"
@@ -39,27 +41,33 @@ const uploadedFiles = computed(() => chatStore.uploadedFiles)
 
 // 채팅 기능
 const sendMessage = async () => {
-  console.log('🚨 [Chat.vue] sendMessage 함수 호출됨!')
-  console.log('🚨 [Chat.vue] inputText:', inputText.value)
-  console.log('🚨 [Chat.vue] uploadedFiles:', uploadedFiles.value)
-  console.log('🚨 [Chat.vue] canSendMessage:', chatStore.canSendMessage)
-  
   if (!inputText.value.trim() && uploadedFiles.value.length === 0) {
-    console.log('🚨 [Chat.vue] 메시지가 비어있음 - 종료')
     return
   }
   if (!chatStore.canSendMessage) {
-    console.log('🚨 [Chat.vue] canSendMessage가 false - 종료')
     return
   }
 
+  // 메시지 내용 저장 후 즉시 초기화
+  const messageText = inputText.value
+  const files = [...uploadedFiles.value]
+  inputText.value = ''
+
   try {
-    console.log('🚨 [Chat.vue] chatStore.sendMessage 호출 전')
-    await chatStore.sendMessage(inputText.value, uploadedFiles.value)
-    console.log('🚨 [Chat.vue] chatStore.sendMessage 호출 후')
-    inputText.value = ''
+    await chatStore.sendMessage(messageText, files)
   } catch (error) {
-    console.error('🚨 [Chat.vue] 메시지 전송 실패:', error)
+    console.error('메시지 전송 실패:', error)
+    // 실패 시 원래 텍스트 복구
+    inputText.value = messageText
+  }
+}
+
+// 채팅 중단
+const stopMessage = async () => {
+  try {
+    await chatStore.stopMessage()
+  } catch (error) {
+    console.error('메시지 중단 실패:', error)
   }
 }
 
@@ -133,15 +141,12 @@ const removeUploadedFile = (index: number) => {
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
-  console.log('🚨 [Chat.vue] handleKeydown 호출됨! key:', event.key)
   if (event.key === 'Enter') {
     if (event.shiftKey) {
       // Shift+Enter: 줄바꿈 (기본 동작)
-      console.log('🚨 [Chat.vue] Shift+Enter 감지 - 줄바꿈')
       return
     } else {
       // Enter: 메시지 전송
-      console.log('🚨 [Chat.vue] Enter 감지 - sendMessage 호출!')
       event.preventDefault()
       sendMessage()
     }

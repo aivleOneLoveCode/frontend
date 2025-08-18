@@ -122,12 +122,6 @@ const handleDelete = () => {
   emit('delete', props.workflow.n8n_workflow_id)
 }
 
-// 디버깅: 워크플로우 props 확인
-onMounted(() => {
-  console.log('🔍 [WorkflowItem] 받은 workflow prop:', props.workflow)
-  console.log('🔍 [WorkflowItem] workflow.name:', props.workflow.name)
-  console.log('🔍 [WorkflowItem] workflow.n8n_workflow_id:', props.workflow.n8n_workflow_id)
-})
 </script>
 
 <style scoped>

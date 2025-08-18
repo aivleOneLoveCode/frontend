@@ -3,89 +3,53 @@
   <div v-if="showWelcome" class="chat-container">
     <div class="welcome-area">
       <div class="logo-container">
-        <div class="chatgpt-logo">✨</div>
+        <div class="profile-showcase">
+          <div class="profile-duo">
+            <div class="profile-item">
+              <img :src="danyProfile" alt="다니" class="welcome-avatar" />
+              <span class="profile-name">다니</span>
+            </div>
+            <div class="profile-item">
+              <img :src="zzanyProfile" alt="짜니" class="welcome-avatar" />
+              <span class="profile-name">짜니</span>
+            </div>
+          </div>
+          <div class="logo-symbol">💫</div>
+        </div>
         <h1 class="welcome-title">{{ t('welcome_title') }}</h1>
         <p class="welcome-subtitle">{{ t('welcome_subtitle') }}</p>
       </div>
 
       <div class="example-workflows">
-        <div v-for="workflow in exampleWorkflows" 
+        <div v-for="(workflow, index) in exampleWorkflows" 
              :key="workflow.title"
              class="example-workflow"
+             :class="`workflow-${index + 1}`"
              @click="addExampleWorkflow(workflow)">
-          <div class="example-workflow-title">{{ workflow.title }}</div>
-          <div class="example-workflow-text">{{ workflow.description }}</div>
+          <div class="workflow-icon">{{ getWorkflowIcon(workflow.category) }}</div>
+          <div class="workflow-content">
+            <div class="example-workflow-title">{{ workflow.title }}</div>
+            <div class="example-workflow-text">{{ workflow.description }}</div>
+            <div class="workflow-hint">💬 클릭하면 아래 입력창에 질문이 입력됩니다</div>
+          </div>
+          <div class="workflow-arrow">💬</div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- 메시지 영역 -->
-  <div v-else class="messages">
+  <div v-else ref="messagesContainer" class="messages">
     <div class="messages-inner">
       <div v-for="message in messages" 
            :key="message.id"
            :class="['message', message.type]">
-        <div class="message-avatar">
-          {{ message.type === 'user' ? 'U' : 'AI' }}
-        </div>
-        <div class="message-content">
-          <!-- Thinking 표시 -->
-          <div v-if="message.isThinking && chatStore.isThinking" class="thinking-block">
-            <div class="thinking-header">
-              <span class="thinking-icon">🤔</span>
-              <span class="thinking-title">생각 중...</span>
-              <div class="thinking-spinner">⟳</div>
-            </div>
-            <div class="thinking-content">
-              <div class="thinking-text">{{ chatStore.thinkingText }}</div>
-            </div>
-          </div>
-
-          <!-- Tool Usage 표시 -->
-          <div v-if="chatStore.isUsingTool && chatStore.currentToolExecution" class="tool-block">
-            <div class="tool-header">
-              <span class="tool-icon">🔧</span>
-              <span class="tool-title">도구 사용 중: {{ chatStore.currentToolExecution.name }}</span>
-              <div v-if="chatStore.currentToolExecution.isExecuting" class="tool-spinner">⟳</div>
-              <div v-else class="tool-status">✓</div>
-            </div>
-            <div class="tool-content">
-              <div class="tool-input" v-if="chatStore.currentToolExecution.input">
-                <strong>입력:</strong> {{ formatToolInput(chatStore.currentToolExecution.input) }}
-              </div>
-              <div class="tool-result" v-if="chatStore.currentToolExecution.result">
-                <strong>결과:</strong> {{ chatStore.currentToolExecution.result }}
-              </div>
-              <div class="tool-error" v-if="chatStore.currentToolExecution.error">
-                <strong>오류:</strong> {{ chatStore.currentToolExecution.error }}
-              </div>
-            </div>
-          </div>
-
-          <!-- 완료된 Tool Executions 표시 -->
-          <div v-if="chatStore.toolExecutions.length > 0" class="completed-tools">
-            <div v-for="(tool, idx) in chatStore.toolExecutions" :key="idx" class="completed-tool">
-              <div class="tool-header completed">
-                <span class="tool-icon">🔧</span>
-                <span class="tool-title">{{ tool.name }}</span>
-                <div class="tool-status" :class="{ error: tool.error }">{{ tool.error ? '❌' : '✅' }}</div>
-              </div>
-              <div class="tool-summary">
-                {{ tool.error ? `오류: ${tool.error}` : `완료됨` }}
-              </div>
-            </div>
-          </div>
-          
-          <!-- 스트리밍 메시지 -->
-          <span v-if="message.isStreaming" class="streaming-content">
-            {{ message.streamingText || '' }}<span class="cursor-blink">|</span>
-          </span>
-          
+        <!-- 사용자 메시지: 아바타 없음, 오른쪽 정렬 -->
+        <div v-if="message.type === 'user'" class="message-content user-bubble">
           <!-- 일반 메시지 (content blocks 처리) -->
-          <div v-else-if="message.content && Array.isArray(message.content)">
+          <div v-if="message.content && Array.isArray(message.content)">
             <div v-for="(block, idx) in message.content" :key="idx">
-              <span v-if="block.type === 'text'">{{ block.text }}</span>
+              <div v-if="block.type === 'text'" v-html="renderMarkdown(block.text)"></div>
               <div v-else-if="block.type === 'image'" class="message-image">
                 <img :src="`data:${block.source.media_type};base64,${block.source.data}`" alt="uploaded image" />
               </div>
@@ -94,20 +58,84 @@
               </div>
             </div>
           </div>
-          
-          <!-- 에러 메시지 -->
-          <div v-else-if="message.isError" class="error-message">
-            {{ getMessageText(message) }}
-          </div>
-          
           <!-- 일반 텍스트 (fallback) -->
           <span v-else>{{ getMessageText(message) }}</span>
           
           <!-- 파일 표시 (사용자 메시지) -->
-          <div v-if="message.type === 'user' && hasFiles(message)" class="message-files">
+          <div v-if="hasFiles(message)" class="message-files">
             <div v-for="(file, idx) in getMessageFiles(message)" :key="idx" class="file-tag">
               {{ getFileIconFromBlock(file) }} 파일 첨부됨
             </div>
+          </div>
+        </div>
+
+        <!-- AI 메시지: 프로필 있음, 왼쪽 정렬 -->
+        <div v-else class="ai-message-container">
+          <div class="profile-section">
+            <!-- Thinking이나 Tool 메시지는 zzany 프로필 -->
+            <template v-if="message.isThinking !== undefined || message.isUsingTool !== undefined">
+              <img :src="zzanyProfile" alt="zzany" class="avatar-img" />
+              <span class="profile-name">짜니</span>
+            </template>
+            <!-- 일반 텍스트 메시지는 dany 프로필 -->
+            <template v-else>
+              <img :src="danyProfile" alt="dany" class="avatar-img" />
+              <span class="profile-name">다니</span>
+            </template>
+          </div>
+          <div class="message-content">
+            <!-- Thinking 메시지 표시 -->
+            <div v-if="message.isThinking !== undefined" class="thinking-block">
+              <div class="thinking-header" @click="toggleThinkingBlock">
+                <span class="thinking-icon">{{ message.isThinking ? '🤔' : '💡' }}</span>
+                <span class="thinking-title">{{ message.isThinking ? '생각 중...' : '생각 완료' }}</span>
+                <div v-if="message.isThinking" class="thinking-spinner">⟳</div>
+                <span class="block-toggle">▼</span>
+              </div>
+              <div class="thinking-content">
+                <div class="thinking-text">{{ (message.content && Array.isArray(message.content) && message.content[0] && message.content[0].text) || '' }}</div>
+              </div>
+            </div>
+
+            <!-- Tool 메시지 표시 -->
+            <div v-else-if="message.isUsingTool !== undefined" class="tool-block">
+              <div class="tool-header" @click="toggleToolBlock">
+                <span class="tool-icon">🔧</span>
+                <span class="tool-title">{{ message.isUsingTool ? '도구 실행 중' : '도구 실행 완료' }}</span>
+                <div v-if="message.isUsingTool" class="tool-spinner">⟳</div>
+                <div v-else class="tool-status">✓</div>
+                <span class="block-toggle">▼</span>
+              </div>
+              <div class="tool-content">
+                <div v-html="renderMarkdown((message.content && Array.isArray(message.content) && message.content[0] && message.content[0].text) || '')"></div>
+              </div>
+            </div>
+          
+            <!-- 스트리밍 메시지 -->
+            <div v-else-if="message.isStreaming" class="streaming-content">
+              <div v-html="renderMarkdown((message.content && Array.isArray(message.content) && message.content[0] && message.content[0].text) || '')"></div>
+            </div>
+            
+            <!-- 일반 메시지 (content blocks 처리) -->
+            <div v-else-if="message.content && Array.isArray(message.content)">
+              <div v-for="(block, idx) in message.content" :key="idx">
+                <div v-if="block.type === 'text'" v-html="renderMarkdown(block.text)"></div>
+                <div v-else-if="block.type === 'image'" class="message-image">
+                  <img :src="`data:${block.source.media_type};base64,${block.source.data}`" alt="uploaded image" />
+                </div>
+                <div v-else-if="block.type === 'document'" class="message-document">
+                  📄 PDF 문서가 업로드되었습니다
+                </div>
+              </div>
+            </div>
+            
+            <!-- 에러 메시지 -->
+            <div v-else-if="message.isError" class="error-message">
+              {{ getMessageText(message) }}
+            </div>
+            
+            <!-- 일반 텍스트 (fallback) -->
+            <span v-else>{{ getMessageText(message) }}</span>
           </div>
         </div>
       </div>
@@ -154,8 +182,17 @@
         rows="1"
         @keydown="$emit('handle-keydown', $event)"
       ></textarea>
-      <button class="send-btn" @click="console.log('🚨 [ChatArea] 버튼 클릭! inputText:', inputText); $emit('send-message')" :disabled="!inputText.trim()" :title="t('send_message')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button 
+        :class="['send-btn', { 'stop-btn': props.isProcessing }]" 
+        @click="props.isProcessing ? handleStopMessage() : handleSendMessage()" 
+        :disabled="!props.isProcessing && !inputText.trim()" 
+        :title="props.isProcessing ? '응답 중단' : t('send_message')">
+        <!-- 중단 아이콘 (AI 응답 중) -->
+        <svg v-if="props.isProcessing" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="1"/>
+        </svg>
+        <!-- 전송 아이콘 (평상시) -->
+        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m5 12 7-7 7 7"/>
           <path d="M12 19V5"/>
         </svg>
@@ -172,12 +209,15 @@
 
 <script setup lang="ts">
 import { ref, nextTick, watch, onMounted } from 'vue'
-import type { Message } from '../types'
 import { useTranslation } from '@/utils/i18n'
-import { useChatStore } from '@/stores/chat'
+import zzanyProfileImg from '@/assets/profile/zzany.png'
+import danyProfileImg from '@/assets/profile/dany.png'
 
 const fileInput = ref<HTMLInputElement>()
-const chatStore = useChatStore()
+
+// 프로필 이미지
+const zzanyProfile = ref(zzanyProfileImg)
+const danyProfile = ref(danyProfileImg)
 
 interface ExampleWorkflow {
   title: string
@@ -186,6 +226,18 @@ interface ExampleWorkflow {
   n8nUrl: string
   jsonData: any
   exampleQuestion: string
+}
+
+interface Message {
+  id: number
+  type: 'user' | 'assistant'
+  content: any[]
+  timestamp: Date
+  isError?: boolean
+  isStreaming?: boolean
+  isThinking?: boolean
+  isUsingTool?: boolean
+  streamingText?: string
 }
 
 import type { UploadedFile } from '../types'
@@ -198,10 +250,12 @@ const props = defineProps<{
   uploadedFiles: UploadedFile[]
   formatFileSize: (size: number) => string
   getFileIcon: (type: string) => string
+  isProcessing?: boolean
 }>()
 
 const emit = defineEmits<{
   'send-message': []
+  'stop-message': []
   'handle-keydown': [event: KeyboardEvent]
   'handle-file-upload': [event: Event]
   'handle-drag-enter': [event: DragEvent]
@@ -213,6 +267,7 @@ const emit = defineEmits<{
 }>()
 
 const textareaRef = ref<HTMLTextAreaElement>()
+const messagesContainer = ref<HTMLDivElement>()
 const { t } = useTranslation()
 
 // 자동 리사이징 기능 (HTML과 동일)
@@ -241,67 +296,115 @@ const handleInput = (event: Event) => {
   autoResizeTextarea()
 }
 
+// 메시지 전송 핸들러
+const handleSendMessage = () => {
+  emit('send-message')
+  // 포커스만 처리 (초기화는 부모에서 처리)
+  nextTick(() => {
+    if (textareaRef.value) {
+      textareaRef.value.focus()
+      autoResizeTextarea()
+    }
+  })
+}
+
+// 메시지 중단 핸들러
+const handleStopMessage = () => {
+  emit('stop-message')
+}
+
 // inputText 변경 감지
 watch(() => props.inputText, () => {
   autoResizeTextarea()
 })
 
-// 초기 로드 시에도 실행 (HTML과 동일)
+// 메시지 영역을 맨 아래로 스크롤
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTo({
+        top: messagesContainer.value.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
+  })
+}
+
+// 초기 로드 시 실행
 onMounted(() => {
   autoResizeTextarea()
+  scrollToBottom()
 })
 
-// HTML과 정확히 동일한 예시 워크플로우
+// 메시지 변화 감지해서 스크롤
+watch(() => props.messages, () => {
+  scrollToBottom()
+}, { deep: true })
+
+// n8n 자동화 워크플로우 예시
 const exampleWorkflows: ExampleWorkflow[] = [
   { 
-    title: '데이터 분석 자동화', 
-    description: 'CSV 파일을 읽고 차트 생성 후 보고서 전송',
-    category: 'data',
-    n8nUrl: 'https://n8n.io/templates/data-analysis',
+    title: '뉴스 모니터링 알림', 
+    description: '특정 키워드 뉴스가 올라오면 슬랙으로 자동 알림',
+    category: 'trigger',
+    n8nUrl: '',
     jsonData: null,
-    exampleQuestion: 'CSV 파일을 자동으로 읽어서 차트를 만들고 보고서를 이메일로 보내는 워크플로우를 생성해줘'
+    exampleQuestion: '특정 키워드가 포함된 뉴스가 올라오면 자동으로 슬랙에 알림을 보내는 워크플로우를 만들어줘'
   },
   { 
-    title: '이미지 처리', 
-    description: '이미지 리사이즈 및 워터마크 추가 자동화',
-    category: 'media',
-    n8nUrl: 'https://n8n.io/templates/image-processing',
+    title: '고객 문의 자동 분류', 
+    description: '이메일 문의를 AI로 분석해서 담당팀에 자동 배정',
+    category: 'collection',
+    n8nUrl: '',
     jsonData: null,
-    exampleQuestion: '이미지를 자동으로 리사이즈하고 워터마크를 추가하는 워크플로우를 생성해줘'
+    exampleQuestion: '고객 이메일이 들어오면 내용을 분석해서 자동으로 적절한 담당팀에게 배정하는 워크플로우를 생성해줘'
   },
   { 
-    title: '이메일 자동화', 
-    description: '조건부 이메일 발송 및 답장 처리',
-    category: 'communication',
-    n8nUrl: 'https://n8n.io/templates/email-automation',
+    title: '소셜미디어 감정 분석', 
+    description: '브랜드 멘션을 매일 수집해서 감정 분석 후 리포트 생성',
+    category: 'processing',
+    n8nUrl: '',
     jsonData: null,
-    exampleQuestion: '특정 조건에 따라 자동으로 이메일을 발송하고 답장을 처리하는 워크플로우를 생성해줘'
+    exampleQuestion: '매일 우리 브랜드 관련 SNS 멘션을 수집해서 감정을 분석하고 대시보드에 업데이트하는 워크플로우를 만들어줘'
   },
   { 
-    title: 'AI 텍스트 생성', 
-    description: 'GPT API를 활용한 콘텐츠 자동 생성',
-    category: 'ai',
-    n8nUrl: 'https://n8n.io/templates/ai-content',
+    title: '매출 보고서 자동화', 
+    description: '매월 말 자동으로 매출 데이터 수집하여 보고서 이메일 발송',
+    category: 'action',
+    n8nUrl: '',
     jsonData: null,
-    exampleQuestion: 'GPT API를 사용해서 자동으로 콘텐츠를 생성하는 워크플로우를 생성해줘'
+    exampleQuestion: '매월 말에 자동으로 매출 데이터를 수집해서 보고서를 만들고 경영진에게 이메일로 보내는 워크플로우를 생성해줘'
   },
   { 
-    title: '소셜미디어 관리', 
-    description: '다중 플랫폼 포스팅 및 댓글 모니터링',
-    category: 'social',
-    n8nUrl: 'https://n8n.io/templates/social-media',
+    title: '재고 부족 알림', 
+    description: '재고가 설정된 수량 이하로 떨어지면 구매팀에 자동 알림',
+    category: 'monitoring',
+    n8nUrl: '',
     jsonData: null,
-    exampleQuestion: '여러 소셜미디어 플랫폼에 자동으로 포스팅하고 댓글을 모니터링하는 워크플로우를 생성해줘'
+    exampleQuestion: '재고가 부족하면 자동으로 구매팀에 알림을 보내는 워크플로우를 만들어줘'
   },
   { 
-    title: '보고서 자동화', 
-    description: '정기 보고서 생성 및 배포 자동화',
-    category: 'reporting',
-    n8nUrl: 'https://n8n.io/templates/reporting',
+    title: '신규 고객 환영 메일', 
+    description: '새 고객 가입 시 개인화된 환영 이메일과 가이드 자동 발송',
+    category: 'automation',
+    n8nUrl: '',
     jsonData: null,
-    exampleQuestion: '정기적으로 보고서를 자동 생성하고 배포하는 워크플로우를 생성해줘'
+    exampleQuestion: '새 고객이 가입하면 자동으로 개인화된 환영 이메일과 온보딩 가이드를 보내는 워크플로우를 생성해줘'
   }
 ]
+
+// 워크플로우 카테고리별 아이콘
+const getWorkflowIcon = (category: string): string => {
+  const icons: Record<string, string> = {
+    'trigger': '🔄',
+    'collection': '📥',
+    'processing': '⚙️',
+    'action': '📤',
+    'monitoring': '👁️',
+    'automation': '🚀'
+  }
+  return icons[category] || '⚡'
+}
 
 // HTML과 동일한 addExampleWorkflow 함수
 const addExampleWorkflow = (workflow: ExampleWorkflow) => {
@@ -355,34 +458,145 @@ const getFileIconFromBlock = (block: any): string => {
   return '📎'
 }
 
-// 도구 입력값 포맷팅
-const formatToolInput = (input: any): string => {
-  if (!input) return ''
-  if (typeof input === 'string') return input
-  if (typeof input === 'object') {
-    try {
-      return JSON.stringify(input, null, 2)
-    } catch {
-      return String(input)
-    }
+
+// 마크다운 렌더링
+const renderMarkdown = (text: string): string => {
+  if (!text) return ''
+  try {
+    // @ts-ignore - marked는 전역으로 로드됨
+    return window.marked.parse(text)
+  } catch (error) {
+    console.error('마크다운 렌더링 오류:', error)
+    return text
   }
-  return String(input)
+}
+
+
+// 접기/펼치기 함수들
+const toggleThinkingBlock = (event: Event) => {
+  const header = event.currentTarget as HTMLElement
+  const block = header.closest('.thinking-block')
+  const content = block?.querySelector('.thinking-content') as HTMLElement
+  const toggle = block?.querySelector('.block-toggle') as HTMLElement
+  
+  if (content && toggle) {
+    content.classList.toggle('collapsed')
+    toggle.classList.toggle('collapsed')
+  }
+}
+
+const toggleToolBlock = (event: Event) => {
+  const header = event.currentTarget as HTMLElement
+  const block = header.closest('.tool-block')
+  const content = block?.querySelector('.tool-content') as HTMLElement
+  const toggle = block?.querySelector('.block-toggle') as HTMLElement
+  
+  if (content && toggle) {
+    content.classList.toggle('collapsed')
+    toggle.classList.toggle('collapsed')
+  }
 }
 </script>
 
 <style scoped>
-@keyframes cursor-blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+/* 애니메이션 키프레임 */
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.cursor-blink {
-  animation: cursor-blink 1s infinite;
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes typingDots {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .streaming-content {
-  display: inline;
+  display: block;
+  width: 100%;
+  animation: fadeInScale 0.3s ease-out;
 }
+
+/* 부드러운 텍스트 나타나기 효과 */
+.streaming-content p,
+.streaming-content div {
+  animation: textFadeIn 0.4s ease-out;
+}
+
+
+@keyframes textFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 
 .message-files {
   margin-top: 8px;
@@ -409,34 +623,77 @@ const formatToolInput = (input: any): string => {
 
 .welcome-area {
   text-align: center;
-  max-width: 500px;
+  max-width: 1200px;
+  animation: fadeInScale 0.8s ease-out;
 }
 
 .logo-container {
-  margin-bottom: 32px;
+  margin-bottom: 48px;
 }
 
-.chatgpt-logo {
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 20px;
-  background: linear-gradient(135deg, #74aa9c 0%, #1f8b73 100%);
-  border-radius: 50%;
+.profile-showcase {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 18px;
-  font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  margin-bottom: 24px;
+}
+
+.profile-duo {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.profile-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.welcome-avatar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.profile-item .profile-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-align: center;
+}
+
+.logo-symbol {
+  font-size: 24px;
+  background: linear-gradient(135deg, #74aa9c 0%, #1f8b73 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: bold;
+  margin-top: 8px;
 }
 
 .welcome-title {
-  font-size: 32px;
-  font-weight: 600;
-  color: #202123;
-  margin-bottom: 12px;
-  letter-spacing: -0.8px;
+  font-size: 36px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1f2937 0%, #374151 50%, #1f8b73 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 16px;
+  letter-spacing: -1px;
+  line-height: 1.2;
 }
 
 .welcome-subtitle {
@@ -444,43 +701,154 @@ const formatToolInput = (input: any): string => {
   color: #6b7280;
   margin-bottom: 48px;
   font-weight: 400;
+  line-height: 1.5;
 }
 
-.example-prompts {
+.example-workflows {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 20px;
   margin-bottom: 32px;
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.example-prompt {
-  padding: 20px;
+.example-workflow {
+  padding: 24px;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
-  background: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
 }
 
-.example-prompt:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-  transform: translateY(-1px);
+.example-workflow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(116, 170, 156, 0.05) 0%, rgba(31, 139, 115, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.example-prompt-title {
+.example-workflow:hover {
+  border-color: #74aa9c;
+  box-shadow: 0 8px 25px rgba(116, 170, 156, 0.15);
+  transform: translateY(-2px);
+}
+
+.example-workflow:hover::before {
+  opacity: 1;
+}
+
+.example-workflow:hover .workflow-arrow {
+  transform: scale(1.1);
+  color: white;
+  background: linear-gradient(135deg, #1f8b73 0%, #74aa9c 100%);
+  box-shadow: 0 2px 8px rgba(31, 139, 115, 0.3);
+}
+
+.example-workflow:hover .workflow-hint {
+  opacity: 1;
+  color: #1f8b73;
+}
+
+.workflow-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.example-workflow:hover .workflow-icon {
+  background: linear-gradient(135deg, #74aa9c 0%, #1f8b73 100%);
+  transform: scale(1.1);
+}
+
+.workflow-content {
+  flex: 1;
+  z-index: 1;
+}
+
+.example-workflow-title {
   font-weight: 600;
   color: #202123;
-  margin-bottom: 8px;
-  font-size: 15px;
+  margin-bottom: 6px;
+  font-size: 16px;
+  line-height: 1.3;
 }
 
-.example-prompt-text {
+.example-workflow-text {
   color: #6b7280;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.workflow-hint {
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.workflow-arrow {
+  font-size: 20px;
+  color: #9ca3af;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  z-index: 1;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 개별 워크플로우 카드 색상 변화 */
+.workflow-1:hover .workflow-icon {
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+}
+
+.workflow-2:hover .workflow-icon {
+  background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+}
+
+.workflow-3:hover .workflow-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.workflow-4:hover .workflow-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.workflow-5:hover .workflow-icon {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.workflow-6:hover .workflow-icon {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 }
 
 .messages {
@@ -491,62 +859,93 @@ const formatToolInput = (input: any): string => {
 }
 
 .messages-inner {
-  max-width: 768px;
+  max-width: 1024px;
   margin: 0 auto;
   width: 100%;
 }
 
 .message {
-  margin-bottom: 24px;
-  display: flex;
-  gap: 16px;
-  padding: 20px 24px;
+  margin-bottom: 32px;
+  padding: 0 32px;
+  animation: messageSlideIn 0.5s ease-out;
+  opacity: 0;
+  animation-fill-mode: forwards;
 }
 
+/* 사용자 메시지 스타일 (오른쪽 정렬, 말풍선) */
 .message.user {
-  flex-direction: row-reverse;
-  justify-content: flex-start;
-  background: transparent;
-}
-
-.message.user .message-content {
-  background: var(--message-bg-user);
-  border-radius: 18px;
-  padding: 12px 16px;
-  max-width: 70%;
-  margin-left: auto;
-}
-
-.message.assistant {
-  background: transparent;
-  border-radius: 16px;
-  margin: 12px;
-}
-
-.message.assistant .message-content {
-  flex: 1;
-}
-
-.message-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 16px;
   display: flex;
+  justify-content: flex-end;
+}
+
+.user-bubble {
+  background: var(--message-bg-user, #007bff);
+  color: white;
+  border-radius: 18px 18px 4px 18px;
+  padding: 14px 18px;
+  max-width: 75%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  word-wrap: break-word;
+  font-size: 15px;
+  line-height: 1.5;
+  animation: fadeInScale 0.3s ease-out;
+}
+
+/* AI 메시지 컨테이너 (왼쪽 정렬, 프로필 + 메시지) */
+.message.assistant {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.ai-message-container {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  max-width: 90%;
+  align-items: flex-start;
+}
+
+.ai-message-container .message-content {
+  flex: 1;
+  background: var(--message-bg-assistant, #f8f9fa);
+  border-radius: 18px 18px 18px 4px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  animation: fadeInScale 0.4s ease-out;
+}
+
+.profile-section {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  justify-self: center;
+  min-width: 68px;
+  margin-top: 12px;
+  animation: fadeInScale 0.5s ease-out;
+}
+
+.avatar-img {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: block;
+}
+
+.profile-name {
+  font-size: 11px;
   font-weight: 600;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.message.user .message-avatar {
-  background: #5436da;
-  color: white;
-}
-
-.message.assistant .message-avatar {
-  background: #19c37d;
-  color: white;
+  color: var(--text-secondary, #6b7280);
+  text-align: center;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 
 .message-content {
@@ -565,7 +964,7 @@ const formatToolInput = (input: any): string => {
 }
 
 .input-wrapper {
-  max-width: 768px;
+  max-width: 1024px;
   width: 100%;
   margin: 0 auto;
   position: relative;
@@ -647,6 +1046,15 @@ const formatToolInput = (input: any): string => {
   background: #1a1a1a !important;
 }
 
+/* 중단 버튼 (processing 상태) 빨간색 스타일 */
+.send-btn.stop-btn {
+  background: #dc2626 !important;
+}
+
+.send-btn.stop-btn:hover {
+  background: #b91c1c !important;
+}
+
 .send-btn svg {
   color: white !important;
   stroke: white !important;
@@ -693,14 +1101,14 @@ const formatToolInput = (input: any): string => {
   font-size: 12px;
   color: #9ca3af;
   margin-top: 12px;
-  max-width: 768px;
+  max-width: 1024px;
   margin-left: auto;
   margin-right: auto;
 }
 
 /* 업로드된 파일 표시 스타일 */
 .uploaded-files {
-  max-width: 768px;
+  max-width: 1024px;
   width: 100%;
   margin: 0 auto 16px;
   display: flex;
@@ -772,9 +1180,11 @@ const formatToolInput = (input: any): string => {
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   border: 1px solid #cbd5e1;
   border-radius: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  width: 500px;
+  animation: slideInFromLeft 0.4s ease-out;
 }
 
 .thinking-header {
@@ -785,6 +1195,13 @@ const formatToolInput = (input: any): string => {
   color: white;
   font-weight: 500;
   gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  justify-content: space-between;
+}
+
+.thinking-header:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
 }
 
 .thinking-icon {
@@ -804,6 +1221,24 @@ const formatToolInput = (input: any): string => {
 .thinking-content {
   padding: 16px;
   background: #f8fafc;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  overflow: hidden;
+}
+
+.thinking-content.collapsed {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.block-toggle {
+  font-size: 14px;
+  transition: transform 0.2s;
+  margin-left: auto;
+}
+
+.block-toggle.collapsed {
+  transform: rotate(-90deg);
 }
 
 .thinking-text {
@@ -821,9 +1256,11 @@ const formatToolInput = (input: any): string => {
   background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 20%, #f59e0b 100%);
   border: 1px solid #d97706;
   border-radius: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  width: 500px;
+  animation: slideInFromLeft 0.4s ease-out;
 }
 
 .tool-header {
@@ -834,6 +1271,13 @@ const formatToolInput = (input: any): string => {
   color: white;
   font-weight: 500;
   gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  justify-content: space-between;
+}
+
+.tool-header:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
 }
 
 .tool-header.completed {
@@ -867,6 +1311,14 @@ const formatToolInput = (input: any): string => {
   background: #fffbeb;
   font-size: 13px;
   line-height: 1.5;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  overflow: hidden;
+}
+
+.tool-content.collapsed {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .tool-input,
@@ -949,5 +1401,98 @@ const formatToolInput = (input: any): string => {
 .error-message {
   color: #ef4444;
   font-style: italic;
+}
+
+/* 마크다운 스타일 */
+.message-content :deep(h1),
+.message-content :deep(h2),
+.message-content :deep(h3),
+.message-content :deep(h4),
+.message-content :deep(h5),
+.message-content :deep(h6) {
+  margin: 16px 0 8px 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.message-content :deep(h1) { font-size: 1.5rem; }
+.message-content :deep(h2) { font-size: 1.3rem; }
+.message-content :deep(h3) { font-size: 1.1rem; }
+
+.message-content :deep(p) {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.message-content :deep(code) {
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 0.9em;
+  color: #e11d48;
+}
+
+.message-content :deep(pre) {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.message-content :deep(pre code) {
+  background: none;
+  padding: 0;
+  color: #334155;
+  font-size: 0.9em;
+}
+
+.message-content :deep(ul),
+.message-content :deep(ol) {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.message-content :deep(li) {
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.message-content :deep(blockquote) {
+  border-left: 4px solid #cbd5e1;
+  margin: 12px 0;
+  padding: 8px 16px;
+  background: #f8fafc;
+  font-style: italic;
+  color: #64748b;
+}
+
+.message-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+}
+
+.message-content :deep(th),
+.message-content :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.message-content :deep(th) {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+
+.message-content :deep(a) {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.message-content :deep(a:hover) {
+  color: #1d4ed8;
 }
 </style>

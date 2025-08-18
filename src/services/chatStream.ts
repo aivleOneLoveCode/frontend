@@ -22,8 +22,6 @@ export class DAZZANYChatStream {
     this.sessionId = 'web-' + Date.now()
     this.isConnected = false
     this.isProcessing = false
-    
-    console.log('DA-ZZANY 채팅 스트림 초기화됨')
   }
 
   async checkBackend(): Promise<boolean> {
@@ -47,7 +45,6 @@ export class DAZZANYChatStream {
       
       if (response.status === 200) {
         this.isConnected = true
-        console.log('✅ 백엔드 연결 및 인증 성공')
         return true
       } else if (response.status === 401) {
         console.warn('⚠️ 인증 실패 - 토큰이 유효하지 않습니다')
@@ -133,7 +130,6 @@ export class DAZZANYChatStream {
         const { done, value } = await reader.read()
         
         if (done) {
-          console.log('✅ 스트리밍 완료')
           if (onUpdate) {
             onUpdate({ type: 'complete' })
           }

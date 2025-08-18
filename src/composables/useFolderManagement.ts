@@ -189,7 +189,6 @@ export function useFolderManagement() {
         workflows: folder.workflows || []
       }))
       localStorage.setItem('workflowFolders', JSON.stringify(foldersData))
-      console.log('폴더 상태가 저장되었습니다.')
     } catch (e) {
       console.error('폴더 저장 오류:', e)
     }
@@ -204,7 +203,6 @@ export function useFolderManagement() {
           ...folder,
           dragOver: false
         }))
-        console.log('폴더 상태가 복원되었습니다.')
       }
     } catch (e) {
       console.error('폴더 복원 오류:', e)

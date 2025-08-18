@@ -73,7 +73,6 @@ export function useChatManagement() {
     })
 
     // 실시간 스트리밍 시작
-    console.log('🚀 실시간 스트리밍 테스트 시작:', currentInput)
     
     const assistantMessage: Message = {
       id: Date.now() + 1,
@@ -96,7 +95,6 @@ export function useChatManagement() {
 
   // 스트리밍 업데이트 처리 (HTML과 동일)
   const handleStreamingUpdate = (data: StreamUpdate, assistantMessage: Message) => {
-    console.log('📡 스트리밍 데이터:', data)
     
     switch (data.type) {
       case 'thinking_start':
@@ -125,7 +123,6 @@ export function useChatManagement() {
         
       case 'complete':
         assistantMessage.isStreaming = false
-        console.log('✅ 스트리밍 완료')
         break
         
       case 'error':
@@ -198,7 +195,6 @@ export function useChatManagement() {
         // 파일 업로드 후 워크플로우로 처리되는 경우
         if (uploadedFile.jsonData && uploadedFile.name.endsWith('.json')) {
           // 워크플로우 파일 처리 로직 추가 가능
-          console.log('워크플로우 JSON 파일 업로드됨:', uploadedFile.name)
         }
         
         // 파일 입력 초기화
@@ -243,8 +239,6 @@ export function useChatManagement() {
       try {
         const uploadedFile = await FileUploadService.processUploadedFile(files[0])
         uploadedFiles.value.push(uploadedFile)
-        
-        console.log('드래그앤드롭으로 파일 업로드됨:', uploadedFile.name)
       } catch (error) {
         console.error('드래그앤드롭 파일 업로드 오류:', error)
         alert('파일 업로드 중 오류가 발생했습니다: ' + (error as Error).message)

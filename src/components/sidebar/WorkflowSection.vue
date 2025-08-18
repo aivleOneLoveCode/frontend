@@ -2,9 +2,10 @@
   <div class="section workflow-section">
     <div class="section-header">
       <div class="section-title">{{ t('workflows') }}</div>
-      <button class="section-new-btn" @click="handleNewProject" :title="t('new_project')">
+      <button class="section-new-btn" @click="handleNewProject" title="새 프로젝트">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 5v14M5 12h14"/>
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          <path d="M12 11v6M9 14h6"/>
         </svg>
       </button>
     </div>
@@ -87,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import WorkflowItemComponent from './WorkflowItem.vue'
 import { useTranslation } from '@/utils/i18n'
 import { registerSelectionClearCallback, selectWorkflowGlobally } from '@/utils/workflowSelection'
@@ -111,6 +112,8 @@ const workflows = ref<WorkflowItem[]>([])  // 모든 워크플로우를 하나�
 const copiedWorkflow = ref<WorkflowItem | null>(null)
 const isLoading = ref(false)
 const errorMessage = ref('')
+const pollingInterval = ref<number | null>(null)
+const POLLING_INTERVAL_MS = 10000 // 10초마다 polling
 
 // 계산된 속성으로 워크플로우 분류
 const standaloneWorkflows = computed(() => 
@@ -150,7 +153,9 @@ const createNewProject = async () => {
       }
       projects.value.push(newProject)
       
-      console.log(`새 프로젝트 "${projectName.trim()}"가 생성되었습니다.`)
+      // 데이터를 다시 로드하여 최신 상태 반영
+      await loadData()
+      
     } catch (error) {
       console.error('프로젝트 생성 실패:', error)
       alert('프로젝트 생성에 실패했습니다.')
@@ -172,8 +177,6 @@ const toggleWorkflowRunning = async (workflow: WorkflowItem) => {
     workflow.status = response.status as 'active' | 'inactive'
     workflow.updated_at = new Date().toISOString()
     
-    const statusText = workflow.status === 'active' ? '활성화 (트리거 대기중)' : '비활성화'
-    console.log(`워크플로우 "${workflow.name}" ${statusText}`)
   } catch (error) {
     console.error('워크플로우 상태 변경 실패:', error)
     alert('워크플로우 상태 변경에 실패했습니다.')
@@ -197,13 +200,11 @@ const handleProjectDrop = async (project: Project, event: DragEvent) => {
   project.dragOver = false
   
   const workflowData = event.dataTransfer!.getData('text/plain')
-  console.log('📝 드래그된 데이터 (프로젝트로):', workflowData)
   
   if (workflowData) {
     try {
       // JSON 데이터인지 확인
       if (!workflowData.startsWith('{')) {
-        console.log('⚠️ JSON이 아닌 데이터 무시:', workflowData)
         return
       }
       
@@ -211,7 +212,6 @@ const handleProjectDrop = async (project: Project, event: DragEvent) => {
       
       // 워크플로우 데이터 유효성 검사
       if (!draggedWorkflow.n8n_workflow_id) {
-        console.log('⚠️ 유효하지 않은 워크플로우 데이터:', draggedWorkflow)
         return
       }
       
@@ -236,7 +236,6 @@ const handleProjectDrop = async (project: Project, event: DragEvent) => {
             workflows.value[workflowIndex].updated_at = new Date().toISOString()
             workflows.value[workflowIndex].isDragging = false
             
-            console.log(`워크플로우 "${draggedWorkflow.name}"가 프로젝트 "${project.name}"로 이동되었습니다.`)
           } catch (error) {
             console.error('워크플로우 이동 실패:', error)
             alert('워크플로우 이동에 실패했습니다.')
@@ -257,13 +256,11 @@ const handleSectionDrop = async (event: DragEvent) => {
   event.stopPropagation()
   
   const workflowData = event.dataTransfer!.getData('text/plain')
-  console.log('📝 드래그된 데이터 (섹션으로):', workflowData)
   
   if (workflowData) {
     try {
       // JSON 데이터인지 확인
       if (!workflowData.startsWith('{')) {
-        console.log('⚠️ JSON이 아닌 데이터 무시:', workflowData)
         return
       }
       
@@ -271,7 +268,6 @@ const handleSectionDrop = async (event: DragEvent) => {
       
       // 워크플로우 데이터 유효성 검사
       if (!draggedWorkflow.n8n_workflow_id) {
-        console.log('⚠️ 유효하지 않은 워크플로우 데이터:', draggedWorkflow)
         return
       }
       
@@ -289,7 +285,6 @@ const handleSectionDrop = async (event: DragEvent) => {
           workflows.value[workflowIndex].updated_at = new Date().toISOString()
           workflows.value[workflowIndex].isDragging = false
           
-          console.log(`워크플로우 "${draggedWorkflow.name}"가 독립 워크플로우로 이동되었습니다.`)
         } catch (error) {
           console.error('워크플로우 이동 실패:', error)
           alert('워크플로우 이동에 실패했습니다.')
@@ -327,7 +322,6 @@ const renameProject = async (project: Project) => {
       project.name = newName.trim()
       project.updated_at = new Date().toISOString()
       
-      console.log(`프로젝트 이름이 "${newName.trim()}"로 변경되었습니다.`)
     } catch (error) {
       console.error('프로젝트 이름 변경 실패:', error)
       alert('프로젝트 이름 변경에 실패했습니다.')
@@ -344,7 +338,6 @@ const deleteProject = async (projectId: number) => {
       // 로컬 상태에서 프로젝트 제거
       const index = projects.value.findIndex(item => item.project_id === projectId)
       if (index > -1) {
-        const project = projects.value[index]
         
         // 프로젝트의 워크플로우들을 비소속으로 변경
         workflows.value.forEach((workflow: WorkflowItem) => {
@@ -354,7 +347,6 @@ const deleteProject = async (projectId: number) => {
           }
         })
         
-        console.log(`프로젝트 "${project.name}"이 삭제되었습니다.`)
         projects.value.splice(index, 1)
       }
     } catch (error) {
@@ -375,7 +367,6 @@ const renameWorkflow = async (workflow: WorkflowItem) => {
       workflow.name = newName.trim()
       workflow.updated_at = new Date().toISOString()
       
-      console.log(`워크플로우 이름이 "${newName.trim()}"로 변경되었습니다.`)
     } catch (error) {
       console.error('워크플로우 이름 변경 실패:', error)
       alert('워크플로우 이름 변경에 실패했습니다.')
@@ -392,7 +383,6 @@ const copyWorkflow = (workflow: WorkflowItem) => {
     isDragging: false,
     jsonData: workflow.jsonData ? { ...workflow.jsonData } : undefined
   }
-  console.log('워크플로우가 복사되었습니다.')
 }
 
 const deleteWorkflow = async (workflowId: string) => {
@@ -403,9 +393,7 @@ const deleteWorkflow = async (workflowId: string) => {
       // 로컬 상태에서 워크플로우 제거
       const index = workflows.value.findIndex((w: WorkflowItem) => w.n8n_workflow_id === workflowId)
       if (index > -1) {
-        const workflowName = workflows.value[index].name
         workflows.value.splice(index, 1)
-        console.log(`워크플로우 "${workflowName}"이 삭제되었습니다.`)
       }
     } catch (error) {
       console.error('워크플로우 삭제 실패:', error)
@@ -415,33 +403,33 @@ const deleteWorkflow = async (workflowId: string) => {
 }
 
 // API에서 데이터 로드
-const loadData = async () => {
+const loadData = async (isPolling = false) => {
   // 인증된 사용자만 데이터 로드
   const authStore = useAuthStore()
   if (!authStore.isAuthenticated) {
-    console.log('인증되지 않은 사용자 - 데이터 로드 건너뜀')
-    errorMessage.value = '로그인이 필요합니다.'
+    if (!isPolling) {
+      errorMessage.value = '로그인이 필요합니다.'
+    }
     return
   }
   
-  isLoading.value = true
+  // polling 중이 아닐 때만 로딩 상태 표시
+  if (!isPolling) {
+    isLoading.value = true
+  }
   errorMessage.value = ''
   
   try {
-    console.log('🔄 워크플로우 데이터 로딩 시작...')
+    if (!isPolling) {
+    }
+    
     // 프로젝트와 워크플로우 데이터를 병렬로 로드
     const [projectsResponse, workflowsResponse] = await Promise.all([
       projectService.getAllProjects(),
       workflowService.getAllWorkflows()
     ])
     
-    console.log('📡 API 응답:', { projectsResponse, workflowsResponse })
-    console.log('📡 RAW workflowsResponse:', JSON.stringify(workflowsResponse, null, 2))
-    
-    // 워크플로우 응답의 실제 구조 확인
-    if (workflowsResponse.workflows && workflowsResponse.workflows.length > 0) {
-      console.log('📡 첫 번째 워크플로우 RAW:', JSON.stringify(workflowsResponse.workflows[0], null, 2))
-      console.log('📡 모든 필드명:', Object.keys(workflowsResponse.workflows[0]))
+    if (!isPolling) {
     }
     
     projects.value = projectsResponse.projects || []
@@ -458,31 +446,26 @@ const loadData = async () => {
       updated_at: workflow.updated_at || ''
     }))
     
-    console.log('✅ 데이터 로드 완료:', {
-      projects: projects.value.length,
-      workflows: workflows.value.length
-    })
-    
-    // 워크플로우 데이터 구조 확인
-    if (workflows.value.length > 0) {
-      console.log('🔍 첫 번째 워크플로우 데이터:', workflows.value[0])
-      console.log('🔍 워크플로우 name 필드:', workflows.value[0].name)
-      console.log('🔍 워크플로우 n8n_workflow_id 필드:', workflows.value[0].n8n_workflow_id)
+    if (!isPolling) {
     }
   } catch (error: any) {
-    console.error('❌ 데이터 로드 실패:', error)
-    
-    if (error.response?.status === 401) {
-      errorMessage.value = '인증이 만료되었습니다. 다시 로그인해주세요.'
-    } else if (error.response?.status === 403) {
-      errorMessage.value = '액세스 권한이 없습니다.'
-    } else if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      errorMessage.value = '서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.'
-    } else {
-      errorMessage.value = `데이터 로드 실패: ${error.message || error}`
+    if (!isPolling) {
+      console.error('❌ 데이터 로드 실패:', error)
+      
+      if (error.response?.status === 401) {
+        errorMessage.value = '인증이 만료되었습니다. 다시 로그인해주세요.'
+      } else if (error.response?.status === 403) {
+        errorMessage.value = '액세스 권한이 없습니다.'
+      } else if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+        errorMessage.value = '서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.'
+      } else {
+        errorMessage.value = `데이터 로드 실패: ${error.message || error}`
+      }
     }
   } finally {
-    isLoading.value = false
+    if (!isPolling) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -500,24 +483,52 @@ const clearProjectWorkflowSelections = () => {
   workflows.value.forEach((workflow: WorkflowItem) => workflow.active = false)
 }
 
+// polling 시작
+const startPolling = () => {
+  if (pollingInterval.value) {
+    clearInterval(pollingInterval.value)
+  }
+  
+  pollingInterval.value = window.setInterval(() => {
+    loadData(true) // polling 플래그로 호출
+  }, POLLING_INTERVAL_MS)
+  
+}
+
+// polling 중지
+const stopPolling = () => {
+  if (pollingInterval.value) {
+    clearInterval(pollingInterval.value)
+    pollingInterval.value = null
+  }
+}
+
 // 새 프로젝트 버튼과 연결
 const handleNewProject = () => {
   createNewProject()
   emit('new-project')
 }
 
-// 컴포넌트 마운트 시 API에서 데이터 로드
+// 컴포넌트 마운트 시 API에서 데이터 로드 및 polling 시작
 onMounted(() => {
   loadData()
   registerSelectionClearCallback(clearProjectWorkflowSelections)
+  startPolling()
+})
+
+// 컴포넌트 언마운트 시 polling 정리
+onUnmounted(() => {
+  stopPolling()
 })
 
 // 인증 상태 변화 감지
 const authStore = useAuthStore()
 watch(() => authStore.isAuthenticated, (isAuthenticated) => {
   if (isAuthenticated) {
-    console.log('인증 상태 변화 감지 - 데이터 로드 시작')
     loadData()
+    startPolling()
+  } else {
+    stopPolling()
   }
 }, { immediate: false })
 </script>
@@ -529,6 +540,7 @@ watch(() => authStore.isAuthenticated, (isAuthenticated) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* 섹션 헤더 */

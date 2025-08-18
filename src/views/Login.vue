@@ -85,11 +85,13 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useChatStore } from '@/stores/chat'
 import { validateEmail } from '@/utils/helpers'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 
 const loginForm = ref({
   email: '',
@@ -145,7 +147,6 @@ const handleLogin = async () => {
     authStore.clearMessages()
     
     await authStore.login(loginForm.value.email, loginForm.value.password)
-    console.log('[Login] 로그인 성공, 리다이렉트 중...')
     // 로그인 성공 시 채팅 페이지로 리다이렉트
     const redirectPath = route.query.redirect as string || '/chat'
     router.push(redirectPath)

@@ -200,7 +200,6 @@ const loadSettings = () => {
 
 const saveSettings = () => {
   localStorage.setItem('appSettings', JSON.stringify(settings.value)) // HTML과 동일한 키 사용
-  console.log('설정이 저장되었습니다.')
 }
 
 // 언어 변경 함수
@@ -417,22 +416,26 @@ const formatDate = (date: Date): string => {
   })
 }
 
-const logout = () => {
+const logout = async () => {
   if (confirm('정말로 로그아웃하시겠습니까?')) {
-    // 로컬 스토리지 정리
-    localStorage.removeItem('chatHistories')
-    localStorage.removeItem('customWorkflows')
-    localStorage.removeItem('workflowFolders')
-    localStorage.removeItem('folders')
-    localStorage.removeItem('current_user')
-    
-    currentUser.value = null
-    console.log('로그아웃되었습니다.')
-    
-    closeModal()
-
-    // 로그인 페이지로 이동
-    router.push('/login')
+    try {
+      // 채팅 데이터 먼저 초기화  
+      const { useChatStore } = await import('@/stores/chat')
+      const { useAuthStore } = await import('@/stores/auth')
+      const chatStore = useChatStore()
+      const authStore = useAuthStore()
+      
+      chatStore.clearAllData()
+      // 인증 스토어 로그아웃
+      await authStore.logout()
+      
+      currentUser.value = null
+      closeModal()
+      // 강제 페이지 새로고침으로 완전 초기화
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('로그아웃 실패:', error)
+    }
   }
 }
 

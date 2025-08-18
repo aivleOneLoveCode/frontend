@@ -22,8 +22,6 @@ const api = axios.create({
   }
 })
 
-// 디버그: 실제 baseURL 확인
-console.log('[API] Base URL:', api.defaults.baseURL)
 
 // 전역 토큰 관리 함수 (store에서 설정)
 let getAuthToken: (() => string | null) | null = null
@@ -41,16 +39,7 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
     
-    // 디버그: 토큰 확인
-    if (import.meta.env.DEV) {
-      console.log('[API] Token:', token ? `${token.substring(0, 20)}...` : 'None')
-    }
     
-    // 개발 환경에서 로그 출력
-    if (import.meta.env.DEV) {
-      console.log(`[API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`)
-      console.log(`[API Request Data]`, config.data)
-    }
     
     return config
   },
@@ -63,26 +52,21 @@ api.interceptors.request.use(
 // 응답 인터셉터 (에러 처리)
 api.interceptors.response.use(
   (response) => {
-    // 개발 환경에서 로그 출력
-    if (import.meta.env.DEV) {
-      console.log(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.status)
-    }
     
     return response
   },
   async (error: any) => {
     const originalRequest = error.config
 
-    // 개발 환경에서 에러 로그 출력
-    if (import.meta.env.DEV) {
-      console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.baseURL}${error.config?.url}`, error.response?.status)
-      console.error(`[API Error Response]`, error.response?.data)
-    }
 
     // 401 Unauthorized - 토큰 만료 또는 유효하지 않음
     if (error.response?.status === 401) {
-      // 로그인 페이지로 리다이렉트 (store에서 logout 처리됨)
-      if (typeof window !== 'undefined') {
+      // 토큰이 있었는데 401이면 토큰이 만료된 것
+      const token = getAuthToken ? getAuthToken() : null
+      if (token && typeof window !== 'undefined') {
+        // 인증 상태 초기화 후 로그인 페이지로 이동
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('user_data')
         window.location.href = '/login'
       }
     }

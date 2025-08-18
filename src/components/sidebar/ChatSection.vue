@@ -25,6 +25,7 @@
 <script setup lang="ts">
 import ChatItem from './ChatItem.vue'
 import { useTranslation } from '@/utils/i18n'
+import { useChatStore } from '@/stores/chat'
 import type { ChatHistoryItem } from '@/types'
 
 const props = defineProps<{
@@ -37,22 +38,30 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useTranslation()
+const chatStore = useChatStore()
 
 // 채팅 아이템 이름 변경
-const renameChatItem = (item: ChatHistoryItem) => {
+const renameChatItem = async (item: ChatHistoryItem) => {
   const newName = prompt(t('enter_new_name', { current: item.title }), item.title)
   if (newName && newName.trim()) {
-    item.title = newName.trim()
-    // TODO: 부모 컴포넌트에서 로컬 스토리지 저장 처리
-    console.log(`채팅 "${item.title}" 이름이 변경되었습니다.`)
+    try {
+      await chatStore.updateSessionTitle(item.id, newName.trim())
+    } catch (error) {
+      console.error('채팅 이름 변경 실패:', error)
+      alert('채팅 이름 변경에 실패했습니다.')
+    }
   }
 }
 
 // 채팅 아이템 삭제
-const deleteChatItem = (itemId: number) => {
+const deleteChatItem = async (itemId: string) => {
   if (confirm(t('confirm_delete'))) {
-    // TODO: 부모 컴포넌트에서 채팅 삭제 처리
-    console.log(`채팅 삭제 요청: ${itemId}`)
+    try {
+      await chatStore.deleteSession(itemId)
+    } catch (error) {
+      console.error('채팅 삭제 실패:', error)
+      alert('채팅 삭제에 실패했습니다.')
+    }
   }
 }
 </script>
@@ -64,6 +73,7 @@ const deleteChatItem = (itemId: number) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* 섹션 헤더 */

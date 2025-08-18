@@ -116,8 +116,17 @@ export const useWorkflowStore = defineStore('workflow', {
           }
         ]
 
-        // 사용자 커스텀 워크플로우들을 서버에서 가져오기
-        const customWorkflows = await workflowService.getCustomWorkflows()
+        // 사용자 워크플로우들을 서버에서 가져오기
+        const backendWorkflows = await workflowService.getAllWorkflows()
+        
+        // 백엔드 워크플로우를 프론트엔드 형식으로 변환
+        const customWorkflows = backendWorkflows.workflows ? backendWorkflows.workflows.map((wf: any) => ({
+          id: wf.workflow_id || wf.n8n_workflow_id,
+          title: wf.title || wf.name || '워크플로우',
+          active: false,
+          description: '사용자가 생성한 워크플로우입니다.',
+          isCustom: true
+        })) : []
         
         this.workflows = [...defaultWorkflows, ...customWorkflows]
         
@@ -153,6 +162,7 @@ export const useWorkflowStore = defineStore('workflow', {
         throw error
       }
     },
+
 
     async updateWorkflow(workflowId: number, updateData: Partial<WorkflowData>): Promise<Workflow> {
       try {

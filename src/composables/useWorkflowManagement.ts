@@ -248,8 +248,6 @@ export function useWorkflowManagement() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    
-    console.log(`"${latestWorkflow.name}.json" 파일이 다운로드되었습니다.`)
   }
 
   return {

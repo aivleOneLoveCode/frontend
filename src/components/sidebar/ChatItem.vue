@@ -47,7 +47,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'select': [item: ChatHistoryItem]
   'rename': [item: ChatHistoryItem]
-  'delete': [itemId: number]
+  'delete': [itemId: string]
 }>()
 
 const { t } = useTranslation()
@@ -68,7 +68,7 @@ const handleRename = () => {
 
 const handleDelete = () => {
   closeDropdown()
-  emit('delete', Number(props.chatItem.id))
+  emit('delete', props.chatItem.id)
 }
 </script>
 

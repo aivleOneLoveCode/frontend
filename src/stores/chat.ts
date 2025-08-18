@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { sessionService, type Session, type SessionWithMessages } from '@/services/session'
 import { chatStream, type StreamUpdate } from '@/services/chatStream'
 import { FileUploadService, type UploadedFile } from '@/services/fileUpload'
+import { useWorkflowStore } from './workflow'
 
 interface Message {
   id: number
@@ -11,6 +12,7 @@ interface Message {
   isError?: boolean
   isStreaming?: boolean
   isThinking?: boolean
+  isUsingTool?: boolean
   streamingText?: string
 }
 
@@ -40,6 +42,7 @@ interface ChatState {
   streamingMessage: Message | null
   isThinking: boolean
   thinkingText: string
+  streamingText: string
   isUsingTool: boolean
   currentToolExecution: ToolExecution | null
   toolExecutions: ToolExecution[]
@@ -56,6 +59,7 @@ export const useChatStore = defineStore('chat', {
     streamingMessage: null,
     isThinking: false,
     thinkingText: '',
+    streamingText: '',
     isUsingTool: false,
     currentToolExecution: null,
     toolExecutions: [],
@@ -76,11 +80,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     currentMessages: (state): Message[] => {
-      // 현재 세션이 있으면 세션의 메시지, 없으면 state.messages (새 채팅)
-      if (state.currentSessionId) {
-        const currentSession = state.sessions.find(session => session.session_id === state.currentSessionId)
-        return currentSession?.messages || []
-      }
+      // 항상 state.messages를 사용 (단일 소스)
       return state.messages
     },
 
@@ -128,7 +128,7 @@ export const useChatStore = defineStore('chat', {
         
         if (sessionIndex !== -1) {
           this.sessions[sessionIndex].messages = this.convertBackendMessages(sessionData.messages)
-          this.messages = this.sessions[sessionIndex].messages
+          this.messages = [...this.sessions[sessionIndex].messages]
         }
       } catch (error) {
         console.error('세션 선택 실패:', error)
@@ -151,7 +151,6 @@ export const useChatStore = defineStore('chat', {
 
     // 임시프론트와 동일한 메시지 전송 로직
     async sendMessage(text: string, files: UploadedFile[] = []) {
-      console.log('[Chat Store] sendMessage 시작:', { text, files: files.length })
       if (!text.trim() && files.length === 0) return
       if (this.isStreaming || this.isLoading) return
 
@@ -179,7 +178,6 @@ export const useChatStore = defineStore('chat', {
         }
 
         // 임시프론트와 동일한 방식으로 스트리밍 요청
-        console.log('[Chat Store] 스트리밍 요청 시작:', content)
         this.isStreaming = true
         await this.streamChatLikeTemp(content)
 
@@ -209,29 +207,15 @@ export const useChatStore = defineStore('chat', {
     // 임시프론트와 동일한 스트리밍 로직
     async streamChatLikeTemp(content: any[]) {
       const token = localStorage.getItem('auth_token')
-      console.log('🔑 토큰 확인:', token ? '있음' : '없음')
-      console.log('🔑 실제 토큰:', token)
       
       if (!token) {
-        console.error('❌ 토큰이 없습니다!')
         throw new Error('로그인이 필요합니다.')
       }
 
-      console.log('📤 메시지 전송 시작:', { content, session_id: this.currentSessionId })
-
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-      
-      console.log('📤 요청 헤더:', headers)
-      
       const requestBody = {
         content: content,
         session_id: this.currentSessionId
       }
-      
-      console.log('📤 요청 본문:', requestBody)
 
       const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
@@ -241,8 +225,6 @@ export const useChatStore = defineStore('chat', {
         },
         body: JSON.stringify(requestBody)
       })
-
-      console.log('📥 응답 상태:', response.status, response.statusText)
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -270,9 +252,9 @@ export const useChatStore = defineStore('chat', {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
-                this.handleTempStyleStreamEvent(data, currentClaudeMessage, currentThinkingElement, currentToolBlocks)
+                currentClaudeMessage = this.handleTempStyleStreamEvent(data, currentClaudeMessage, currentThinkingElement, currentToolBlocks)
               } catch (error) {
-                console.error('JSON parse error:', error)
+                // JSON parse error - skip line
               }
             }
           }
@@ -283,9 +265,19 @@ export const useChatStore = defineStore('chat', {
     },
 
     // 임시프론트 스타일의 스트림 이벤트 처리
-    handleTempStyleStreamEvent(data: any, currentClaudeMessage: Message | null, currentThinkingElement: any, currentToolBlocks: Map<string, any>) {
+    handleTempStyleStreamEvent(data: any, currentClaudeMessage: Message | null, currentThinkingElement: any, currentToolBlocks: Map<string, any>): Message | null {
       switch (data.type) {
         case 'thinking_start':
+          // 새 thinking 블록 생성
+          const thinkingMessage: Message = {
+            id: Date.now() + Math.random(),
+            type: 'assistant',
+            content: [{ type: 'text', text: '' }],
+            timestamp: new Date(),
+            isStreaming: false,
+            isThinking: true
+          }
+          this.messages.push(thinkingMessage)
           this.isThinking = true
           this.thinkingText = ''
           break
@@ -293,15 +285,26 @@ export const useChatStore = defineStore('chat', {
         case 'thinking_delta':
           if (data.text) {
             this.thinkingText += data.text
+            // 가장 최근 thinking 메시지 업데이트
+            const lastThinkingMessage = [...this.messages].reverse().find(m => m.isThinking)
+            if (lastThinkingMessage && Array.isArray(lastThinkingMessage.content)) {
+              lastThinkingMessage.content[0].text = this.thinkingText
+            }
           }
           break
 
         case 'thinking_stop':
           this.isThinking = false
+          // thinking 메시지를 완료 상태로 표시
+          const completedThinkingMessage = [...this.messages].reverse().find(m => m.isThinking)
+          if (completedThinkingMessage) {
+            completedThinkingMessage.isThinking = false
+          }
           break
 
         case 'text_start':
           // 새 Claude 메시지 시작
+          this.streamingText = ''  // 스트리밍 텍스트 초기화
           currentClaudeMessage = {
             id: Date.now() + 1,
             type: 'assistant',
@@ -315,13 +318,26 @@ export const useChatStore = defineStore('chat', {
 
         case 'text_delta':
           if (currentClaudeMessage && data.text) {
-            if (Array.isArray(currentClaudeMessage.content) && currentClaudeMessage.content[0]) {
-              currentClaudeMessage.content[0].text += data.text
+            this.streamingText += data.text  // Pinia state 업데이트
+            // 가장 최근 스트리밍 메시지 업데이트
+            const lastStreamingMessage = [...this.messages].reverse().find(m => m.isStreaming)
+            if (lastStreamingMessage && Array.isArray(lastStreamingMessage.content)) {
+              lastStreamingMessage.content[0].text = this.streamingText
             }
           }
           break
 
         case 'tool_use_start':
+          // 새 tool 블록 생성
+          const toolMessage: Message = {
+            id: Date.now() + Math.random(),
+            type: 'assistant',
+            content: [{ type: 'text', text: `🔧 도구 사용: ${data.name}` }],
+            timestamp: new Date(),
+            isStreaming: false,
+            isUsingTool: true
+          }
+          this.messages.push(toolMessage)
           this.isUsingTool = true
           if (data.name) {
             this.currentToolExecution = {
@@ -333,7 +349,11 @@ export const useChatStore = defineStore('chat', {
           break
 
         case 'tool_execution':
-          console.log(`🔧 도구 실행: ${data.name}`, data.input)
+          // 가장 최근 tool 메시지 업데이트
+          const executingToolMessage = [...this.messages].reverse().find(m => m.isUsingTool)
+          if (executingToolMessage && Array.isArray(executingToolMessage.content)) {
+            executingToolMessage.content[0].text = `🔧 도구 실행 중: ${data.name}\n입력: ${JSON.stringify(data.input, null, 2)}`
+          }
           break
 
         case 'tool_result':
@@ -342,9 +362,17 @@ export const useChatStore = defineStore('chat', {
             this.currentToolExecution.isExecuting = false
             this.toolExecutions.push({...this.currentToolExecution})
           }
+          
           this.isUsingTool = false
           this.currentToolExecution = null
-          console.log(`✅ 도구 결과: ${data.name}`, data.result)
+          
+          // 가장 최근 tool 메시지 업데이트
+          const completedToolMessage = [...this.messages].reverse().find(m => m.isUsingTool)
+          if (completedToolMessage && Array.isArray(completedToolMessage.content)) {
+            completedToolMessage.content[0].text = `✅ 도구 완료: ${data.name}\n결과: ${data.result ? data.result.substring(0, 200) + '...' : '완료됨'}`
+            completedToolMessage.isUsingTool = false
+          }
+          
           break
 
         case 'session_id':
@@ -374,19 +402,86 @@ export const useChatStore = defineStore('chat', {
             currentClaudeMessage.isStreaming = false
           }
           this.streamingMessage = null
+          this.streamingText = ''  // 스트리밍 텍스트 초기화
           break
       }
+      return currentClaudeMessage
     },
 
 
-    // 백엔드 메시지를 프론트엔드 형태로 변환
+    // 백엔드 메시지를 프론트엔드 형태로 변환 (thinking, tool 블록 분리)
     convertBackendMessages(backendMessages: any[]): Message[] {
-      return backendMessages.map((msg, index) => ({
-        id: index,
-        type: msg.role,
-        content: Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content }],
-        timestamp: new Date()
-      }))
+      const messages: Message[] = []
+      let messageId = 0
+
+      for (const msg of backendMessages) {
+        const content = Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content }]
+        
+        if (msg.role === 'assistant') {
+          // assistant 메시지에서 thinking, text 블록 분리
+          const thinkingBlocks: any[] = []
+          const textBlocks: any[] = []
+          
+          for (const block of content) {
+            if (block.type === 'thinking') {
+              thinkingBlocks.push(block)
+            } else if (block.type === 'text') {
+              textBlocks.push(block)
+            }
+          }
+          
+          // thinking 블록이 있으면 별도 메시지로 생성
+          if (thinkingBlocks.length > 0) {
+            const thinkingText = thinkingBlocks.map(block => block.thinking || block.text || '').join('')
+            messages.push({
+              id: messageId++,
+              type: 'assistant',
+              content: [{ type: 'text', text: thinkingText }],
+              timestamp: new Date(),
+              isThinking: false // 이미 완료된 상태
+            })
+          }
+          
+          // text 블록이 있으면 일반 응답 메시지로 생성
+          if (textBlocks.length > 0) {
+            messages.push({
+              id: messageId++,
+              type: 'assistant',
+              content: textBlocks,
+              timestamp: new Date()
+            })
+          }
+          
+        } else if (msg.role === 'user') {
+          // user 메시지 처리
+          const toolResults = content.filter((block: any) => block.type === 'tool_result')
+          const nonToolContent = content.filter((block: any) => block.type !== 'tool_result')
+          
+          // 일반 사용자 메시지 (tool_result가 아닌 것들)
+          if (nonToolContent.length > 0) {
+            messages.push({
+              id: messageId++,
+              type: 'user',
+              content: nonToolContent,
+              timestamp: new Date()
+            })
+          }
+          
+          // tool_result 메시지들을 도구 완료 메시지로 변환
+          for (const toolResult of toolResults) {
+            const toolResultText = `🔧 도구 완료\n결과: ${toolResult.content ? (typeof toolResult.content === 'string' ? toolResult.content.substring(0, 200) + '...' : JSON.stringify(toolResult.content).substring(0, 200) + '...') : '완료됨'}`
+            messages.push({
+              id: messageId++,
+              type: 'assistant',
+              content: [{ type: 'text', text: toolResultText }],
+              timestamp: new Date(),
+              isUsingTool: false // 이미 완료된 상태
+            })
+          }
+        }
+      }
+
+      return messages
     },
 
     // 파일 추가
@@ -426,9 +521,58 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
+    // 채팅 중단
+    async stopMessage() {
+      // 스트리밍 상태 즉시 종료
+      this.isStreaming = false
+      this.isThinking = false
+      this.isUsingTool = false
+      this.streamingMessage = null
+      this.streamingText = ''
+      this.currentToolExecution = null
+      
+      // 현재 스트리밍 중인 메시지가 있으면 완료 상태로 변경
+      const streamingMsg = this.messages.find(m => m.isStreaming)
+      if (streamingMsg) {
+        streamingMsg.isStreaming = false
+      }
+      
+      // 백엔드에 중단 요청 (필요시 구현)
+      try {
+        const token = localStorage.getItem('auth_token')
+        if (token && this.currentSessionId) {
+          await fetch(`http://localhost:8000/chat/stop/${this.currentSessionId}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+        }
+      } catch (error) {
+        // 백엔드 중단 요청 실패 (무시)
+      }
+    },
+
     // 백엔드 연결 상태 확인
     async checkBackendConnection(): Promise<boolean> {
       return await chatStream.checkBackend()
+    },
+
+    // 로그아웃 시 모든 데이터 초기화
+    clearAllData() {
+      this.sessions = []
+      this.currentSessionId = null
+      this.messages = []
+      this.isLoading = false
+      this.isStreaming = false
+      this.streamingMessage = null
+      this.isThinking = false
+      this.thinkingText = ''
+      this.streamingText = ''
+      this.isUsingTool = false
+      this.currentToolExecution = null
+      this.toolExecutions = []
+      this.uploadedFiles = []
     }
   }
 })

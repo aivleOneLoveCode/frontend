@@ -10,10 +10,9 @@ import base64
 import mimetypes
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, Depends, status, Response, Header, Request
+from fastapi import FastAPI, HTTPException, Depends, status, Response, Header
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from anthropic import Anthropic
@@ -21,7 +20,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="Claude MCP Multi-User Backend")
 app = FastAPI(title="Claude MCP Multi-User Backend")
 
 # CORS 설정
@@ -32,24 +30,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# JWT 설정
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
-
-security = HTTPBearer()
-
-# Pydantic 모델들
-class UserRegister(BaseModel):
-    email: str
-    first_name: str
-    last_name: str
-    password: str
-
-class UserLogin(BaseModel):
-    email: str
-    password: str
 
 # JWT 설정
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this")
@@ -82,6 +62,7 @@ class WorkflowUpdate(BaseModel):
 class ApiKeyWorkflowCreate(BaseModel):
     n8n_workflow_id: str
     name: str = "Untitled Workflow"
+    user_id: str
 
 class WorkflowNameUpdate(BaseModel):
     name: str
@@ -206,7 +187,6 @@ class DatabaseManager:
     
     def authenticate_user(self, email: str, password: str):
         """사용자 인증"""
-        print(f"[DEBUG] authenticate_user 호출: email={email}, password={password}")
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -216,25 +196,15 @@ class DatabaseManager:
         ''', (email,))
         
         result = cursor.fetchone()
-        print(f"[DEBUG] DB에서 찾은 사용자: {result is not None}")
-        if result:
-            print(f"[DEBUG] 사용자 ID: {result[0]}, 이름: {result[2]} {result[3]}")
-            print(f"[DEBUG] DB 해시: {result[1][:50]}...")
-        
         conn.close()
         
-        if result:
-            password_match = bcrypt.checkpw(password.encode('utf-8'), result[1].encode('utf-8'))
-            print(f"[DEBUG] 비밀번호 매치: {password_match}")
-            if password_match:
-                return {
-                    "user_id": result[0],
-                    "email": email,
-                    "first_name": result[2],
-                    "last_name": result[3]
-                }
-        
-        print(f"[DEBUG] 인증 실패 - 사용자 없음 또는 비밀번호 불일치")
+        if result and bcrypt.checkpw(password.encode('utf-8'), result[1].encode('utf-8')):
+            return {
+                "user_id": result[0],
+                "email": email,
+                "first_name": result[2],
+                "last_name": result[3]
+            }
         return None
     
     def get_user_by_id(self, user_id: str):
@@ -764,17 +734,9 @@ def create_access_token(user_data: dict):
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """JWT 토큰 검증"""
-    print(f"[DEBUG] verify_token 함수 호출됨")
-    
-    if credentials is None:
-        print(f"[DEBUG] credentials가 None입니다")
-        raise HTTPException(status_code=403, detail="Authorization header missing")
-    
     try:
-        print(f"[DEBUG] 토큰 검증 시도: {credentials.credentials[:50]}...")
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("user_id")
-        print(f"[DEBUG] 토큰 검증 성공: user_id={user_id}")
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -782,17 +744,17 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
             )
         return payload
     except jwt.ExpiredSignatureError:
-        print(f"[DEBUG] 토큰 만료됨")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired"
         )
-    except Exception as e:
-        print(f"[DEBUG] 토큰 검증 실패: {type(e).__name__}: {e}")
+    except jwt.JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
+
+# verify_internal_api_key 함수 제거됨 - 사용되지 않음
 
 def verify_user_api_key(x_api_key: str = Header(None, alias="X-API-Key")):
     """사용자 API 키 검증"""
@@ -822,6 +784,7 @@ def verify_user_api_key(x_api_key: str = Header(None, alias="X-API-Key")):
         "last_name": user[3]
     }
 
+
 class ClaudeMCPBackend:
     def __init__(self):
         self.anthropic = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -830,8 +793,8 @@ class ClaudeMCPBackend:
         self.tools = []
         self.request_count = 0
         self.db = DatabaseManager()
-        self.request_count = 0
-        self.db = DatabaseManager()
+        self.n8n_api_key = os.getenv("N8N_API_KEY")
+        self.active_sessions = {}  # session_id -> asyncio.Event for cancellation
         
     async def init_mcp(self):
         if self.tools:
@@ -869,44 +832,22 @@ class ClaudeMCPBackend:
         # 허용된 툴만 필터링해서 반환
         filtered_tools = []
         for tool in self.tools:
-            if tool["name"] in allowed_tools:
-                filtered_tools.append({
-                    "name": tool["name"],
-                    "description": tool.get("description", ""),
-                    "input_schema": tool.get("inputSchema", {"type": "object", "properties": {}})
-                })
-        
-        return filtered_tools
-        # 사용할 툴 목록 (9개로 제한)
-        allowed_tools = {
-            "search_nodes",
-            "list_nodes", 
-            "get_node_info",
-            "validate_workflow",
-            "n8n_create_workflow",
-            "n8n_update_full_workflow",
-            "n8n_delete_workflow",
-            "n8n_list_workflows",
-            "n8n_get_workflow"
-        }
-        
-        # 허용된 툴만 필터링해서 반환
-        filtered_tools = []
-        for tool in self.tools:
-            if tool["name"] in allowed_tools:
-                filtered_tools.append({
-                    "name": tool["name"],
-                    "description": tool.get("description", ""),
-                    "input_schema": tool.get("inputSchema", {"type": "object", "properties": {}})
-                })
+            # if tool["name"] in allowed_tools:
+            filtered_tools.append({
+                "name": tool["name"],
+                "description": tool.get("description", ""),
+                "input_schema": tool.get("inputSchema", {"type": "object", "properties": {}})
+            })
         
         return filtered_tools
     
-    async def call_tool(self, name, args, user_api_key=None):
+    async def call_tool(self, name, args, n8n_api_key=None, user_id=None):
         # n8n API 툴의 경우 api_key를 자동으로 추가
-        if name in ["n8n_create_workflow", "n8n_update_full_workflow", "n8n_delete_workflow"] and user_api_key:
-            if isinstance(args, dict):
-                args["api_key"] = user_api_key
+        # if name starts with n8n_
+        if name.startswith("n8n_"):
+            if n8n_api_key:
+                args["api_key"] = n8n_api_key
+                args["user_id"] = user_id
                 print(f"[DEBUG] {name} 툴에 API 키 자동 추가됨")
         
         headers = {"Authorization": f"Bearer {self.auth_token}"}
@@ -942,6 +883,11 @@ class ClaudeMCPBackend:
         self.request_count += 1
         request_id = self.request_count
         
+        # 중단 이벤트 생성
+        cancel_event = asyncio.Event()
+        if session_id:
+            self.active_sessions[session_id] = cancel_event
+        
         
         # 데이터베이스에서 세션 메시지 로드
         messages = []
@@ -975,171 +921,153 @@ class ClaudeMCPBackend:
         self.db.save_message(session_id, "user", json.dumps(user_content, ensure_ascii=False))
         
         # 현재 사용자 정보 가져오기 (API 키 포함)
-        current_user = self.db.get_user_by_id(user_id)
-        user_api_key = current_user.get('api_key', '') if current_user else ''
+        # current_user = self.db.get_user_by_id(user_id)
         
         self.add_cache_control_to_messages(messages)
         
-        while True:
-            tools = self.convert_tools()
-            if tools:
-                tools[-1]["cache_control"] = {"type": "ephemeral"}
+        try:
+            while True:
+                tools = self.convert_tools()
+                if tools:
+                    tools[-1]["cache_control"] = {"type": "ephemeral"}
             
             # 현재 사용자 정보 가져오기
-            current_user = self.db.get_user_by_id(user_id)
-            user_info = f"사용자 ID: {user_id}"
-            user_api_key = ""
-            if current_user:
-                user_info += f", 이름: {current_user['first_name']} {current_user['last_name']}, 이메일: {current_user['email']}"
-                user_api_key = current_user.get('api_key', '')
-                print(f"[DEBUG] 시스템 프롬프트에 포함될 API 키: {user_api_key[:8] + '...' if user_api_key else '없음'}")
+            # current_user = self.db.get_user_by_id(user_id)
+            # user_info = f"사용자 ID: {user_id}"
+            # user_api_key = ""
+            # if current_user:
+            #     user_info += f", 이름: {current_user['first_name']} {current_user['last_name']}, 이메일: {current_user['email']}"
+            #     user_api_key = current_user.get('api_key', '')
+            #     print(f"[DEBUG] 시스템 프롬프트에 포함될 API 키: {user_api_key[:8] + '...' if user_api_key else '없음'}")
             
-            system = [
-                {
-                    "type": "text",
-                    "text": "# 페르소나\n당신은 n8n 자동화 소프트웨어의 전문가입니다. n8n-MCP 도구를 사용하여 워크플로우를 설계, 구축, 검증하는 역할을 합니다."
-                },
-                {
-                    "type": "text", 
-                    "text": f"# 사전정보\n- 현재 대화 중인 사용자: {user_info}\n- 사용자 API 키: {user_api_key}\n- 사용자는 단순히 자동화를 원하는 비IT 직무자입니다\n- 사용자는 기술적 세부사항보다는 결과와 과정을 이해하고 싶어합니다"
-                },
-                {
-                    "type": "text",
-                    "text": "# 툴 사용법 워크플로우\n## 노드 추가 시:\n1. search_nodes로 필요한 노드 검색\n2. get_node_info로 노드 상세 정보 확인\n3. 적절한 노드를 워크플로우에 추가\n\n## 워크플로우 생성 시:\n1. validate_workflow로 워크플로우 구조 검증\n2. n8n_create_workflow로 워크플로우 생성 (API 키는 자동으로 포함됨)"
-                },
-                {
-                    "type": "text",
-                    "text": "# 생각 및 출력 양식\n- 정확하고 효율적으로 작업하세요\n- tool_use를 할 때는 사용자에게 '이런 이유로 이런 도구를 사용한다'고 설명해주세요\n- 최대한 간단하고 이해하기 쉽게 설명하세요\n- 사용자에게 코드를 보여주지 마세요. 말로 잘 설명해야 합니다\n- 기술적 용어보다는 일상적인 언어를 사용하세요\n- 위의 툴 사용법 워크플로우를 반드시 따라주세요\n- 업로드된 이미지나 파일이 있다면 해당 내용을 분석하고 n8n 워크플로우와 어떻게 연결할 수 있는지 설명해주세요",
-                    "cache_control": {"type": "ephemeral"}
-                }
-            ]
-            
-            # 시뮬레이션된 thinking 단계 추가
-            yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
-            await asyncio.sleep(0.5)
-            
-            # 생각 과정 시뮬레이션
-            thinking_steps = [
-                "사용자의 질문을 분석하고 있습니다...",
-                "적절한 답변 방법을 고려 중입니다...", 
-                "필요한 정보를 정리하고 있습니다...",
-                "답변을 구성하고 있습니다..."
-            ]
-            
-            for step in thinking_steps:
-                yield f"data: {json.dumps({'type': 'thinking_delta', 'text': step})}\n\n"
-                await asyncio.sleep(0.8)
-            
-            yield f"data: {json.dumps({'type': 'thinking_stop'})}\n\n"
-            await asyncio.sleep(0.3)
-
-            with self.anthropic.messages.stream(
-                model="claude-sonnet-4-20250514",
-                max_tokens=16000,
-                tools=tools,
-                system=system,
-                messages=messages
-            ) as stream:
+                system = [
+                    {
+                        "type": "text",
+                        "text": open("prompt.txt", "r", encoding="utf-8").read()
+                    }
+                    # {
+                    #     "type": "text",
+                    #     "text": "# 페르소나\n당신은 n8n 자동화 소프트웨어의 전문가입니다. n8n-MCP 도구를 사용하여 워크플로우를 설계, 구축, 검증하는 역할을 합니다."
+                    # },
+                    # {
+                    #     "type": "text", 
+                    #     "text": f"# 사전정보\n- 현재 대화 중인 사용자: {user_info}\n- 사용자 API 키: {user_api_key}\n- 사용자는 단순히 자동화를 원하는 비IT 직무자입니다\n- 사용자는 기술적 세부사항보다는 결과와 과정을 이해하고 싶어합니다"
+                    # },
+                    # {
+                    #     "type": "text",
+                    #     "text": "# 툴 사용법 워크플로우\n## 노드 추가 시:\n1. search_nodes로 필요한 노드 검색\n2. get_node_info로 노드 상세 정보 확인\n3. 적절한 노드를 워크플로우에 추가\n\n## 워크플로우 생성 시:\n1. validate_workflow로 워크플로우 구조 검증\n2. n8n_create_workflow로 워크플로우 생성 (API 키는 자동으로 포함됨)"
+                    # },
+                    # {
+                    #     "type": "text",
+                    #     "text": "# 생각 및 출력 양식\n- 정확하고 효율적으로 작업하세요\n- tool_use를 할 때는 사용자에게 '이런 이유로 이런 도구를 사용한다'고 설명해주세요\n- 최대한 간단하고 이해하기 쉽게 설명하세요\n- 사용자에게 코드를 보여주지 마세요. 말로 잘 설명해야 합니다\n- 기술적 용어보다는 일상적인 언어를 사용하세요\n- 위의 툴 사용법 워크플로우를 반드시 따라주세요\n- 업로드된 이미지나 파일이 있다면 해당 내용을 분석하고 n8n 워크플로우와 어떻게 연결할 수 있는지 설명해주세요",
+                    #     "cache_control": {"type": "ephemeral"}
+                    # }
+                ]
                 
-                for event in stream:
-                    if event.type == "content_block_start":
-                        if event.content_block.type == "text":
-                            yield f"data: {json.dumps({'type': 'text_start'})}\n\n"
-                        elif event.content_block.type == "tool_use":
-                            yield f"data: {json.dumps({'type': 'tool_use_start', 'name': event.content_block.name})}\n\n"
+                with self.anthropic.messages.stream(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=16000,
+                    thinking={"type": "enabled", "budget_tokens": 10000},
+                    tools=tools,
+                    system=system,
+                    extra_headers={"anthropic-beta": "interleaved-thinking-2025-05-14"},
+                    messages=messages
+                ) as stream:
                     
-                    elif event.type == "content_block_delta":
-                        if event.delta.type == "text_delta":
-                            yield f"data: {json.dumps({'type': 'text_delta', 'text': event.delta.text})}\n\n"
-                            await asyncio.sleep(0)
-                            await asyncio.sleep(0)
+                    thinking_text = ""
+                    current_block_type = None
                     
-                    elif event.type == "content_block_stop":
-                        if hasattr(event.content_block, 'type'):
-                            if event.content_block.type == "text":
-                                yield f"data: {json.dumps({'type': 'text_stop'})}\n\n"
-                            elif event.content_block.type == "tool_use":
-                                yield f"data: {json.dumps({'type': 'tool_use_stop'})}\n\n"
-                
-                # Usage 로그 출력 및 메시지 추출
-                message_obj = stream.get_final_message()
-                usage = message_obj.usage
-                message_obj = stream.get_final_message()
-                usage = message_obj.usage
-                
-                cache_read = getattr(usage, 'cache_read_input_tokens', 0)
-                cache_creation = getattr(usage, 'cache_creation_input_tokens', 0)
-                
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] REQUEST #{request_id} USAGE - Input: {usage.input_tokens}, Output: {usage.output_tokens}, Cache Create: {cache_creation}, Cache Read: {cache_read}")
-                
-                # response_content를 JSON 직렬화 가능한 형태로 변환
-                assistant_content = []
-                for block in message_obj.content:
-                    if hasattr(block, 'model_dump'):
-                        assistant_content.append(block.model_dump())
-                    else:
-                        assistant_content.append({"type": "text", "text": str(block)})
-                
-                # 어시스턴트 응답을 데이터베이스에 저장
-                self.db.save_message(session_id, "assistant", json.dumps(assistant_content, ensure_ascii=False))
-                
-                messages.append({"role": "assistant", "content": assistant_content})
-                
-                tool_blocks = [b for b in message_obj.content if b.type == 'tool_use']
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] REQUEST #{request_id} USAGE - Input: {usage.input_tokens}, Output: {usage.output_tokens}, Cache Create: {cache_creation}, Cache Read: {cache_read}")
-                
-                # response_content를 JSON 직렬화 가능한 형태로 변환
-                assistant_content = []
-                for block in message_obj.content:
-                    if hasattr(block, 'model_dump'):
-                        assistant_content.append(block.model_dump())
-                    else:
-                        assistant_content.append({"type": "text", "text": str(block)})
-                
-                # 어시스턴트 응답을 데이터베이스에 저장
-                self.db.save_message(session_id, "assistant", json.dumps(assistant_content, ensure_ascii=False))
-                
-                messages.append({"role": "assistant", "content": assistant_content})
-                
-                tool_blocks = [b for b in message_obj.content if b.type == 'tool_use']
-                
-                if not tool_blocks:
-                    yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
-                    yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
-                    yield f"data: {json.dumps({'type': 'complete'})}\n\n"
-                    break
-                
-                # 도구 실행
-                tool_results = []
-                for tool in tool_blocks:
-                    yield f"data: {json.dumps({'type': 'tool_execution', 'name': tool.name, 'input': tool.input})}\n\n"
-                    
-                    try:
-                        result = await self.call_tool(tool.name, tool.input, user_api_key)
-                        result = await self.call_tool(tool.name, tool.input, user_api_key)
-                        yield f"data: {json.dumps({'type': 'tool_result', 'name': tool.name, 'result': result[:200] + ('...' if len(result) > 200 else '')})}\n\n"
+                    for event in stream:
+                        # 중단 요청 체크
+                        if cancel_event.is_set():
+                            print(f"🛑 스트리밍 중단됨: session_id={session_id}")
+                            break
+                            
+                        if event.type == "content_block_start":
+                            current_block_type = event.content_block.type
+                            if current_block_type == "thinking":
+                                yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
+                            elif current_block_type == "text":
+                                yield f"data: {json.dumps({'type': 'text_start'})}\n\n"
+                            elif current_block_type == "tool_use":
+                                yield f"data: {json.dumps({'type': 'tool_use_start', 'name': event.content_block.name})}\n\n"
                         
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": tool.id,
-                            "content": result
-                        })
-                    except Exception as e:
-                        error_msg = str(e)
-                        yield f"data: {json.dumps({'type': 'tool_error', 'name': tool.name, 'error': error_msg})}\n\n"
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": tool.id,
-                            "content": f"오류: {error_msg}"
-                        })
-                
-                # 도구 결과를 DB에 저장하고 메시지에 추가
-                self.db.save_message(session_id, "user", json.dumps(tool_results, ensure_ascii=False))
-                # 도구 결과를 DB에 저장하고 메시지에 추가
-                self.db.save_message(session_id, "user", json.dumps(tool_results, ensure_ascii=False))
-                messages.append({"role": "user", "content": tool_results})
-                
-                self.add_cache_control_to_messages(messages)
+                        elif event.type == "content_block_delta":
+                            if event.delta.type == "thinking_delta":
+                                thinking_text += event.delta.thinking
+                                yield f"data: {json.dumps({'type': 'thinking_delta', 'text': event.delta.thinking})}\n\n"
+                                await asyncio.sleep(0)
+                            elif event.delta.type == "text_delta":
+                                yield f"data: {json.dumps({'type': 'text_delta', 'text': event.delta.text})}\n\n"
+                                await asyncio.sleep(0)
+                        
+                        elif event.type == "content_block_stop":
+                            if current_block_type == "thinking":
+                                yield f"data: {json.dumps({'type': 'thinking_stop'})}\n\n"
+                                thinking_text = ""
+                    
+                    # Usage 로그 출력 및 메시지 추출
+                    message_obj = stream.get_final_message()
+                    usage = message_obj.usage
+                    
+                    cache_read = getattr(usage, 'cache_read_input_tokens', 0)
+                    cache_creation = getattr(usage, 'cache_creation_input_tokens', 0)
+                    
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] REQUEST #{request_id} USAGE - Input: {usage.input_tokens}, Output: {usage.output_tokens}, Cache Create: {cache_creation}, Cache Read: {cache_read}")
+                    
+                    # response_content를 JSON 직렬화 가능한 형태로 변환
+                    assistant_content = []
+                    for block in message_obj.content:
+                        if hasattr(block, 'model_dump'):
+                            assistant_content.append(block.model_dump())
+                        else:
+                            assistant_content.append({"type": "text", "text": str(block)})
+                    
+                    # 어시스턴트 응답을 데이터베이스에 저장
+                    self.db.save_message(session_id, "assistant", json.dumps(assistant_content, ensure_ascii=False))
+                    
+                    messages.append({"role": "assistant", "content": assistant_content})
+                    
+                    tool_blocks = [b for b in message_obj.content if b.type == 'tool_use']
+                    
+                    if not tool_blocks:
+                        yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
+                        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+                        break
+                    
+                    # 도구 실행
+                    tool_results = []
+                    for tool in tool_blocks:
+                        yield f"data: {json.dumps({'type': 'tool_execution', 'name': tool.name, 'input': tool.input})}\n\n"
+                        
+                        try:
+                            result = await self.call_tool(tool.name, tool.input, self.n8n_api_key, user_id)
+                            yield f"data: {json.dumps({'type': 'tool_result', 'name': tool.name, 'result': result[:200] + ('...' if len(result) > 200 else '')})}\n\n"
+                            
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": tool.id,
+                                "content": result
+                            })
+                        except Exception as e:
+                            error_msg = str(e)
+                            yield f"data: {json.dumps({'type': 'tool_error', 'name': tool.name, 'error': error_msg})}\n\n"
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": tool.id,
+                                "content": f"오류: {error_msg}"
+                            })
+                    
+                    # 도구 결과를 DB에 저장하고 메시지에 추가
+                    self.db.save_message(session_id, "user", json.dumps(tool_results, ensure_ascii=False))
+                    messages.append({"role": "user", "content": tool_results})
+                    
+                    self.add_cache_control_to_messages(messages)
+        
+        finally:
+            # 세션 정리
+            if session_id and session_id in self.active_sessions:
+                del self.active_sessions[session_id]
 
 # 전역 인스턴스
 claude_backend = ClaudeMCPBackend()
@@ -1319,12 +1247,9 @@ async def delete_workflow_in_n8n(workflow_id: str):
 @app.post("/login")
 async def login(user: UserLogin):
     """로그인 - 백엔드 로그인 성공 후 n8n 마스터 계정 정보 제공"""
-    print(f"[DEBUG] 로그인 시도: email={user.email}, password={user.password}")
     user_data = claude_backend.db.authenticate_user(user.email, user.password)
-    print(f"[DEBUG] 인증 결과: {user_data}")
     
     if not user_data:
-        print(f"[DEBUG] 로그인 실패 - 사용자 데이터 없음")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="이메일 또는 비밀번호가 잘못되었습니다"
@@ -1344,56 +1269,14 @@ async def login(user: UserLogin):
 
 # 채팅 관련 엔드포인트
 @app.post("/chat")
-async def chat(request: Request):
+async def chat(request: ChatRequest, current_user: dict = Depends(verify_token)):
     """통합 채팅 (텍스트 + 파일)"""
-    print(f"[DEBUG] /chat 엔드포인트 호출됨")
-    
-    # 모든 헤더 출력
-    print(f"[DEBUG] 모든 헤더: {dict(request.headers)}")
-    
-    # Authorization 헤더 직접 확인
-    auth_header = request.headers.get('authorization') or request.headers.get('Authorization')
-    print(f"[DEBUG] Authorization 헤더: {auth_header}")
-    
-    # 원시 요청 데이터 확인
-    body = await request.body()
-    print(f"[DEBUG] 요청 본문: {body.decode('utf-8')[:200]}...")
-    
-    try:
-        request_data = await request.json()
-        print(f"[DEBUG] 파싱된 요청 데이터: {request_data}")
-    except Exception as e:
-        print(f"[DEBUG] JSON 파싱 실패: {e}")
-        raise HTTPException(status_code=422, detail="Invalid JSON")
-    
-    # JWT 토큰 검증
-    try:
-        auth_header = request.headers.get('authorization') or request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            raise HTTPException(status_code=401, detail="Authorization header missing or invalid")
-        
-        token = auth_header.split(' ')[1]
-        import jwt
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        current_user = {"user_id": payload.get("user_id"), "email": payload.get("email")}
-        print(f"[DEBUG] 토큰 검증 성공: user_id={current_user['user_id']}")
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except Exception as e:
-        print(f"[DEBUG] 토큰 검증 실패: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
-    
     try:
         # 프론트엔드에서 받은 content를 그대로 처리
         # content는 이미 [{"type": "text", "text": "..."}, {"type": "image", "source": {...}}, ...] 형태
-        content = request_data.get("content", [])
-        session_id = request_data.get("session_id")
-        
-        print(f"[DEBUG] 처리할 content: {content}")
-        print(f"[DEBUG] session_id: {session_id}")
         
         return StreamingResponse(
-            claude_backend.chat_stream(content, current_user["user_id"], session_id),
+            claude_backend.chat_stream(request.content, current_user["user_id"], request.session_id),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -1401,6 +1284,23 @@ async def chat(request: Request):
                 "X-Accel-Buffering": "no"
             }
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat/stop/{session_id}")
+async def stop_chat(session_id: str, current_user: dict = Depends(verify_token)):
+    """채팅 중단"""
+    try:
+        print(f"🛑 채팅 중단 요청: session_id={session_id}, user_id={current_user['user_id']}")
+        
+        # 활성 세션이 있으면 중단 이벤트 설정
+        if session_id in claude_backend.active_sessions:
+            claude_backend.active_sessions[session_id].set()
+            print(f"🛑 세션 중단 신호 전송: {session_id}")
+            return {"status": "stopped", "session_id": session_id}
+        else:
+            print(f"🛑 활성 세션 없음: {session_id}")
+            return {"status": "no_active_session", "session_id": session_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1437,6 +1337,8 @@ async def get_session_info(session_id: str, current_user: dict = Depends(verify_
     except Exception:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
 
+# /user/api-key API 제거됨 - 프론트엔드에서 사용되지 않음 (보안상 불필요)
+
 @app.put("/sessions/{session_id}")
 async def update_session(session_id: str, title: str, current_user: dict = Depends(verify_token)):
     """세션 제목 업데이트"""
@@ -1449,26 +1351,37 @@ async def delete_session(session_id: str, current_user: dict = Depends(verify_to
     claude_backend.db.delete_session(session_id, current_user["user_id"])
     return {"message": "Session deleted successfully"}
 
+# verify_token_from_query 함수 제거됨 - 더 이상 사용되지 않음
+
+
+# /open-n8n API 제거됨 - n8n 자동 로그인으로 불필요
+
 # API 키 기반 워크플로우 엔드포인트 (MCP 서버용)
+# Public API - API 키 기반 워크플로우 엔드포인트 (MCP 서버용)
+
 @app.post("/api/workflows")
-async def create_workflow_with_api_key(workflow: ApiKeyWorkflowCreate, current_user: dict = Depends(verify_user_api_key)):
+async def create_workflow_with_api_key(workflow: ApiKeyWorkflowCreate):
     """API 키 기반: 워크플로우 생성 (MCP 서버용)"""
-    print(f"[DEBUG] MCP 서버로부터 워크플로우 등록 요청: n8n_workflow_id={workflow.n8n_workflow_id}, name={workflow.name}, user_id={current_user['user_id']}")
+    print(f"[DEBUG] MCP 서버로부터 워크플로우 등록 요청: n8n_workflow_id={workflow.n8n_workflow_id}, name={workflow.name}, user_id={workflow.user_id}")
     try:
         n8n_workflow_id = claude_backend.db.create_workflow(
-            current_user["user_id"], workflow.n8n_workflow_id, workflow.name
+            workflow.user_id, workflow.n8n_workflow_id, workflow.name
         )
         print(f"[DEBUG] 워크플로우 등록 성공: {n8n_workflow_id}")
-        return {"n8n_workflow_id": n8n_workflow_id, "user_id": current_user["user_id"]}
+        return {"n8n_workflow_id": n8n_workflow_id, "user_id": workflow.user_id}
     except sqlite3.IntegrityError:
         print(f"[DEBUG] 워크플로우 등록 실패: 이미 등록된 워크플로우")
         raise HTTPException(status_code=400, detail="이미 등록된 워크플로우입니다")
 
 @app.get("/api/workflows")
-async def get_user_workflows_api(current_user: dict = Depends(verify_user_api_key)):
+async def get_user_workflows_api(workflow: ApiKeyWorkflowCreate):
     """API 키 기반: 사용자의 워크플로우 목록 조회 (MCP 서버용)"""
-    workflows = claude_backend.db.get_user_workflows(current_user["user_id"])
+    workflows = claude_backend.db.get_user_workflows(workflow.user_id)
     return {"workflows": workflows}
+
+
+
+# API 키 기반 삭제 API 제거됨 - JWT 토큰 기반 내부 API만 사용
 
 # 내부 API - JWT 토큰 기반 워크플로우 엔드포인트
 @app.get("/workflows")
@@ -1476,6 +1389,8 @@ async def get_user_workflows(current_user: dict = Depends(verify_token)):
     """사용자의 워크플로우 목록 조회"""
     workflows = claude_backend.db.get_user_workflows(current_user["user_id"])
     return {"workflows": workflows}
+
+
 
 @app.delete("/workflows/{n8n_workflow_id}")
 async def delete_workflow(n8n_workflow_id: str, current_user: dict = Depends(verify_token)):
@@ -1579,9 +1494,11 @@ async def assign_workflow_to_project(n8n_workflow_id: str, workflow_update: Work
     else:
         return {"message": "워크플로우가 프로젝트에서 제거되었습니다"}
 
+# API 키 기반 공개 API 제거됨 - JWT 토큰 기반 내부 API만 사용
+
+# health check
 @app.get("/health")
 async def health_check():
-    """헬스 체크 엔드포인트"""
     return {"status": "healthy", "message": "Backend is running"}
 
 if __name__ == "__main__":

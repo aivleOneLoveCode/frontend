@@ -67,9 +67,7 @@ export const useAuthStore = defineStore('auth', {
         this.isLoading = true
         this.clearMessages()
 
-        console.log('[Auth Store] 로그인 시도:', { email })
         const { token, user } = await authService.login({ email, password })
-        console.log('[Auth Store] 로그인 성공:', { user })
         
         this.user = {
           ...user,
@@ -183,12 +181,18 @@ export const useAuthStore = defineStore('auth', {
       this.user = null
       this.isAuthenticated = false
       
-      // localStorage에서 토큰 제거 (표준 로그아웃 방식)
+      // localStorage 완전 정리
       localStorage.removeItem('auth_token')
       localStorage.removeItem('user')
+      localStorage.removeItem('current_user')
+      localStorage.removeItem('chatHistories')
+      localStorage.removeItem('customWorkflows')
+      localStorage.removeItem('workflowFolders')
+      localStorage.removeItem('folders')
       
       this.clearMessages()
-      console.log('[Auth] Logout completed - token cleared from localStorage')
+      
+      // 채팅 스토어 초기화는 각 컴포넌트에서 개별 처리하거나 router에서 전역 처리
     },
 
     async checkAuthStatus(): Promise<void> {
@@ -203,7 +207,6 @@ export const useAuthStore = defineStore('auth', {
           this.user = user
           this.isAuthenticated = true
           this.initTokenProvider()
-          console.log('[Auth] Login status restored from localStorage')
         } catch (error) {
           console.error('Failed to restore auth status:', error)
           localStorage.removeItem('auth_token')
@@ -214,7 +217,6 @@ export const useAuthStore = defineStore('auth', {
 
     // 소셜 로그인은 나중에 백엔드 연동 시 구현
     async socialLoginRedirect(provider: string): Promise<void> {
-      console.log(`${provider} 로그인 요청`)
       alert(`${provider} 로그인 기능은 백엔드 연동 후 구현됩니다.`)
     }
   }

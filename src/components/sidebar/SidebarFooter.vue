@@ -47,6 +47,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useChatStore } from '@/stores/chat'
+import { useAuthStore } from '@/stores/auth'
 import SettingsModal from '../SettingsModal.vue'
 import HelpModal from '../HelpModal.vue'
 import { useTranslation } from '@/utils/i18n'
@@ -60,6 +62,7 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const chatStore = useChatStore()
 const { t } = useTranslation()
 
 // 상태 관리
@@ -70,6 +73,9 @@ const showUserMenu = ref(false)
 
 // 사용자 관련 computed 속성
 const getUserInitial = computed(() => {
+  if (currentUser.value?.first_name) {
+    return currentUser.value.first_name.charAt(0).toUpperCase()
+  }
   if (currentUser.value?.name) {
     return currentUser.value.name.charAt(0).toUpperCase()
   }
@@ -77,6 +83,12 @@ const getUserInitial = computed(() => {
 })
 
 const getUserName = computed(() => {
+  if (currentUser.value?.first_name && currentUser.value?.last_name) {
+    return `${currentUser.value.first_name} ${currentUser.value.last_name}`
+  }
+  if (currentUser.value?.first_name) {
+    return currentUser.value.first_name
+  }
   if (currentUser.value?.name) {
     return currentUser.value.name
   }
@@ -121,36 +133,29 @@ const openSettings = () => {
 const openHelp = () => {
   showUserMenu.value = false // 드롭다운 닫기
   showHelpModal.value = true
-  console.log('도움말 모달 열기')
 }
 
-const logout = () => {
+const logout = async () => {
   showUserMenu.value = false // 드롭다운 닫기
   if (confirm(t('confirm_logout'))) {
-    // 채팅 기록 초기화
-    // TODO: 부모 컴포넌트에서 채팅 데이터 초기화
-    
-    // 로컬 스토리지 정리
-    localStorage.removeItem('chatHistories')
-    localStorage.removeItem('customWorkflows')
-    localStorage.removeItem('workflowFolders')
-    localStorage.removeItem('folders')
-    
-    // 로그인 정보 제거
-    localStorage.removeItem('current_user')
-    currentUser.value = null
-    
-    console.log('로그아웃되었습니다.')
-    
-    // 로그인 페이지로 이동
-    router.push('/login')
+    const authStore = useAuthStore()
+    try {
+      // 채팅 데이터 먼저 초기화
+      chatStore.clearAllData()
+      // 인증 스토어 로그아웃
+      await authStore.logout()
+      // 강제 페이지 새로고침으로 완전 초기화
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('로그아웃 실패:', error)
+    }
   }
 }
 
 // 사용자 정보 로드
 const loadCurrentUser = () => {
   try {
-    const storedUser = localStorage.getItem('current_user')
+    const storedUser = localStorage.getItem('user')
     if (storedUser) {
       currentUser.value = JSON.parse(storedUser)
     }
@@ -170,6 +175,13 @@ onMounted(() => {
 /* 사용자 프로필 영역 */
 .sidebar-footer {
   position: relative;
+  flex: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 50px;
+  max-height: 80px;
+  flex-shrink: 0;
 }
 
 /* 확장된 상태의 사이드바 푸터 */

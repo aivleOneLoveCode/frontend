@@ -72,6 +72,7 @@ const selectedWorkflow = globalSelectedWorkflow
 const workflowPanelOpen = globalWorkflowPanelOpen
 const workflowPanelWidth = ref(400)
 
+
 // UI 상태
 const sidebarCollapsed = ref(false)
 const boardPanelOpen = ref(false)
@@ -103,17 +104,33 @@ const toggleSidebar = () => {
 // 워크플로우 관련 메서드 - 글로벌 함수 사용
 const handleSelectWorkflow = (workflow: any) => {
   // 글로벌 상태가 이미 관리되므로 추가 처리 불필요
-  console.log('워크플로우 선택됨:', workflow.name)
 }
 
 
-const startResize = () => {
-  // 리사이즈 로직 구현 필요
-  console.log('워크플로우 패널 리사이즈')
+const startResize = (event: MouseEvent) => {
+  const startX = event.clientX
+  const startWidth = workflowPanelWidth.value
+  
+  const handleMouseMove = (e: MouseEvent) => {
+    const deltaX = startX - e.clientX // 왼쪽으로 드래그하면 증가
+    const newWidth = Math.max(300, Math.min(800, startWidth + deltaX)) // 최소 300px, 최대 800px
+    workflowPanelWidth.value = newWidth
+  }
+  
+  const handleMouseUp = () => {
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
+  
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
 }
 
 const handleNewProject = () => {
-  console.log('새 프로젝트 생성')
 }
 
 
@@ -127,11 +144,17 @@ const goToLogin = () => {
 }
 
 const handleLogout = async () => {
-  try {
-    await authStore.logout()
-    router.push('/login')
-  } catch (error) {
-    console.error('로그아웃 실패:', error)
+  if (confirm('정말로 로그아웃하시겠습니까?')) {
+    try {
+      // 채팅 데이터 먼저 초기화
+      chatStore.clearAllData()
+      // 인증 스토어 로그아웃
+      await authStore.logout()
+      // 강제 페이지 새로고침으로 완전 초기화
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('로그아웃 실패:', error)
+    }
   }
 }
 

@@ -39,9 +39,6 @@ export class FileUploadService {
         uploadedFile.content = content
         uploadedFile.jsonData = jsonData
         
-        console.log('JSON 파일 업로드됨:', fileName)
-        console.log('JSON 데이터:', jsonData)
-        
         // 워크플로우로 처리
         return uploadedFile
       } catch (error) {
@@ -56,7 +53,6 @@ export class FileUploadService {
         const content = await this.readFileAsText(file)
         uploadedFile.content = content
         
-        console.log('텍스트 파일 업로드됨:', fileName)
         return uploadedFile
       } catch (error) {
         console.error('텍스트 파일 읽기 오류:', error)
@@ -77,7 +73,6 @@ export class FileUploadService {
             data: base64
           }
         }
-        console.log('이미지 파일 업로드됨:', fileName)
         return uploadedFile
       } catch (error) {
         console.error('이미지 파일 처리 오류:', error)
@@ -98,7 +93,6 @@ export class FileUploadService {
             data: base64
           }
         }
-        console.log('PDF 파일 업로드됨:', fileName)
         return uploadedFile
       } catch (error) {
         console.error('PDF 파일 처리 오류:', error)

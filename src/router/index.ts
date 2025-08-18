@@ -80,8 +80,12 @@ router.beforeEach(async (to, _from, next) => {
   
   // 이미 로그인된 상태에서 인증 페이지 접근 시
   if (['Login', 'Register', 'ForgotPassword'].includes(to.name as string) && authStore.isAuthenticated) {
-    next({ path: '/chat' })
-    return
+    // 토큰이 유효한지 다시 한번 확인
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      next({ path: '/chat' })
+      return
+    }
   }
   
   next()

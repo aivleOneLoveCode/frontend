@@ -38,8 +38,6 @@ export function selectWorkflowGlobally(workflow: WorkflowItem | FolderWorkflow) 
   // 전역 상태 업데이트
   globalSelectedWorkflow.value = workflow
   globalWorkflowPanelOpen.value = true
-  
-  console.log('워크플로우 선택됨:', workflow.name)
 }
 
 // 모든 워크플로우 선택 초기화를 위한 이벤트 시스템

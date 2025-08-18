@@ -36,9 +36,7 @@ interface ProfileData {
 export const authService = {
   // 로그인
   async login(credentials: LoginCredentials) {
-    console.log('[Auth Service] API 요청:', credentials)
     const response = await api.post('/login', credentials)
-    console.log('[Auth Service] API 응답:', response.data)
     const { access_token, user } = response.data
     
     // 토큰 저장
