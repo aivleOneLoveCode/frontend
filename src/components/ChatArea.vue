@@ -150,7 +150,7 @@
         <span class="file-icon">{{ getFileIcon(file.type) }}</span>
         <span class="file-name">{{ file.name }}</span>
         <span class="file-size">{{ formatFileSize(file.size) }}</span>
-        <button class="share-file-btn" @click="$emit('share-file-to-board', file, index)" :title="'게시판에 공유'">
+        <button v-if="file.type === 'application/json'" class="share-file-btn" @click="$emit('share-file-to-board', file, index)" :title="'게시판에 공유'">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 3h18v18H3zM9 9h6v6H9z"/>
             <path d="M9 3v6M15 3v6M21 9H15M21 15H15M9 15v6M15 15v6M3 9h6M3 15h6"/>
@@ -175,14 +175,6 @@
       </div>
       <input type="file" @change="$emit('handle-file-upload', $event)" style="display: none;" ref="fileInput" multiple>
       
-      <!-- 모든 파일 공유 버튼 (파일이 있을 때만 표시) -->
-      <button v-if="uploadedFiles.length > 0" class="share-all-files-btn" @click="$emit('share-all-files-to-board')" :title="'모든 파일을 게시판에 공유'">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 3h18v18H3zM9 9h6v6H9z"/>
-          <path d="M9 3v6M15 3v6M21 9H15M21 15H15M9 15v6M15 15v6M3 9h6M3 15h6"/>
-        </svg>
-        <span class="file-count-badge">{{ uploadedFiles.length }}</span>
-      </button>
       
       <button class="file-upload-btn" :title="t('file_upload')" @click="fileInput?.click()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

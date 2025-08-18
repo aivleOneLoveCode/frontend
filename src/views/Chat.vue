@@ -122,6 +122,71 @@ const handleDrop = async (event: DragEvent) => {
   event.preventDefault()
   isDragging.value = false
   
+  // 워크플로우 드래그 확인 (JSON 파싱 방식)
+  const dragData = event.dataTransfer?.getData('text/plain')
+  
+  console.log('드래그 데이터:', dragData)
+  
+  if (dragData) {
+    try {
+      const parsed = JSON.parse(dragData)
+      console.log('파싱된 데이터:', parsed)
+      const workflowId = parsed.n8n_workflow_id
+      const workflowName = parsed.name
+      
+      console.log('워크플로우 ID:', workflowId, '이름:', workflowName)
+      
+      if (workflowId && workflowName) {
+        // 워크플로우를 첨부하는 경우
+        try {
+          const token = localStorage.getItem('auth_token')
+          if (!token) {
+            alert('로그인이 필요합니다.')
+            return
+          }
+
+          // 워크플로우 JSON 데이터 가져오기
+          const response = await fetch(`http://localhost:8000/workflows/${workflowId}/json`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+
+          if (response.ok) {
+            const workflowJson = await response.json()
+            
+            // 워크플로우 JSON을 파일처럼 처리
+            const workflowFile = {
+              name: `${workflowName}.json`,
+              type: 'application/json',
+              size: JSON.stringify(workflowJson).length,
+              content: JSON.stringify(workflowJson, null, 2),
+              jsonData: workflowJson,
+              contentBlock: {
+                type: "text",
+                text: `=== 워크플로우: ${workflowName} ===\n${JSON.stringify(workflowJson, null, 2)}\n=== 워크플로우 끝 ===`
+              }
+            }
+            
+            chatStore.addUploadedFile(workflowFile)
+            console.log('워크플로우가 첨부되었습니다:', workflowName)
+          } else {
+            console.error('워크플로우 API 응답 오류:', response.status, response.statusText)
+            alert(`워크플로우 데이터를 가져올 수 없습니다. (${response.status})`)
+          }
+        } catch (error) {
+          console.error('워크플로우 첨부 오류:', error)
+          alert('워크플로우 첨부 중 오류가 발생했습니다.')
+        }
+        return
+      }
+    } catch (error) {
+      // JSON 파싱 실패 시 일반 파일 드래그로 처리
+      console.log('JSON 파싱 실패, 일반 파일로 처리:', error)
+    }
+  }
+  
+  // 일반 파일 드래그의 경우
   const files = event.dataTransfer?.files
   if (!files) return
 

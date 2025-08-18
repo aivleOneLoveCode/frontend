@@ -84,13 +84,14 @@ const showMenu = computed(() => isDropdownOpen(dropdownId.value))
 const handleDragStart = (event: DragEvent) => {
   props.workflow.isDragging = true
   
-  // 올바른 필드명으로 드래그 데이터 생성
+  // 올바른 필드명으로 드래그 데이터 생성 (JSON 데이터 포함)
   const dragData = {
     n8n_workflow_id: props.workflow.n8n_workflow_id,
     name: props.workflow.name,
     project_id: props.workflow.project_id,
     status: props.workflow.status,
     user_id: props.workflow.user_id,
+    jsonData: props.workflow.jsonData,
     isDragging: true
   }
   
