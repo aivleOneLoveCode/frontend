@@ -1,7 +1,6 @@
 import { ref, onMounted } from 'vue'
 import type { WorkflowItem } from '../types'
 import { selectWorkflowGlobally, registerSelectionClearCallback, globalSelectedWorkflow, globalWorkflowPanelOpen } from '../utils/workflowSelection'
-
 export function useWorkflowManagement() {
   const workflowPanelOpen = ref(false)
   const selectedWorkflow = ref<WorkflowItem | null>(null)
@@ -80,7 +79,7 @@ export function useWorkflowManagement() {
   const addWorkflow = (name: string, jsonData: any) => {
     const newWorkflow: WorkflowItem = {
       n8n_workflow_id: `wf_${Date.now()}`,
-      user_id: 1,
+      user_id: '1',
       project_id: null,
       name: name,
       status: 'inactive',

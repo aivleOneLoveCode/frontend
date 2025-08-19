@@ -29,7 +29,7 @@ export function useChatManagement() {
     const messageText = inputText.value
     const files = [...uploadedFiles.value]
     inputText.value = ''
-    uploadedFiles.value = [] // 메시지 전송 후 업로드된 파일 목록 초기화
+    chatStore.uploadedFiles = [] // 메시지 전송 후 업로드된 파일 목록 초기화
 
     try {
       await chatStore.sendMessage(messageText, files)
