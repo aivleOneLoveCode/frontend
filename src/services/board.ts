@@ -35,6 +35,13 @@ export interface UpdatePostData {
   workflow_name: string
 }
 
+export interface CreatePostData {
+  title: string
+  description: string
+  workflow_id?: string
+  workflow_name?: string
+}
+
 export const boardService = {
   // 게시물 목록 가져오기
   async getPosts(params: GetPostsParams = {}): Promise<BoardPostsResponse> {
@@ -76,6 +83,12 @@ export const boardService = {
   // 게시물 수정
   async updatePost(postId: string, updateData: UpdatePostData): Promise<BoardPost> {
     const response = await api.put(`/board/posts/${postId}`, updateData)
+    return response.data
+  },
+
+  // 게시물 생성
+  async createPost(postData: CreatePostData): Promise<BoardPost> {
+    const response = await api.post('/board/posts', postData)
     return response.data
   },
 

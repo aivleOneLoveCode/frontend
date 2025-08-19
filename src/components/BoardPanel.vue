@@ -366,7 +366,7 @@
 import { ref, defineProps, defineEmits, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useWorkflowStore } from '@/stores/workflow'
 import { useAuthStore } from '@/stores/auth'
-import { boardService, type BoardPost, type UpdatePostData } from '@/services/board'
+import { boardService, type BoardPost, type CreatePostData, type UpdatePostData } from '@/services/board'
 
 // 백엔드 데이터를 프론트엔드 형식으로 변환하는 인터페이스
 interface Post {
@@ -417,7 +417,7 @@ const editPost = ref({
   workflow_name: ''
 })
 
-const selectedPost = ref<Post | null>(null)
+// const selectedPost = ref<Post | null>(null) // 사용하지 않음
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const postsPerPage = 10
@@ -438,18 +438,22 @@ const convertBoardPostToPost = (boardPost: BoardPost): Post => {
     user_id: boardPost.user_id,
     user_id_type: typeof boardPost.user_id,
     author_name: boardPost.author_name,
+    created_at: boardPost.created_at,
     전체_boardPost: boardPost
   })
   
-  // AAA 게시물인 경우 특별 디버깅
-  if (boardPost.title?.toLowerCase().includes('aaa')) {
-    console.log('🚨 AAA 게시물 백엔드 데이터:', boardPost)
-    console.log('🚨 AAA 게시물 user_id 확인:', {
-      user_id: boardPost.user_id,
-      typeof_user_id: typeof boardPost.user_id,
-      user_id_exists: 'user_id' in boardPost,
-      all_keys: Object.keys(boardPost)
-    })
+  // 날짜 안전하게 파싱
+  let createdDate: Date
+  try {
+    createdDate = new Date(boardPost.created_at)
+    // Invalid Date 체크
+    if (isNaN(createdDate.getTime())) {
+      console.warn('⚠️ 유효하지 않은 날짜:', boardPost.created_at)
+      createdDate = new Date() // 현재 시간으로 대체
+    }
+  } catch (error) {
+    console.warn('⚠️ 날짜 파싱 실패:', boardPost.created_at, error)
+    createdDate = new Date() // 현재 시간으로 대체
   }
   
   return {
@@ -458,7 +462,7 @@ const convertBoardPostToPost = (boardPost: BoardPost): Post => {
     title: boardPost.title,
     content: boardPost.description,
     author: boardPost.author_name,
-    createdAt: new Date(boardPost.created_at),
+    createdAt: createdDate,
     views: boardPost.download_count,
     workflowId: boardPost.workflow_id,
     workflowName: boardPost.workflow_name,
@@ -471,39 +475,34 @@ const canEditPost = (post: Post): boolean => {
   const currentUserId = authStore.currentUser?.user_id
   const postUserId = post.userId
   
+  console.log('권한 체크:', {
+    postTitle: post.title,
+    currentUserId,
+    postUserId,
+    postAuthor: post.author,
+    hasCurrentUser: !!authStore.currentUser,
+    hasPostUserId: !!postUserId
+  })
+  
   // 현재 사용자가 없으면 편집 불가
   if (!currentUserId) {
+    console.log('권한 거부: 로그인하지 않음')
     return false
   }
   
   // 정상적인 경우: userId가 일치하면 편집 가능
-  if (postUserId && currentUserId === postUserId) {
+  if (postUserId && String(currentUserId) === String(postUserId)) {
+    console.log('권한 허용: userId 일치')
     return true
   }
   
-  // 임시 해결책: userId가 없지만 author가 "현재사용자"인 경우 현재 사용자의 게시물로 간주
-  if (!postUserId && post.author === '현재사용자') {
-    console.log('🔧 임시 권한 부여:', {
-      postTitle: post.title,
-      reason: 'author가 "현재사용자"이고 userId가 없음',
-      postId: post.id
-    })
+  // 임시 해결책: userId가 없는 경우 (로컬 생성 게시물)
+  if (!postUserId || postUserId === 'unknown') {
+    console.log('권한 허용: userId가 없는 로컬 게시물')
     return true
   }
   
-  // AAA 게시물 디버깅
-  if (post.title.toLowerCase().includes('aaa')) {
-    console.log('🔍 AAA 게시물 권한 분석:', {
-      postTitle: post.title,
-      currentUserId,
-      postUserId,
-      postAuthor: post.author,
-      hasUserId: !!postUserId,
-      isCurrentUser: post.author === '현재사용자',
-      finalResult: false
-    })
-  }
-  
+  console.log('권한 거부: 조건 불일치')
   return false
 }
 
@@ -646,7 +645,7 @@ const goToPage = (page: number) => {
   }
 }
 
-const createPost = () => {
+const createPost = async () => {
   if (!newPost.value.title.trim()) {
     alert('제목을 입력해주세요.')
     return
@@ -667,22 +666,37 @@ const createPost = () => {
     return
   }
 
-  const post: Post = {
-    id: Date.now(),
-    title: newPost.value.title.trim(),
-    content: newPost.value.content.trim(),
-    author: '현재사용자',
-    createdAt: new Date(),
-    views: 0,
-    attachedFile: newPost.value.attachedFile || undefined
+  // 현재 로그인한 사용자 정보 확인
+  const currentUserId = authStore.currentUser?.user_id
+  if (!currentUserId) {
+    alert('로그인이 필요합니다.')
+    return
   }
 
-  posts.value.unshift(post)
-  clearForm()
-  closeWriteForm()
-  
-  // 성공 메시지 표시
-  alert('게시글이 성공적으로 작성되었습니다!')
+  try {
+    // 백엔드 API로 게시물 생성
+    const postData: CreatePostData = {
+      title: newPost.value.title.trim(),
+      description: newPost.value.content.trim(),
+      workflow_id: '',
+      workflow_name: ''
+    }
+    
+    console.log('게시물 생성 요청 데이터:', postData)
+    const response = await boardService.createPost(postData)
+    console.log('게시물 생성 응답:', response)
+    
+    // 백엔드가 완전한 데이터를 반환하지 않으므로 목록을 다시 불러옴
+    await loadPosts()
+    
+    clearForm()
+    closeWriteForm()
+    
+    alert('게시글이 성공적으로 작성되었습니다!')
+  } catch (error) {
+    console.error('게시글 작성 실패:', error)
+    alert('게시글 작성에 실패했습니다.')
+  }
 }
 
 const updatePost = async () => {
@@ -709,13 +723,12 @@ const updatePost = async () => {
   }
 
   try {
-    const updatedPost = await boardService.updatePost(editingPost.value.id, editPost.value)
+    console.log('게시글 수정 요청:', { id: editingPost.value.id, data: editPost.value })
+    const response = await boardService.updatePost(editingPost.value.id, editPost.value)
+    console.log('게시글 수정 응답:', response)
     
-    // 로컬 상태 업데이트
-    const index = posts.value.findIndex(p => p.id === editingPost.value!.id)
-    if (index !== -1) {
-      posts.value[index] = convertBoardPostToPost(updatedPost)
-    }
+    // 목록 새로고침
+    await loadPosts()
     
     closeEditForm()
     alert('게시글이 성공적으로 수정되었습니다!')
@@ -802,19 +815,16 @@ const deletePost = async (post: Post) => {
       const response = await boardService.deletePost(post.id)
       console.log('API 삭제 응답:', response)
       
-      // 로컬 상태에서 게시물 제거
-      const index = posts.value.findIndex(p => p.id === post.id)
-      if (index > -1) {
-        posts.value.splice(index, 1)
-        console.log('로컬 상태에서 삭제 완료')
-        alert('게시물이 삭제되었습니다.')
-        
-        // 현재 페이지가 비어있으면 이전 페이지로 이동
-        if (paginatedPosts.value.length === 0 && currentPage.value > 1) {
-          currentPage.value--
-        }
+      // 목록 새로고침
+      await loadPosts()
+      
+      alert('게시물이 삭제되었습니다.')
+      
+      // 현재 페이지가 비어있으면 이전 페이지로 이동
+      if (paginatedPosts.value.length === 0 && currentPage.value > 1) {
+        currentPage.value--
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('게시물 삭제 실패:', error)
       console.error('삭제 오류 상세:', {
         status: error.response?.status,
@@ -848,13 +858,24 @@ const togglePost = async (postId: string) => {
 }
 
 const formatDate = (date: Date) => {
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date)
+  try {
+    // Date 객체가 유효한지 확인
+    if (!date || isNaN(date.getTime())) {
+      console.warn('⚠️ formatDate: 유효하지 않은 날짜:', date)
+      return '날짜 없음'
+    }
+    
+    return new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date)
+  } catch (error) {
+    console.error('formatDate 오류:', error, date)
+    return '날짜 형식 오류'
+  }
 }
 
 // ESC 키로 게시판 닫기

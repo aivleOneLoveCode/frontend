@@ -1,5 +1,6 @@
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import type { WorkflowItem } from '../types'
+import { selectWorkflowGlobally, registerSelectionClearCallback, globalSelectedWorkflow, globalWorkflowPanelOpen } from '../utils/workflowSelection'
 
 export function useWorkflowManagement() {
   const workflowPanelOpen = ref(false)
@@ -9,8 +10,13 @@ export function useWorkflowManagement() {
 
   const workflowItems = ref<WorkflowItem[]>([
     { 
-      id: 1, 
-      title: '데이터 분석 워크플로우', 
+      n8n_workflow_id: 'wf_1001',
+      user_id: 1,
+      project_id: null,
+      name: '데이터 분석 워크플로우',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '데이터를 수집, 정제, 분석하여 인사이트를 도출하는 워크플로우입니다.',
       n8nUrl: 'https://n8n.example.com/workflow/data-analysis',
@@ -24,41 +30,71 @@ export function useWorkflowManagement() {
       }
     },
     { 
-      id: 2, 
-      title: '이미지 처리 워크플로우', 
+      n8n_workflow_id: 'wf_1002',
+      user_id: 1,
+      project_id: null,
+      name: '이미지 처리 워크플로우',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '이미지를 업로드하고 다양한 필터와 변환을 적용하는 워크플로우입니다.',
       n8nUrl: 'https://n8n.example.com/workflow/image-processing'
     },
     { 
-      id: 3, 
-      title: 'API 데이터 연동', 
+      n8n_workflow_id: 'wf_1003',
+      user_id: 1,
+      project_id: null,
+      name: 'API 데이터 연동',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '외부 API에서 데이터를 가져와 내부 시스템과 연동하는 워크플로우입니다.'
     },
     { 
-      id: 4, 
-      title: '머신러닝 모델 학습', 
+      n8n_workflow_id: 'wf_1004',
+      user_id: 1,
+      project_id: null,
+      name: '머신러닝 모델 학습',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '데이터를 기반으로 머신러닝 모델을 학습시키고 배포하는 워크플로우입니다.',
       n8nUrl: 'https://n8n.example.com/workflow/ml-training'
     },
     { 
-      id: 5, 
-      title: '자동화 업무 수행', 
+      n8n_workflow_id: 'wf_1005',
+      user_id: 1,
+      project_id: null,
+      name: '자동화 업무 수행',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '반복적인 업무를 자동화하여 효율성을 높이는 워크플로우입니다.'
     },
     { 
-      id: 6, 
-      title: '리포트 생성 워크플로우', 
+      n8n_workflow_id: 'wf_1006',
+      user_id: 1,
+      project_id: null,
+      name: '리포트 생성 워크플로우',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '데이터를 기반으로 정기 리포트를 자동 생성하는 워크플로우입니다.',
       n8nUrl: 'https://n8n.example.com/workflow/report-generation'
     },
     {
-      id: 7,
-      title: '이메일 자동 발송',
+      n8n_workflow_id: 'wf_1007',
+      user_id: 1,
+      project_id: null,
+      name: '이메일 자동 발송',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '조건에 따라 이메일을 자동으로 발송하는 워크플로우입니다.',
       n8nUrl: 'https://n8n.example.com/workflow/email-automation',
@@ -72,15 +108,25 @@ export function useWorkflowManagement() {
       }
     },
     {
-      id: 8,
-      title: '소셜미디어 모니터링',
+      n8n_workflow_id: 'wf_1008',
+      user_id: 1,
+      project_id: null,
+      name: '소셜미디어 모니터링',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '소셜미디어 플랫폼을 모니터링하여 키워드를 추적하는 워크플로우입니다.',
       n8nUrl: 'https://n8n.example.com/workflow/social-monitoring'
     },
     {
-      id: 9,
-      title: '파일 백업 자동화',
+      n8n_workflow_id: 'wf_1009',
+      user_id: 1,
+      project_id: null,
+      name: '파일 백업 자동화',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '중요한 파일들을 자동으로 클라우드에 백업하는 워크플로우입니다.',
       jsonData: {
@@ -93,15 +139,25 @@ export function useWorkflowManagement() {
       }
     },
     {
-      id: 10,
-      title: '고객 지원 티켓 관리',
+      n8n_workflow_id: 'wf_1010',
+      user_id: 1,
+      project_id: null,
+      name: '고객 지원 티켓 관리',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '고객 지원 티켓을 자동으로 분류하고 담당자에게 할당하는 워크플로우입니다.',
       n8nUrl: 'https://n8n.example.com/workflow/ticket-management'
     },
     {
-      id: 11,
-      title: '재고 관리 알림',
+      n8n_workflow_id: 'wf_1011',
+      user_id: 1,
+      project_id: null,
+      name: '재고 관리 알림',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       description: '재고 수준을 모니터링하고 부족할 때 알림을 보내는 워크플로우입니다.',
       jsonData: {
@@ -109,22 +165,23 @@ export function useWorkflowManagement() {
         "nodes": [
           {"id": "1", "name": "재고 조회", "type": "Database"},
           {"id": "2", "name": "재고 확인", "type": "IF"},
-          {"id": "3", "name": "슬랙 알림", "type": "Slack"},
-          {"id": "4", "name": "발주 요청", "type": "HTTP Request"}
+          {"id": "3", "name": "발주 요청", "type": "HTTP Request"}
         ]
       }
     }
   ])
 
   const selectWorkflow = (selectedItem: WorkflowItem) => {
-    workflowItems.value.forEach(item => item.active = false)
-    selectedItem.active = true
-    
-    selectedWorkflow.value = selectedItem
-    workflowPanelOpen.value = true
-    
-    console.log('워크플로우 선택됨:', selectedItem.title)
+    selectWorkflowGlobally(selectedItem)
   }
+
+  const clearLocalSelections = () => {
+    workflowItems.value.forEach(item => item.active = false)
+  }
+
+  onMounted(() => {
+    registerSelectionClearCallback(clearLocalSelections)
+  })
 
   const closeWorkflowPanel = () => {
     workflowPanelOpen.value = false
@@ -154,10 +211,15 @@ export function useWorkflowManagement() {
     document.addEventListener('mouseup', handleMouseUp)
   }
 
-  const addWorkflow = (title: string, jsonData: any) => {
+  const addWorkflow = (name: string, jsonData: any) => {
     const newWorkflow: WorkflowItem = {
-      id: Date.now(),
-      title: title,
+      n8n_workflow_id: `wf_${Date.now()}`,
+      user_id: 1,
+      project_id: null,
+      name: name,
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       active: false,
       jsonData: jsonData,
       isCustom: true
@@ -181,19 +243,17 @@ export function useWorkflowManagement() {
     
     const link = document.createElement('a')
     link.href = url
-    link.download = `${latestWorkflow.title}.json`
+    link.download = `${latestWorkflow.name}.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    
-    console.log(`"${latestWorkflow.title}.json" 파일이 다운로드되었습니다.`)
   }
 
   return {
     workflowItems,
-    workflowPanelOpen,
-    selectedWorkflow,
+    workflowPanelOpen: globalWorkflowPanelOpen,
+    selectedWorkflow: globalSelectedWorkflow,
     workflowPanelWidth,
     isResizing,
     selectWorkflow,
