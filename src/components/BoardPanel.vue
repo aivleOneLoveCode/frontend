@@ -259,9 +259,11 @@
             </div>
             
             <!-- 첨부된 파일 표시 -->
-            <div v-if="selectedPost.attachedFile" class="attached-file-display">
+            <div v-if="selectedPost.attachedFile || selectedPost.attachedFiles" class="attached-file-display">
               <h4>첨부된 파일</h4>
-              <div class="file-info">
+              
+              <!-- 기존 단일 파일 (샘플 posts용) -->
+              <div v-if="selectedPost.attachedFile" class="file-info">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                   <polyline points="14,2 14,8 20,8"/>
@@ -271,6 +273,32 @@
                 </svg>
                 <span class="file-name">{{ selectedPost.attachedFile.name }}</span>
                 <span class="file-size">({{ formatFileSize(selectedPost.attachedFile.size) }})</span>
+              </div>
+              
+              <!-- 다중 파일 (board store에서 공유된 파일들) -->
+              <div v-if="selectedPost.attachedFiles" class="multiple-files">
+                <div v-for="(file, index) in selectedPost.attachedFiles" :key="index" class="file-info">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10,9 9,9 8,9"/>
+                  </svg>
+                  <span class="file-name">{{ file.name }}</span>
+                  <span class="file-size">({{ formatFileSize(file.size) }})</span>
+                  <button 
+                    class="download-file-btn" 
+                    @click="downloadSharedFile(file)"
+                    title="파일 다운로드"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7,10 12,15 17,10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -282,6 +310,7 @@
 
 <script setup lang="ts">
 import { ref, defineProps, defineEmits, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useBoardStore } from '@/stores/board'
 
 interface Post {
   id: number
@@ -291,6 +320,13 @@ interface Post {
   createdAt: Date
   views: number
   attachedFile?: File
+  attachedFiles?: {
+    name: string
+    type: string
+    size: number
+    content?: string
+    base64?: string
+  }[]
 }
 
 interface Props {
@@ -304,6 +340,9 @@ interface Emits {
 // Props are used directly in template
 defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+// Board store 사용
+const boardStore = useBoardStore()
 
 // 상태
 const showWriteForm = ref(false)
@@ -319,8 +358,8 @@ const searchKeyword = ref('')
 const currentPage = ref(1)
 const postsPerPage = 10
 
-// 샘플 게시글 데이터 (더 많은 데이터 추가)
-const posts = ref<Post[]>([
+// 샘플 게시글 데이터 (더 많은 데이터 추가) - 이제 store에서 가져온 posts와 합쳐짐
+const samplePosts = ref<Post[]>([
   {
     id: 1,
     title: 'Vue.js 3 프로젝트 시작하기',
@@ -365,6 +404,12 @@ const posts = ref<Post[]>([
     views: 41
   },
 ])
+
+// Board store의 posts와 샘플 posts를 합친 전체 posts
+const posts = computed(() => {
+  // boardStore의 posts를 먼저 표시하고, 그 다음에 샘플 posts 표시
+  return [...boardStore.posts, ...samplePosts.value]
+})
 
 // 계산된 속성
 const filteredPosts = computed(() => {
@@ -576,6 +621,40 @@ const formatDate = (date: Date) => {
     hour: '2-digit',
     minute: '2-digit'
   }).format(date)
+}
+
+// 공유된 파일 다운로드
+const downloadSharedFile = (file: { name: string; type: string; size: number; content?: string; base64?: string }) => {
+  try {
+    let dataBlob: Blob
+    
+    if (file.base64) {
+      // base64 데이터를 blob으로 변환
+      const byteCharacters = atob(file.base64)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      dataBlob = new Blob([byteArray], { type: file.type })
+    } else if (file.content) {
+      // 텍스트 콘텐츠를 blob으로 변환
+      dataBlob = new Blob([file.content], { type: file.type })
+    } else {
+      alert('파일 데이터를 찾을 수 없습니다.')
+      return
+    }
+    
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(dataBlob)
+    link.download = file.name
+    link.click()
+    
+    URL.revokeObjectURL(link.href)
+  } catch (error) {
+    console.error('파일 다운로드 실패:', error)
+    alert('파일 다운로드 중 오류가 발생했습니다.')
+  }
 }
 
 // ESC 키로 게시판 닫기
@@ -1360,6 +1439,44 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
+}
+
+.multiple-files {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.multiple-files .file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #374151;
+  font-size: 14px;
+}
+
+.download-file-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #10a37f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.download-file-btn:hover {
+  background: #0d8a6b;
+  transform: translateY(-1px);
 }
 
 @keyframes fadeIn {

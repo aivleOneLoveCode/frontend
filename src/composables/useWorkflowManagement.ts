@@ -187,6 +187,31 @@ export function useWorkflowManagement() {
           {"id": "3", "name": "발주 요청", "type": "HTTP Request"}
         ]
       }
+    },
+    {
+      n8n_workflow_id: 'wf_1012',
+      user_id: 1,
+      project_id: null,
+      name: 'SNS 자동 포스팅',
+      status: 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      active: false,
+      description: '소셜미디어 플랫폼에 자동으로 포스트를 업로드하는 워크플로우입니다.',
+      jsonData: {
+        "name": "SNS 자동 포스팅",
+        "nodes": [
+          {"id": "1", "name": "콘텐츠 생성", "type": "Code"},
+          {"id": "2", "name": "이미지 처리", "type": "Image Processing"},
+          {"id": "3", "name": "Twitter 포스팅", "type": "Twitter"},
+          {"id": "4", "name": "Instagram 포스팅", "type": "Instagram"},
+          {"id": "5", "name": "Facebook 포스팅", "type": "Facebook"}
+        ],
+        "connections": {
+          "콘텐츠 생성": ["이미지 처리"],
+          "이미지 처리": ["Twitter 포스팅", "Instagram 포스팅", "Facebook 포스팅"]
+        }
+      }
     }
   ])
 
