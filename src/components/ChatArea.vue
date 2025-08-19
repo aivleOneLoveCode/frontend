@@ -63,8 +63,8 @@
           
           <!-- 파일 표시 (사용자 메시지) -->
           <div v-if="hasFiles(message)" class="message-files">
-            <div v-for="(file, idx) in getMessageFiles(message)" :key="idx" class="file-tag">
-              {{ getFileIconFromBlock(file) }} 파일 첨부됨
+            <div class="file-summary">
+              📎 {{ getMessageFiles(message).length }}개 파일 첨부됨
             </div>
           </div>
         </div>
@@ -84,29 +84,16 @@
             </template>
           </div>
           <div class="message-content">
-            <!-- Thinking 메시지 표시 -->
-            <div v-if="message.isThinking !== undefined" class="thinking-block">
-              <div class="thinking-header" @click="toggleThinkingBlock">
-                <span class="thinking-icon">{{ message.isThinking ? '🤔' : '💡' }}</span>
-                <span class="thinking-title">{{ message.isThinking ? '생각 중...' : '생각 완료' }}</span>
-                <div v-if="message.isThinking" class="thinking-spinner">⟳</div>
-                <span class="block-toggle">▼</span>
-              </div>
-              <div class="thinking-content">
-                <div class="thinking-text">{{ (message.content && Array.isArray(message.content) && message.content[0] && message.content[0].text) || '' }}</div>
-              </div>
-            </div>
-
-            <!-- Tool 메시지 표시 -->
-            <div v-else-if="message.isUsingTool !== undefined" class="tool-block">
+            <!-- Tool 메시지 표시 (닫힌 채로 유지) -->
+            <div v-if="message.isUsingTool !== undefined" class="tool-block">
               <div class="tool-header" @click="toggleToolBlock">
                 <span class="tool-icon">🔧</span>
                 <span class="tool-title">{{ message.isUsingTool ? '도구 실행 중' : '도구 실행 완료' }}</span>
                 <div v-if="message.isUsingTool" class="tool-spinner">⟳</div>
                 <div v-else class="tool-status">✓</div>
-                <span class="block-toggle">▼</span>
+                <span class="block-toggle">▲</span>
               </div>
-              <div class="tool-content">
+              <div class="tool-content collapsed">
                 <div v-html="renderMarkdown((message.content && Array.isArray(message.content) && message.content[0] && message.content[0].text) || '')"></div>
               </div>
             </div>
@@ -116,7 +103,7 @@
               <div v-html="renderMarkdown((message.content && Array.isArray(message.content) && message.content[0] && message.content[0].text) || '')"></div>
             </div>
             
-            <!-- 일반 메시지 (content blocks 처리) -->
+            <!-- 일반 메시지 (content blocks 처리) - 띵킹 메시지 포함 -->
             <div v-else-if="message.content && Array.isArray(message.content)">
               <div v-for="(block, idx) in message.content" :key="idx">
                 <div v-if="block.type === 'text'" v-html="renderMarkdown(block.text)"></div>
@@ -461,12 +448,6 @@ const getMessageFiles = (message: any): any[] => {
   )
 }
 
-// 파일 블록에서 아이콘 가져오기
-const getFileIconFromBlock = (block: any): string => {
-  if (block.type === 'image') return '🖼️'
-  if (block.type === 'document') return '📄'
-  return '📎'
-}
 
 
 // 마크다운 렌더링
@@ -483,18 +464,6 @@ const renderMarkdown = (text: string): string => {
 
 
 // 접기/펼치기 함수들
-const toggleThinkingBlock = (event: Event) => {
-  const header = event.currentTarget as HTMLElement
-  const block = header.closest('.thinking-block')
-  const content = block?.querySelector('.thinking-content') as HTMLElement
-  const toggle = block?.querySelector('.block-toggle') as HTMLElement
-  
-  if (content && toggle) {
-    content.classList.toggle('collapsed')
-    toggle.classList.toggle('collapsed')
-  }
-}
-
 const toggleToolBlock = (event: Event) => {
   const header = event.currentTarget as HTMLElement
   const block = header.closest('.tool-block')
@@ -869,7 +838,7 @@ const toggleToolBlock = (event: Event) => {
 }
 
 .messages-inner {
-  max-width: 1024px;
+  max-width: 64rem; /* 1024px */
   margin: 0 auto;
   width: 100%;
 }
@@ -916,16 +885,47 @@ const toggleToolBlock = (event: Event) => {
 }
 
 .ai-message-container .message-content {
-  flex: 1;
-  background: var(--message-bg-assistant, #f8f9fa);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 18px 18px 18px 4px;
   padding: 16px 20px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   min-height: 52px;
+  min-width: 24rem;
+  max-width: 40rem; 
+  width: fit-content; /* 내용에 맞춰 조정하되 min/max 범위 내에서 */
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   animation: fadeInScale 0.4s ease-out;
+  position: relative;
+}
+
+/* 말풍선 꼬리 효과 */
+.ai-message-container .message-content::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 20px;
+  width: 0;
+  height: 0;
+  border-right: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+/* 말풍선 꼬리 테두리 */
+.ai-message-container .message-content::after {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: 19px;
+  width: 0;
+  height: 0;
+  border-right: 11px solid #e5e7eb;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  z-index: -1;
 }
 
 .profile-section {
@@ -976,7 +976,7 @@ const toggleToolBlock = (event: Event) => {
 }
 
 .input-wrapper {
-  max-width: 1024px;
+  max-width: 64rem; /* 1024px */
   width: 100%;
   margin: 0 auto;
   position: relative;
@@ -1113,14 +1113,14 @@ const toggleToolBlock = (event: Event) => {
   font-size: 12px;
   color: #9ca3af;
   margin-top: 12px;
-  max-width: 1024px;
+  max-width: 64rem; /* 1024px */
   margin-left: auto;
   margin-right: auto;
 }
 
 /* 업로드된 파일 표시 스타일 */
 .uploaded-files {
-  max-width: 1024px;
+  max-width: 64rem; /* 1024px */
   width: 100%;
   margin: 0 auto 16px;
   display: flex;
