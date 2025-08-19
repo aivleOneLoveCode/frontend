@@ -1,12 +1,16 @@
 {
   "name": "da-zzany-vue",
+  "name": "da-zzany-vue",
   "version": "1.0.0",
+  "description": "DA-ZZANY Vue.js 3 워크플로우 관리 애플리케이션",
   "description": "DA-ZZANY Vue.js 3 워크플로우 관리 애플리케이션",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173",
+    "dev": "vite --port 5173",
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
+    "serve": "vite preview --port 3000",
     "serve": "vite preview --port 3000",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx --fix --ignore-path .gitignore",

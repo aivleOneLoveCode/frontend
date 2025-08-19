@@ -44,7 +44,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/board',
     name: 'Board',
-    component: () => import('@/views/Board.vue'),
+    redirect: '/chat',
     meta: { requiresAuth: true }
   },
   {

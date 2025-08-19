@@ -1,6 +1,6 @@
 <template>
-  <div v-if="isOpen" class="board-overlay" @click="closeBoard">
-    <div class="board-panel" @click.stop>
+  <div v-if="isOpen" class="board-overlay">
+    <div class="board-panel">
       <!-- 게시판 헤더 -->
       <div class="board-header">
         <h2 class="board-title">게시판</h2>
@@ -14,37 +14,127 @@
 
       <!-- 게시판 컨텐츠 -->
       <div class="board-content">
-        <!-- 게시물 목록 -->
+        <!-- 검색 기능 (상단으로 이동) -->
+        <div class="search-section">
+          <div class="search-box">
+            <input 
+              v-model="searchKeyword" 
+              type="text" 
+              placeholder="키워드로 게시물 검색..." 
+              class="search-input"
+              @input="handleSearch"
+            />
+            <button class="search-btn" @click="handleSearch">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="search-info">
+            <span v-if="searchKeyword" class="search-results">
+              "{{ searchKeyword }}" 검색 결과: {{ filteredPosts.length }}건
+            </span>
+          </div>
+        </div>
+
+        <!-- 게시물 목록 (아코디언 형식) -->
         <div class="posts-section">
-          <div class="posts-list">
+          <!-- 로딩 상태 -->
+          <div v-if="isLoading" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>게시물을 불러오는 중...</p>
+          </div>
+          
+          <!-- 에러 상태 -->
+          <div v-else-if="error" class="error-state">
+            <p>{{ error }}</p>
+            <button class="retry-btn" @click="loadPosts">다시 시도</button>
+          </div>
+          
+          <!-- 게시물 목록 -->
+          <div v-else class="posts-list">
             <div 
               v-for="post in paginatedPosts" 
               :key="post.id" 
-              class="post-item"
-              @click="selectPost(post)"
+              class="post-accordion"
             >
-              <div class="post-header">
-                <h4 class="post-title">{{ post.title }}</h4>
-                <span class="post-date">{{ formatDate(post.createdAt) }}</span>
+              <div 
+                class="post-header"
+                @click="togglePost(post.id)"
+                :class="{ 'expanded': expandedPosts.includes(post.id) }"
+              >
+                <div class="post-title-area">
+                  <h4 class="post-title">{{ post.title }}</h4>
+                  <span class="post-meta-inline">
+                    <span class="post-author">{{ post.author }}</span>
+                    <span class="post-date">{{ formatDate(post.createdAt) }}</span>
+                    <span class="post-views">다운로드: {{ post.downloadCount }}회</span>
+                  </span>
+                </div>
+                <div class="accordion-toggle">
+                  <svg 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    stroke-width="2"
+                    :class="{ 'rotated': expandedPosts.includes(post.id) }"
+                  >
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                  </svg>
+                </div>
               </div>
-              <div class="post-meta">
-                <span class="post-author">{{ post.author }}</span>
-                <span class="post-views">조회수: {{ post.views }}</span>
+              
+              <!-- 아코디언 컨텐츠 -->
+              <div 
+                v-if="expandedPosts.includes(post.id)" 
+                class="post-content-area"
+              >
+                <div class="post-content">
+                  {{ post.content }}
+                </div>
+                
+                <!-- 워크플로우 정보 -->
+                <div v-if="post.workflowName" class="workflow-info">
+                  <h5>워크플로우 정보</h5>
+                  <div class="workflow-details">
+                    <span class="workflow-name">{{ post.workflowName }}</span>
+                    <span class="workflow-id">ID: {{ post.workflowId }}</span>
+                  </div>
+                </div>
+
                 <div class="post-actions">
                   <button 
-                    class="download-btn" 
-                    @click.stop="downloadPost(post)"
-                    title="JSON 다운로드"
+                    class="add-workflow-btn" 
+                    @click="addToWorkflow(post)"
+                    title="워크플로우에 추가"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7,10 12,15 17,10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14,2 14,8 20,8"/>
+                      <line x1="12" y1="11" x2="12" y2="17"/>
+                      <line x1="9" y1="14" x2="15" y2="14"/>
                     </svg>
+                    워크플로우에 추가
                   </button>
                   <button 
+                    v-if="canEditPost(post)"
+                    class="edit-btn" 
+                    @click="openEditForm(post)"
+                    title="게시물 수정"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    수정
+                  </button>
+                  <button 
+                    v-if="canEditPost(post)"
                     class="delete-btn" 
-                    @click.stop="deletePost(post)"
+                    @click="deletePost(post)"
                     title="게시물 삭제"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -54,6 +144,7 @@
                       <line x1="10" y1="11" x2="10" y2="17"/>
                       <line x1="14" y1="11" x2="14" y2="17"/>
                     </svg>
+                    삭제
                   </button>
                 </div>
               </div>
@@ -102,29 +193,7 @@
             </button>
           </div>
 
-          <!-- 검색 기능 -->
-          <div class="search-section">
-            <div class="search-box">
-              <input 
-                v-model="searchKeyword" 
-                type="text" 
-                placeholder="키워드로 게시물 검색..." 
-                class="search-input"
-                @input="handleSearch"
-              />
-              <button class="search-btn" @click="handleSearch">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <path d="m21 21-4.35-4.35"></path>
-                </svg>
-              </button>
-            </div>
-            <div class="search-info">
-              <span v-if="searchKeyword" class="search-results">
-                "{{ searchKeyword }}" 검색 결과: {{ filteredPosts.length }}건
-              </span>
-            </div>
-          </div>
+
         </div>
 
         <!-- 글쓰기 폼 모달 -->
@@ -220,113 +289,98 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 게시글 상세보기 모달 -->
-      <div v-if="selectedPost" class="post-detail-modal" @click="closePostDetail">
-        <div class="post-detail-content" @click.stop>
-          <div class="post-detail-header">
-            <h2>{{ selectedPost.title }}</h2>
-            <div class="post-detail-actions">
-              <button 
-                class="download-btn large" 
-                @click="downloadPost(selectedPost)"
-                title="JSON 다운로드"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7,10 12,15 17,10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                다운로드
-              </button>
-              <button class="close-btn" @click="closePostDetail">
+        <!-- 게시글 수정 폼 모달 -->
+        <div v-if="showEditForm" class="write-form-modal" @click="closeEditForm">
+          <div class="write-form-content" @click.stop>
+            <div class="write-form-header">
+              <h3>게시글 수정</h3>
+              <button class="close-btn" @click="closeEditForm">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
             </div>
-          </div>
-          <div class="post-detail-body">
-            <div class="post-info">
-              <span class="post-author">작성자: {{ selectedPost.author }}</span>
-              <span class="post-date">{{ formatDate(selectedPost.createdAt) }}</span>
-              <span class="post-views">조회수: {{ selectedPost.views }}</span>
-            </div>
-            <div class="post-content">
-              {{ selectedPost.content }}
-            </div>
-            
-            <!-- 첨부된 파일 표시 -->
-            <div v-if="selectedPost.attachedFile || selectedPost.attachedFiles" class="attached-file-display">
-              <h4>첨부된 파일</h4>
-              
-              <!-- 기존 단일 파일 (샘플 posts용) -->
-              <div v-if="selectedPost.attachedFile" class="file-info">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14,2 14,8 20,8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                  <polyline points="10,9 9,9 8,9"/>
-                </svg>
-                <span class="file-name">{{ selectedPost.attachedFile.name }}</span>
-                <span class="file-size">({{ formatFileSize(selectedPost.attachedFile.size) }})</span>
-              </div>
-              
-              <!-- 다중 파일 (board store에서 공유된 파일들) -->
-              <div v-if="selectedPost.attachedFiles" class="multiple-files">
-                <div v-for="(file, index) in selectedPost.attachedFiles" :key="index" class="file-info">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                    <polyline points="10,9 9,9 8,9"/>
-                  </svg>
-                  <span class="file-name">{{ file.name }}</span>
-                  <span class="file-size">({{ formatFileSize(file.size) }})</span>
-                  <button 
-                    class="download-file-btn" 
-                    @click="downloadSharedFile(file)"
-                    title="파일 다운로드"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7,10 12,15 17,10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                  </button>
+            <div class="write-form-body">
+              <div class="post-form">
+                <div class="input-group">
+                  <input 
+                    v-model="editPost.title" 
+                    type="text" 
+                    placeholder="제목을 입력하세요" 
+                    class="post-title-input"
+                    maxlength="100"
+                  />
+                  <span class="char-count">{{ editPost.title.length }}/100</span>
+                </div>
+                <div class="input-group">
+                  <textarea 
+                    v-model="editPost.description" 
+                    placeholder="내용을 입력하세요" 
+                    class="post-content-input"
+                    rows="8"
+                    maxlength="2000"
+                  ></textarea>
+                  <span class="char-count">{{ editPost.description.length }}/2000</span>
+                </div>
+
+                <div class="input-group">
+                  <input 
+                    v-model="editPost.workflow_name" 
+                    type="text" 
+                    placeholder="워크플로우 이름을 입력하세요" 
+                    class="post-title-input"
+                    maxlength="100"
+                  />
+                  <span class="char-count">{{ editPost.workflow_name.length }}/100</span>
+                </div>
+
+                <div class="input-group">
+                  <input 
+                    v-model="editPost.workflow_id" 
+                    type="text" 
+                    placeholder="워크플로우 ID를 입력하세요" 
+                    class="post-title-input"
+                    maxlength="100"
+                  />
+                  <span class="char-count">{{ editPost.workflow_id.length }}/100</span>
+                </div>
+                
+                <div class="post-actions">
+                  <button class="post-btn primary" @click="updatePost">게시물 수정</button>
+                  <button class="post-btn secondary" @click="closeEditForm">취소</button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, defineProps, defineEmits, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useBoardStore } from '@/stores/board'
+import { useWorkflowStore } from '@/stores/workflow'
+import { useAuthStore } from '@/stores/auth'
+import { boardService, type BoardPost, type CreatePostData, type UpdatePostData } from '@/services/board'
 
+// 백엔드 데이터를 프론트엔드 형식으로 변환하는 인터페이스
 interface Post {
-  id: number
+  id: string
+  userId: string
   title: string
   content: string
   author: string
   createdAt: Date
   views: number
+  workflowId: string
+  workflowName: string
+  downloadCount: number
   attachedFile?: File
-  attachedFiles?: {
-    name: string
-    type: string
-    size: number
-    content?: string
-    base64?: string
-  }[]
 }
 
 interface Props {
@@ -341,11 +395,14 @@ interface Emits {
 defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-// Board store 사용
-const boardStore = useBoardStore()
+// 스토어
+const workflowStore = useWorkflowStore()
+const authStore = useAuthStore()
 
 // 상태
 const showWriteForm = ref(false)
+const showEditForm = ref(false)
+const editingPost = ref<Post | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const newPost = ref({
   title: '',
@@ -353,63 +410,101 @@ const newPost = ref({
   attachedFile: null as File | null
 })
 
-const selectedPost = ref<Post | null>(null)
+const editPost = ref({
+  title: '',
+  description: '',
+  workflow_id: '',
+  workflow_name: ''
+})
+
+// const selectedPost = ref<Post | null>(null) // 사용하지 않음
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const postsPerPage = 10
 
-// 샘플 게시글 데이터 (더 많은 데이터 추가) - 이제 store에서 가져온 posts와 합쳐짐
-const samplePosts = ref<Post[]>([
-  {
-    id: 1,
-    title: 'Vue.js 3 프로젝트 시작하기',
-    content: 'Vue.js 3를 사용하여 새로운 프로젝트를 시작하는 방법에 대해 알아보겠습니다. Composition API와 TypeScript를 활용한 모던한 개발 방법을 소개합니다.',
-    author: '개발자1',
-    createdAt: new Date('2024-01-15'),
-    views: 45,
-    attachedFile: new File(['{"framework": "Vue.js 3", "version": "3.4.0"}'], 'vue-project.json', { type: 'application/json' })
-  },
-  {
-    id: 2,
-    title: 'ChatGPT API 활용 팁',
-    content: 'ChatGPT API를 활용하여 다양한 애플리케이션을 개발하는 방법과 유용한 팁들을 공유합니다. 프롬프트 엔지니어링과 응답 처리에 대한 내용을 다룹니다.',
-    author: 'AI연구원',
-    createdAt: new Date('2024-01-14'),
-    views: 32,
-    attachedFile: new File(['{"api": "ChatGPT", "endpoint": "/v1/chat/completions"}'], 'chatgpt-config.json', { type: 'application/json' })
-  },
-  {
-    id: 3,
-    title: 'n8n 워크플로우 자동화',
-    content: 'n8n을 사용하여 반복적인 작업을 자동화하는 워크플로우를 만드는 방법을 설명합니다. 다양한 노드와 트리거를 활용한 실용적인 예제를 제공합니다.',
-    author: '자동화전문가',
-    createdAt: new Date('2024-01-13'),
-    views: 28,
-    attachedFile: new File(['{"workflow": "n8n", "nodes": ["HTTP Request", "IF", "Set"]}'], 'n8n-workflow.json', { type: 'application/json' })
-  },
-  {
-    id: 4,
-    title: 'TypeScript 고급 기능 활용',
-    content: 'TypeScript의 고급 기능들을 활용하여 더 안전하고 유지보수하기 쉬운 코드를 작성하는 방법을 알아봅니다.',
-    author: 'TS전문가',
-    createdAt: new Date('2024-01-12'),
-    views: 56
-  },
-  {
-    id: 5,
-    title: 'Vite 빌드 최적화 가이드',
-    content: 'Vite를 사용한 프로젝트의 빌드 성능을 최적화하는 다양한 방법과 팁을 공유합니다.',
-    author: '빌드전문가',
-    createdAt: new Date('2024-01-11'),
-    views: 41
-  },
-])
+// 아코디언 상태
+const expandedPosts = ref<string[]>([])
 
-// Board store의 posts와 샘플 posts를 합친 전체 posts
-const posts = computed(() => {
-  // boardStore의 posts를 먼저 표시하고, 그 다음에 샘플 posts 표시
-  return [...boardStore.posts, ...samplePosts.value]
-})
+// 게시물 데이터 및 로딩 상태
+const posts = ref<Post[]>([])
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+
+// 백엔드 데이터를 프론트엔드 형식으로 변환
+const convertBoardPostToPost = (boardPost: BoardPost): Post => {
+  console.log('🔍 변환 중인 게시물 상세:', {
+    title: boardPost.title,
+    post_id: boardPost.post_id,
+    user_id: boardPost.user_id,
+    user_id_type: typeof boardPost.user_id,
+    author_name: boardPost.author_name,
+    created_at: boardPost.created_at,
+    전체_boardPost: boardPost
+  })
+  
+  // 날짜 안전하게 파싱
+  let createdDate: Date
+  try {
+    createdDate = new Date(boardPost.created_at)
+    // Invalid Date 체크
+    if (isNaN(createdDate.getTime())) {
+      console.warn('⚠️ 유효하지 않은 날짜:', boardPost.created_at)
+      createdDate = new Date() // 현재 시간으로 대체
+    }
+  } catch (error) {
+    console.warn('⚠️ 날짜 파싱 실패:', boardPost.created_at, error)
+    createdDate = new Date() // 현재 시간으로 대체
+  }
+  
+  return {
+    id: String(boardPost.post_id), // 문자열로 변환
+    userId: boardPost.user_id || 'unknown', // undefined 방지
+    title: boardPost.title,
+    content: boardPost.description,
+    author: boardPost.author_name,
+    createdAt: createdDate,
+    views: boardPost.download_count,
+    workflowId: boardPost.workflow_id,
+    workflowName: boardPost.workflow_name,
+    downloadCount: boardPost.download_count
+  }
+}
+
+// 현재 사용자가 게시물을 수정/삭제할 수 있는지 확인
+const canEditPost = (post: Post): boolean => {
+  const currentUserId = authStore.currentUser?.user_id
+  const postUserId = post.userId
+  
+  console.log('권한 체크:', {
+    postTitle: post.title,
+    currentUserId,
+    postUserId,
+    postAuthor: post.author,
+    hasCurrentUser: !!authStore.currentUser,
+    hasPostUserId: !!postUserId
+  })
+  
+  // 현재 사용자가 없으면 편집 불가
+  if (!currentUserId) {
+    console.log('권한 거부: 로그인하지 않음')
+    return false
+  }
+  
+  // 정상적인 경우: userId가 일치하면 편집 가능
+  if (postUserId && String(currentUserId) === String(postUserId)) {
+    console.log('권한 허용: userId 일치')
+    return true
+  }
+  
+  // 임시 해결책: userId가 없는 경우 (로컬 생성 게시물)
+  if (!postUserId || postUserId === 'unknown') {
+    console.log('권한 허용: userId가 없는 로컬 게시물')
+    return true
+  }
+  
+  console.log('권한 거부: 조건 불일치')
+  return false
+}
 
 // 계산된 속성
 const filteredPosts = computed(() => {
@@ -469,6 +564,40 @@ const visiblePages = computed(() => {
   return pages
 })
 
+// 데이터 로딩 함수
+const loadPosts = async () => {
+  try {
+    isLoading.value = true
+    error.value = null
+    
+    console.log('=== 데이터 로딩 시작 ===')
+    console.log('현재 로그인 사용자:', {
+      user: authStore.currentUser,
+      userId: authStore.currentUser?.user_id,
+      isLoggedIn: authStore.isLoggedIn
+    })
+    
+    const response = await boardService.getPosts({
+      limit: 50,
+      offset: 0,
+      search: searchKeyword.value || undefined
+    })
+    
+    console.log('백엔드 응답:', response)
+    console.log('첫 번째 게시물 예시:', response.posts[0])
+    
+    posts.value = response.posts.map(convertBoardPostToPost)
+    
+    console.log('변환된 게시물들:', posts.value.slice(0, 2))
+    console.log('=== 데이터 로딩 완료 ===')
+  } catch (err) {
+    console.error('게시물 로딩 실패:', err)
+    error.value = '게시물을 불러오는데 실패했습니다.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
 // 메서드
 const closeBoard = () => {
   emit('close')
@@ -479,8 +608,35 @@ const closeWriteForm = () => {
   clearForm()
 }
 
+const openEditForm = (post: Post) => {
+  editingPost.value = post
+  editPost.value = {
+    title: post.title,
+    description: post.content,
+    workflow_id: post.workflowId,
+    workflow_name: post.workflowName
+  }
+  showEditForm.value = true
+}
+
+const closeEditForm = () => {
+  showEditForm.value = false
+  editingPost.value = null
+  clearEditForm()
+}
+
+const clearEditForm = () => {
+  editPost.value = {
+    title: '',
+    description: '',
+    workflow_id: '',
+    workflow_name: ''
+  }
+}
+
 const handleSearch = () => {
   currentPage.value = 1 // 검색 시 첫 페이지로 이동
+  loadPosts() // 검색어에 따라 게시물 다시 로드
 }
 
 const goToPage = (page: number) => {
@@ -489,7 +645,7 @@ const goToPage = (page: number) => {
   }
 }
 
-const createPost = () => {
+const createPost = async () => {
   if (!newPost.value.title.trim()) {
     alert('제목을 입력해주세요.')
     return
@@ -510,22 +666,76 @@ const createPost = () => {
     return
   }
 
-  const post: Post = {
-    id: Date.now(),
-    title: newPost.value.title.trim(),
-    content: newPost.value.content.trim(),
-    author: '현재사용자',
-    createdAt: new Date(),
-    views: 0,
-    attachedFile: newPost.value.attachedFile || undefined
+  // 현재 로그인한 사용자 정보 확인
+  const currentUserId = authStore.currentUser?.user_id
+  if (!currentUserId) {
+    alert('로그인이 필요합니다.')
+    return
   }
 
-  posts.value.unshift(post)
-  clearForm()
-  closeWriteForm()
+  try {
+    // 백엔드 API로 게시물 생성
+    const postData: CreatePostData = {
+      title: newPost.value.title.trim(),
+      description: newPost.value.content.trim(),
+      workflow_id: '',
+      workflow_name: ''
+    }
+    
+    console.log('게시물 생성 요청 데이터:', postData)
+    const response = await boardService.createPost(postData)
+    console.log('게시물 생성 응답:', response)
+    
+    // 백엔드가 완전한 데이터를 반환하지 않으므로 목록을 다시 불러옴
+    await loadPosts()
+    
+    clearForm()
+    closeWriteForm()
+    
+    alert('게시글이 성공적으로 작성되었습니다!')
+  } catch (error) {
+    console.error('게시글 작성 실패:', error)
+    alert('게시글 작성에 실패했습니다.')
+  }
+}
+
+const updatePost = async () => {
+  if (!editingPost.value) return
   
-  // 성공 메시지 표시
-  alert('게시글이 성공적으로 작성되었습니다!')
+  if (!editPost.value.title.trim()) {
+    alert('제목을 입력해주세요.')
+    return
+  }
+  
+  if (!editPost.value.description.trim()) {
+    alert('내용을 입력해주세요.')
+    return
+  }
+
+  if (editPost.value.title.length > 100) {
+    alert('제목은 100자 이내로 입력해주세요.')
+    return
+  }
+
+  if (editPost.value.description.length > 2000) {
+    alert('내용은 2000자 이내로 입력해주세요.')
+    return
+  }
+
+  try {
+    console.log('게시글 수정 요청:', { id: editingPost.value.id, data: editPost.value })
+    const response = await boardService.updatePost(editingPost.value.id, editPost.value)
+    console.log('게시글 수정 응답:', response)
+    
+    // 목록 새로고침
+    await loadPosts()
+    
+    closeEditForm()
+    alert('게시글이 성공적으로 수정되었습니다!')
+  } catch (error) {
+    console.error('게시글 수정 실패:', error)
+    alert('게시글 수정에 실패했습니다.')
+  }
 }
 
 const clearForm = () => {
@@ -562,108 +772,119 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const downloadPost = (post: Post) => {
-  const postData = {
-    id: post.id,
-    title: post.title,
-    content: post.content,
-    author: post.author,
-    createdAt: post.createdAt.toISOString(),
-    views: post.views,
-    attachedFile: post.attachedFile ? {
-      name: post.attachedFile.name,
-      size: post.attachedFile.size,
-      type: post.attachedFile.type
-    } : null
+const addToWorkflow = async (post: Post) => {
+  try {
+    // 워크플로우 ID가 있는지 확인
+    if (!post.workflowId) {
+      alert('이 게시물에는 워크플로우 정보가 없습니다.')
+      return
+    }
+
+    // 백엔드에서 워크플로우 JSON 데이터 가져오기
+    const jsonData = await boardService.getWorkflowJson(post.workflowId)
+    
+    // 워크플로우 이름 설정 (게시물 제목 또는 워크플로우 이름 사용)
+    const workflowData = {
+      name: post.workflowName || post.title,
+      ...jsonData
+    }
+    
+    // 워크플로우 스토어를 통해 워크플로우 추가
+    await workflowStore.uploadWorkflowFromJson(workflowData)
+    
+    // 다운로드 수 증가
+    await boardService.incrementDownloadCount(post.id)
+    
+    // 로컬 상태 업데이트
+    post.downloadCount++
+    
+    alert(`"${post.title}"의 워크플로우가 성공적으로 추가되었습니다!`)
+    
+  } catch (error) {
+    console.error('워크플로우 추가 실패:', error)
+    alert('워크플로우 추가에 실패했습니다. 다시 시도해주세요.')
   }
-  
-  const dataStr = JSON.stringify(postData, null, 2)
-  const dataBlob = new Blob([dataStr], { type: 'application/json' })
-  
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(dataBlob)
-  link.download = `${post.title.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.json`
-  link.click()
-  
-  URL.revokeObjectURL(link.href)
 }
 
-const deletePost = (post: Post) => {
+const deletePost = async (post: Post) => {
+  console.log('삭제 시도:', { postId: post.id, postTitle: post.title })
+  
   if (confirm(`"${post.title}" 게시물을 정말로 삭제하시겠습니까?`)) {
-    const index = posts.value.findIndex(p => p.id === post.id)
-    if (index > -1) {
-      posts.value.splice(index, 1)
+    try {
+      console.log('API 삭제 요청 시작:', post.id)
+      const response = await boardService.deletePost(post.id)
+      console.log('API 삭제 응답:', response)
+      
+      // 목록 새로고침
+      await loadPosts()
+      
       alert('게시물이 삭제되었습니다.')
       
       // 현재 페이지가 비어있으면 이전 페이지로 이동
       if (paginatedPosts.value.length === 0 && currentPage.value > 1) {
         currentPage.value--
       }
+    } catch (error: any) {
+      console.error('게시물 삭제 실패:', error)
+      console.error('삭제 오류 상세:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      })
+      alert('게시물 삭제에 실패했습니다.')
     }
   }
 }
 
-const selectPost = (post: Post) => {
-  selectedPost.value = post
-  // 조회수 증가
-  post.views++
-}
-
-const closePostDetail = () => {
-  selectedPost.value = null
+// 아코디언 토글 메서드
+const togglePost = async (postId: string) => {
+  const index = expandedPosts.value.indexOf(postId)
+  if (index > -1) {
+    expandedPosts.value.splice(index, 1)
+  } else {
+    expandedPosts.value.push(postId)
+    // 조회수 증가 (백엔드에 요청)
+    try {
+      await boardService.incrementDownloadCount(postId)
+      // 로컬 상태도 업데이트
+      const post = posts.value.find(p => p.id === postId)
+      if (post) {
+        post.views++
+      }
+    } catch (error) {
+      console.error('조회수 증가 실패:', error)
+    }
+  }
 }
 
 const formatDate = (date: Date) => {
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date)
-}
-
-// 공유된 파일 다운로드
-const downloadSharedFile = (file: { name: string; type: string; size: number; content?: string; base64?: string }) => {
   try {
-    let dataBlob: Blob
-    
-    if (file.base64) {
-      // base64 데이터를 blob으로 변환
-      const byteCharacters = atob(file.base64)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
-      const byteArray = new Uint8Array(byteNumbers)
-      dataBlob = new Blob([byteArray], { type: file.type })
-    } else if (file.content) {
-      // 텍스트 콘텐츠를 blob으로 변환
-      dataBlob = new Blob([file.content], { type: file.type })
-    } else {
-      alert('파일 데이터를 찾을 수 없습니다.')
-      return
+    // Date 객체가 유효한지 확인
+    if (!date || isNaN(date.getTime())) {
+      console.warn('⚠️ formatDate: 유효하지 않은 날짜:', date)
+      return '날짜 없음'
     }
     
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(dataBlob)
-    link.download = file.name
-    link.click()
-    
-    URL.revokeObjectURL(link.href)
+    return new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date)
   } catch (error) {
-    console.error('파일 다운로드 실패:', error)
-    alert('파일 다운로드 중 오류가 발생했습니다.')
+    console.error('formatDate 오류:', error, date)
+    return '날짜 형식 오류'
   }
 }
 
 // ESC 키로 게시판 닫기
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') {
-    if (showWriteForm.value) {
+    if (showEditForm.value) {
+      closeEditForm()
+    } else if (showWriteForm.value) {
       closeWriteForm()
-    } else if (selectedPost.value) {
-      closePostDetail()
     } else {
       closeBoard()
     }
@@ -677,6 +898,7 @@ watch(searchKeyword, () => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
+  loadPosts() // 컴포넌트 마운트 시 게시물 로드
 })
 
 onUnmounted(() => {
@@ -691,24 +913,26 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: transparent;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-end;
   z-index: 1000;
-  animation: fadeIn 0.3s ease-out;
+  padding: 70px 24px 20px 20px;
+  pointer-events: none;
 }
 
 .board-panel {
   background: white;
   border-radius: 12px;
-  width: 90%;
-  max-width: 900px;
-  max-height: 90vh;
+  width: 600px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 90px);
   overflow: hidden;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  animation: slideUp 0.3s ease-out;
-  margin: 0 auto;
+  animation: slideInFromTopRight 0.3s ease-out;
+  margin: 0;
+  pointer-events: auto;
 }
 
 .board-header {
@@ -791,94 +1015,230 @@ onUnmounted(() => {
   margin-bottom: 24px;
 }
 
-.posts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.post-item {
-  padding: 16px 20px;
+/* 아코디언 스타일 */
+.post-accordion {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
+  margin-bottom: 8px;
+  overflow: hidden;
   background: white;
 }
 
-.post-item:hover {
-  border-color: #10a37f;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.post-header {
+.post-accordion .post-header {
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f9fafb;
+  border: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+}
+
+.post-accordion .post-header:hover {
+  background: #f3f4f6;
+}
+
+.post-accordion .post-header.expanded {
+  background: #eff6ff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.post-title-area {
+  flex: 1;
 }
 
 .post-title {
-  margin: 0;
+  margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
   color: #111827;
-  flex: 1;
-  margin-right: 16px;
 }
 
-.post-date {
-  font-size: 12px;
+.post-meta-inline {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
   color: #6b7280;
+}
+
+.post-meta-inline span {
   white-space: nowrap;
 }
 
-.post-meta {
+.accordion-toggle {
   display: flex;
-  gap: 16px;
   align-items: center;
-  font-size: 12px;
   color: #6b7280;
+  transition: transform 0.2s;
+}
+
+.accordion-toggle svg.rotated {
+  transform: rotate(180deg);
+}
+
+.post-content-area {
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+  background: white;
+  animation: slideDown 0.2s ease-out;
+}
+
+.post-content {
+  line-height: 1.6;
+  color: #374151;
+  font-size: 14px;
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+}
+
+/* 로딩 상태 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #10a37f;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 에러 상태 */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  color: #ef4444;
+}
+
+.retry-btn {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: #10a37f;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retry-btn:hover {
+  background: #0d8a6b;
+}
+
+/* 워크플로우 정보 */
+.workflow-info {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f0f9ff;
+  border: 1px solid #e0f2fe;
+  border-radius: 6px;
+}
+
+.workflow-info h5 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0c4a6e;
+}
+
+.workflow-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.workflow-name {
+  font-weight: 500;
+  color: #1e40af;
+}
+
+.workflow-id {
+  color: #64748b;
+  font-family: monospace;
 }
 
 .post-actions {
   display: flex;
   gap: 8px;
-  align-items: center;
+  margin-top: 16px;
 }
 
-.download-btn {
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.add-workflow-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  background: transparent;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #6b7280;
-  transition: all 0.2s;
-  font-size: 12px;
-}
-
-.download-btn:hover {
-  background: #f3f4f6;
-  border-color: #10a37f;
-  color: #10a37f;
-}
-
-.download-btn.large {
-  padding: 8px 16px;
-  font-size: 14px;
+  gap: 6px;
+  padding: 8px 12px;
   background: #10a37f;
   color: white;
-  border-color: #10a37f;
+  border: 1px solid #10a37f;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.download-btn.large:hover {
+.add-workflow-btn:hover {
   background: #0d8a6b;
   border-color: #0d8a6b;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.edit-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #3b82f6;
+  color: white;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.edit-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .delete-btn {
@@ -963,8 +1323,8 @@ onUnmounted(() => {
 }
 
 .search-section {
-  margin-top: 24px;
-  padding: 20px;
+  margin-bottom: 20px;
+  padding: 16px;
   background: #f9fafb;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
@@ -1363,135 +1723,18 @@ onUnmounted(() => {
   background: #fef2f2;
 }
 
-.post-detail-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1100;
-}
 
-.post-detail-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 700px;
-  max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
 
-.post-detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
-}
 
-.post-detail-header h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #111827;
-}
 
-.post-detail-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.post-detail-body {
-  padding: 24px;
-}
-
-.post-info {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.post-content {
-  line-height: 1.6;
-  color: #374151;
-  font-size: 16px;
-  margin-bottom: 24px;
-}
-
-.attached-file-display {
-  border-top: 1px solid #e5e7eb;
-  padding-top: 20px;
-}
-
-.attached-file-display h4 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.multiple-files {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.multiple-files .file-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  color: #374151;
-  font-size: 14px;
-}
-
-.download-file-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  background: #10a37f;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 12px;
-  margin-left: auto;
-}
-
-.download-file-btn:hover {
-  background: #0d8a6b;
-  transform: translateY(-1px);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
+@keyframes slideInFromTopRight {
   from { 
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateX(20px) translateY(-10px) scale(0.95);
   }
   to { 
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0) translateY(0) scale(1);
   }
 }
 
@@ -1512,5 +1755,18 @@ onUnmounted(() => {
 
 .board-content::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* 모바일 반응형 */
+@media (max-width: 768px) {
+  .board-overlay {
+    padding: 60px 16px 16px 16px;
+  }
+  
+  .board-panel {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100vh - 76px);
+  }
 }
 </style>
