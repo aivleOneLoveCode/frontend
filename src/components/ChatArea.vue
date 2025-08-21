@@ -46,7 +46,7 @@
            :class="['message', message.role]">
         
         <!-- 사용자 메시지 -->
-        <div v-if="message.role === 'user'" class="user-message-container">
+        <div v-if="message.role === 'user'" :class="isToolResultMessage(message) ? 'tool-message-container' : 'user-message-container'">
           <!-- tool_result와 tool_use 통합 표시 -->
           <div v-if="isToolResultMessage(message)" class="tool-result-container">
             <div v-for="(toolResult, tridx) in getToolResults(message)" :key="tridx" class="tool-block-wrapper">
@@ -700,7 +700,7 @@ const getToolNameFromResult = (toolResult: any): string => {
   
   // 실행 중일 때
   if (toolResult.is_pending) {
-    return getToolPendingMessage(toolName)
+    return getToolPendingMessage(toolName, toolInput)
   }
   
   // 실행 완료일 때
@@ -708,12 +708,21 @@ const getToolNameFromResult = (toolResult: any): string => {
 }
 
 // 실행 중 메시지
-const getToolPendingMessage = (toolName: string): string => {
+const getToolPendingMessage = (toolName: string, input: any): string => {
   switch(toolName) {
     case 'search_nodes':
-      return `블록 검색 중`
+      return input.query ? `블록 검색 중 (${input.query})` : `블록 검색 중`
     case 'list_nodes':
-      return `블록 검색 중`
+      if (input.category) {
+        return `블록 검색 중 (카테고리: ${input.category})`
+      } else if (input.package) {
+        const packageName = input.package === '@n8n/n8n-nodes-langchain' ? 'AI 노드' : '기본 노드'
+        return `블록 검색 중 (${packageName})`
+      } else if (input.isAITool) {
+        return `AI 블록 검색 중`
+      } else {
+        return `전체 블록 검색 중`
+      }
     case 'get_node_info':
       return `블록 정보 확인 중`
     case 'validate_workflow':
@@ -748,11 +757,20 @@ const getToolCompleteMessage = (toolName: string, input: any, content: any): str
     case 'list_nodes':
       if (content && content.nodes && Array.isArray(content.nodes)) {
         const count = content.totalCount || content.nodes.length
+        let searchType = ''
+        if (input.category) {
+          searchType = ` (카테고리: ${input.category})`
+        } else if (input.package) {
+          const packageName = input.package === '@n8n/n8n-nodes-langchain' ? 'AI 노드' : '기본 노드'
+          searchType = ` (${packageName})`
+        } else if (input.isAITool) {
+          searchType = ' (AI 블록)'
+        }
         return count > 0 
-          ? `${count}개 블록 검색 완료 (${input.category || ''})`
-          : `블록 검색 결과 없음 (${input.category || ''})`
+          ? `${count}개 블록 검색 완료${searchType}`
+          : `블록 검색 결과 없음${searchType}`
       } else {
-        return `블록 검색 결과 없음 (${input.category || ''})`
+        return `블록 검색 결과 없음`
       }
     case 'get_node_info':
       const displayName = content?.displayName || (input.nodeType ? input.nodeType.replace('nodes-base.', '') : '')
@@ -1385,7 +1403,7 @@ const getListWorkflowCompleteMessage = (input: any, content: any): string => {
 
 .tool-block-wrapper {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   width: 100%;
 }
 
@@ -1418,7 +1436,19 @@ const getListWorkflowCompleteMessage = (input: any, content: any): string => {
   border-left: 3px solid #3b82f6;
 }
 
-/* 사용자 메시지 컨테이너 */
+/* 도구 메시지 컨테이너 (좌측 정렬) */
+.tool-message-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 540px;
+  width: fit-content;
+  margin-left: 140px;
+  margin-right: auto;
+  animation: fadeInScale 0.3s ease-out;
+}
+
+/* 사용자 메시지 컨테이너 (우측 정렬) */
 .user-message-container {
   display: flex;
   flex-direction: column;
@@ -1480,9 +1510,14 @@ const getListWorkflowCompleteMessage = (input: any, content: any): string => {
 
 /* 각 메시지 타입별 여백 */
 .thinking-message,
+.tool-message {
+  margin-bottom: 24px;
+}
+
+/* 각 메시지 타입별 여백 */
+.thinking-message,
 .tool-message,
 .text-message {
-  margin-bottom: 24px;
   max-width: 700px;
 }
 
@@ -1711,13 +1746,13 @@ const getListWorkflowCompleteMessage = (input: any, content: any): string => {
   background: #1a1a1a;
 }
 
-/* 중단 버튼 (processing 상태) 빨간색 스타일 */
+/* 중단 버튼 (processing 상태) 검정색 스타일 */
 .send-btn.stop-btn {
-  background: #dc2626;
+  background: #000000;
 }
 
 .send-btn.stop-btn:hover {
-  background: #b91c1c;
+  background: #1f2937;
 }
 
 .send-btn svg {
