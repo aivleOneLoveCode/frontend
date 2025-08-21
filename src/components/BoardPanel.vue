@@ -1,17 +1,11 @@
 <template>
-  <div v-if="isOpen" class="board-overlay">
-    <div class="board-panel">
+  <div v-if="isOpen" class="board-overlay" @click="closeBoard">
+    <div class="board-panel" @click.stop>
       <!-- 게시판 헤더 -->
       <div class="board-header">
-        <h2 class="board-title">게시판</h2>
-        <button class="close-btn" @click="closeBoard" title="닫기">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+        <h3>게시판</h3>
       </div>
-
+      
       <!-- 게시판 컨텐츠 -->
       <div class="board-content">
         <!-- 검색 기능 (상단으로 이동) -->
@@ -24,12 +18,6 @@
               class="search-input"
               @input="handleSearch"
             />
-            <button class="search-btn" @click="handleSearch">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.35-4.35"></path>
-              </svg>
-            </button>
           </div>
           <div class="search-info">
             <span v-if="searchKeyword" class="search-results">
@@ -67,7 +55,7 @@
                 <div class="post-title-area">
                   <h4 class="post-title">{{ post.title }}</h4>
                   <span class="post-meta-inline">
-                    <span class="post-author">{{ post.author }}</span>
+                    <span class="post-author">{{ maskName(post.author) }}</span>
                     <span class="post-date">{{ formatDate(post.createdAt) }}</span>
                     <span class="post-views">다운로드: {{ post.downloadCount }}회</span>
                   </span>
@@ -107,6 +95,7 @@
 
                 <div class="post-actions">
                   <button 
+                    v-if="!canEditPost(post)"
                     class="add-workflow-btn" 
                     @click="addToWorkflow(post)"
                     title="워크플로우에 추가"
@@ -184,7 +173,7 @@
               </button>
             </div>
             
-            <button class="new-post-btn compact" @click="showWriteForm = true">
+            <button class="new-post-btn compact" @click="openWriteForm">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -201,16 +190,28 @@
           <div class="write-form-content" @click.stop>
             <div class="write-form-header">
               <h3>글쓰기</h3>
-              <button class="close-btn" @click="closeWriteForm">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
             </div>
             <div class="write-form-body">
               <div class="post-form">
                 <div class="input-group">
+                  <label class="input-label">워크플로우 <span class="required">*</span></label>
+                  <select 
+                    v-model="newPost.workflowId" 
+                    class="workflow-select"
+                    :disabled="isLoadingWorkflows"
+                  >
+                    <option value="" disabled>워크플로우를 선택하세요</option>
+                    <option 
+                      v-for="workflow in userWorkflows" 
+                      :key="workflow.workflow_id"
+                      :value="workflow.workflow_id"
+                    >
+                      {{ workflow.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">제목 <span class="required">*</span></label>
                   <input 
                     v-model="newPost.title" 
                     type="text" 
@@ -221,6 +222,7 @@
                   <span class="char-count">{{ newPost.title.length }}/100</span>
                 </div>
                 <div class="input-group">
+                  <label class="input-label">내용 <span class="required">*</span></label>
                   <textarea 
                     v-model="newPost.content" 
                     placeholder="내용을 입력하세요" 
@@ -231,55 +233,7 @@
                   <span class="char-count">{{ newPost.content.length }}/2000</span>
                 </div>
                 
-                <!-- 파일 업로드 섹션 -->
-                <div class="file-upload-section">
-                  <h4>JSON 파일 첨부</h4>
-                  <div class="file-upload-area">
-                    <input 
-                      ref="fileInput"
-                      type="file" 
-                      accept=".json"
-                      @change="handleFileUpload"
-                      class="file-input"
-                    />
-                    <div class="file-upload-content">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7,10 12,15 17,10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>
-                      <p>JSON 파일을 선택하거나 여기에 드래그하세요</p>
-                      <button type="button" class="file-select-btn" @click="fileInput?.click()">
-                        파일 선택
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <!-- 업로드된 파일 표시 -->
-                  <div v-if="newPost.attachedFile" class="attached-file">
-                    <div class="file-info">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14,2 14,8 20,8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10,9 9,9 8,9"/>
-                      </svg>
-                      <span class="file-name">{{ newPost.attachedFile.name }}</span>
-                      <span class="file-size">({{ formatFileSize(newPost.attachedFile.size) }})</span>
-                    </div>
-                    <button 
-                      type="button" 
-                      class="remove-file-btn"
-                      @click="removeAttachedFile"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+                <!-- 파일 업로드 섹션 제거 -->
                 
                 <div class="post-actions">
                   <button class="post-btn primary" @click="createPost">게시물 작성</button>
@@ -295,16 +249,28 @@
           <div class="write-form-content" @click.stop>
             <div class="write-form-header">
               <h3>게시글 수정</h3>
-              <button class="close-btn" @click="closeEditForm">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
             </div>
             <div class="write-form-body">
               <div class="post-form">
                 <div class="input-group">
+                  <label class="input-label">워크플로우 <span class="required">*</span></label>
+                  <select 
+                    v-model="editPost.workflow_id" 
+                    class="workflow-select"
+                    :disabled="isLoadingWorkflows"
+                  >
+                    <option value="" disabled>워크플로우를 선택하세요</option>
+                    <option 
+                      v-for="workflow in userWorkflows" 
+                      :key="workflow.workflow_id"
+                      :value="workflow.workflow_id"
+                    >
+                      {{ workflow.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">제목 <span class="required">*</span></label>
                   <input 
                     v-model="editPost.title" 
                     type="text" 
@@ -315,6 +281,7 @@
                   <span class="char-count">{{ editPost.title.length }}/100</span>
                 </div>
                 <div class="input-group">
+                  <label class="input-label">내용 <span class="required">*</span></label>
                   <textarea 
                     v-model="editPost.description" 
                     placeholder="내용을 입력하세요" 
@@ -323,28 +290,6 @@
                     maxlength="2000"
                   ></textarea>
                   <span class="char-count">{{ editPost.description.length }}/2000</span>
-                </div>
-
-                <div class="input-group">
-                  <input 
-                    v-model="editPost.workflow_name" 
-                    type="text" 
-                    placeholder="워크플로우 이름을 입력하세요" 
-                    class="post-title-input"
-                    maxlength="100"
-                  />
-                  <span class="char-count">{{ editPost.workflow_name.length }}/100</span>
-                </div>
-
-                <div class="input-group">
-                  <input 
-                    v-model="editPost.workflow_id" 
-                    type="text" 
-                    placeholder="워크플로우 ID를 입력하세요" 
-                    class="post-title-input"
-                    maxlength="100"
-                  />
-                  <span class="char-count">{{ editPost.workflow_id.length }}/100</span>
                 </div>
                 
                 <div class="post-actions">
@@ -367,6 +312,7 @@ import { ref, defineProps, defineEmits, onMounted, onUnmounted, computed, watch 
 import { useWorkflowStore } from '@/stores/workflow'
 import { useAuthStore } from '@/stores/auth'
 import { boardService, type BoardPost, type CreatePostData, type UpdatePostData } from '@/services/board'
+import api from '@/services/api'
 
 // 백엔드 데이터를 프론트엔드 형식으로 변환하는 인터페이스
 interface Post {
@@ -403,19 +349,21 @@ const authStore = useAuthStore()
 const showWriteForm = ref(false)
 const showEditForm = ref(false)
 const editingPost = ref<Post | null>(null)
-const fileInput = ref<HTMLInputElement | null>(null)
 const newPost = ref({
   title: '',
   content: '',
-  attachedFile: null as File | null
+  workflowId: ''
 })
 
 const editPost = ref({
   title: '',
   description: '',
-  workflow_id: '',
-  workflow_name: ''
+  workflow_id: ''
 })
+
+// 워크플로우 목록
+const userWorkflows = ref<Array<{ workflow_id: string; name: string }>>([])
+const isLoadingWorkflows = ref(false)
 
 // const selectedPost = ref<Post | null>(null) // 사용하지 않음
 const searchKeyword = ref('')
@@ -608,15 +556,27 @@ const closeWriteForm = () => {
   clearForm()
 }
 
+// 글쓰기 폼 열기 시 워크플로우 목록 로드
+const openWriteForm = () => {
+  showWriteForm.value = true
+  // 워크플로우 목록이 없으면 로드
+  if (userWorkflows.value.length === 0) {
+    loadWorkflows()
+  }
+}
+
 const openEditForm = (post: Post) => {
   editingPost.value = post
   editPost.value = {
     title: post.title,
     description: post.content,
-    workflow_id: post.workflowId,
-    workflow_name: post.workflowName
+    workflow_id: post.workflowId || ''
   }
   showEditForm.value = true
+  // 워크플로우 목록이 없으면 로드
+  if (userWorkflows.value.length === 0) {
+    loadWorkflows()
+  }
 }
 
 const closeEditForm = () => {
@@ -646,6 +606,11 @@ const goToPage = (page: number) => {
 }
 
 const createPost = async () => {
+  if (!newPost.value.workflowId) {
+    alert('워크플로우를 선택해주세요.')
+    return
+  }
+  
   if (!newPost.value.title.trim()) {
     alert('제목을 입력해주세요.')
     return
@@ -674,12 +639,16 @@ const createPost = async () => {
   }
 
   try {
+    // 선택된 워크플로우 정보 찾기
+    const selectedWorkflow = userWorkflows.value.find(w => w.workflow_id === newPost.value.workflowId)
+    const workflowName = selectedWorkflow ? selectedWorkflow.name : ''
+    
     // 백엔드 API로 게시물 생성
     const postData: CreatePostData = {
       title: newPost.value.title.trim(),
       description: newPost.value.content.trim(),
-      workflow_id: '',
-      workflow_name: ''
+      workflow_id: newPost.value.workflowId,
+      workflow_name: workflowName
     }
     
     console.log('게시물 생성 요청 데이터:', postData)
@@ -702,6 +671,11 @@ const createPost = async () => {
 const updatePost = async () => {
   if (!editingPost.value) return
   
+  if (!editPost.value.workflow_id) {
+    alert('워크플로우를 선택해주세요.')
+    return
+  }
+  
   if (!editPost.value.title.trim()) {
     alert('제목을 입력해주세요.')
     return
@@ -723,8 +697,17 @@ const updatePost = async () => {
   }
 
   try {
+    // 선택된 워크플로우 정보 찾기
+    const selectedWorkflow = userWorkflows.value.find(w => w.workflow_id === editPost.value.workflow_id)
+    const workflowName = selectedWorkflow ? selectedWorkflow.name : ''
+    
     console.log('게시글 수정 요청:', { id: editingPost.value.id, data: editPost.value })
-    const response = await boardService.updatePost(editingPost.value.id, editPost.value)
+    const response = await boardService.updatePost(editingPost.value.id, {
+      title: editPost.value.title,
+      description: editPost.value.description,
+      workflow_id: editPost.value.workflow_id,
+      workflow_name: workflowName
+    })
     console.log('게시글 수정 응답:', response)
     
     // 목록 새로고침
@@ -741,36 +724,10 @@ const updatePost = async () => {
 const clearForm = () => {
   newPost.value.title = ''
   newPost.value.content = ''
-  newPost.value.attachedFile = null
+  newPost.value.workflowId = ''
 }
 
-const handleFileUpload = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  if (target.files && target.files.length > 0) {
-    const file = target.files[0]
-    if (file.type === 'application/json' || file.name.endsWith('.json')) {
-      newPost.value.attachedFile = file
-    } else {
-      alert('JSON 파일만 업로드 가능합니다.')
-      target.value = ''
-    }
-  }
-}
-
-const removeAttachedFile = () => {
-  newPost.value.attachedFile = null
-  if (fileInput.value) {
-    fileInput.value.value = ''
-  }
-}
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+// 파일 업로드 기능은 제거됨 (워크플로우 선택으로 대체)
 
 const addToWorkflow = async (post: Post) => {
   try {
@@ -856,6 +813,16 @@ const togglePost = async (postId: string) => {
   }
 }
 
+// 이름 마스킹 함수
+const maskName = (name: string): string => {
+  if (!name || name.length <= 1) {
+    return name
+  }
+  
+  // 한글자는 그대로, 나머지는 *로 마스킹
+  return name.charAt(0) + '*'.repeat(name.length - 1)
+}
+
 const formatDate = (date: Date) => {
   try {
     // Date 객체가 유효한지 확인
@@ -864,13 +831,33 @@ const formatDate = (date: Date) => {
       return '날짜 없음'
     }
     
-    return new Intl.DateTimeFormat('ko-KR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / (1000 * 60))
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    
+    if (minutes < 1) {
+      return '방금 전'
+    } else if (minutes < 60) {
+      return `${minutes}분 전`
+    } else if (hours < 24) {
+      return `${hours}시간 전`
+    } else if (days === 1) {
+      return '어제'
+    } else if (days < 7) {
+      return `${days}일 전`
+    } else if (days < 30) {
+      const weeks = Math.floor(days / 7)
+      return `${weeks}주 전`
+    } else {
+      // 30일 이상 지난 경우 절대 날짜 표시
+      return new Intl.DateTimeFormat('ko-KR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }).format(date)
+    }
   } catch (error) {
     console.error('formatDate 오류:', error, date)
     return '날짜 형식 오류'
@@ -895,9 +882,24 @@ watch(searchKeyword, () => {
   currentPage.value = 1
 })
 
+// 워크플로우 목록 가져오기
+const loadWorkflows = async () => {
+  isLoadingWorkflows.value = true
+  try {
+    const response = await api.get('/workflows')
+    userWorkflows.value = response.data.workflows || []
+    console.log('워크플로우 목록:', userWorkflows.value)
+  } catch (error) {
+    console.error('워크플로우 목록 로드 실패:', error)
+  } finally {
+    isLoadingWorkflows.value = false
+  }
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
   loadPosts() // 컴포넌트 마운트 시 게시물 로드
+  loadWorkflows() // 워크플로우 목록 로드
 })
 
 onUnmounted(() => {
@@ -918,7 +920,6 @@ onUnmounted(() => {
   justify-content: flex-end;
   z-index: 1000;
   padding: 70px 24px 20px 20px;
-  pointer-events: none;
 }
 
 .board-panel {
@@ -943,26 +944,11 @@ onUnmounted(() => {
   background: #f9fafb;
 }
 
-.board-title {
+.board-header h3 {
   margin: 0;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #111827;
-}
-
-.close-btn {
-  background: transparent;
-  border: none;
-  padding: 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #6b7280;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
 }
 
 .board-content {
@@ -1350,19 +1336,6 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
 }
 
-.search-btn {
-  padding: 12px 16px;
-  background: #10a37f;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.search-btn:hover {
-  background: #0d8a6b;
-}
 
 .search-info {
   font-size: 14px;
@@ -1428,6 +1401,20 @@ onUnmounted(() => {
   position: relative;
 }
 
+.input-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.input-label .required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.workflow-select,
 .post-title-input,
 .post-content-input {
   padding: 12px 16px;
@@ -1439,6 +1426,18 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
+.workflow-select {
+  background: white;
+  cursor: pointer;
+}
+
+.workflow-select:disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.workflow-select:focus,
 .post-title-input:focus,
 .post-content-input:focus {
   outline: none;
