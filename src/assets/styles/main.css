@@ -1552,7 +1552,7 @@ body {
 .message.assistant {
     background: var(--message-bg-assistant);
     border-radius: 16px;
-    margin: 12px;
+    margin: 24px;
 }
 
 .message-avatar {

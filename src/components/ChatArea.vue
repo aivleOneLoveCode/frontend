@@ -43,11 +43,103 @@
     <div class="messages-inner">
       <div v-for="(message, index) in messages" 
            :key="index"
-           class="message">
-        <!-- 전체 메시지 JSON 출력 -->
-        <div class="message-debug">
-          <pre>{{ JSON.stringify(message, null, 2) }}</pre>
+           :class="['message', message.role]">
+        
+        <!-- 사용자 메시지 -->
+        <div v-if="message.role === 'user'" class="user-message-container">
+          <!-- tool_result와 tool_use 통합 표시 -->
+          <div v-if="isToolResultMessage(message)" class="tool-result-container">
+            <div v-for="(toolResult, tridx) in getToolResults(message)" :key="tridx" class="tool-block-wrapper">
+              <div class="tool-block">
+                <div class="tool-header">
+                  <span class="tool-title">{{ getToolNameFromResult(toolResult) }}</span>
+                  <div v-if="toolResult.is_pending" class="tool-spinner">⟳</div>
+                </div>
+                <!-- 디버깅용 tool-content (주석처리)
+                <div class="tool-content collapsed">
+                  <div v-if="getToolUseForResult(toolResult)" class="tool-input-section">
+                    <div class="tool-section-title">Input:</div>
+                    <pre>{{ JSON.stringify(getToolUseForResult(toolResult).input, null, 2) }}</pre>
+                  </div>
+                  <div v-if="!toolResult.is_pending && toolResult.content" class="tool-result-section">
+                    <div class="tool-section-title">Result:</div>
+                    <pre>{{ JSON.stringify(toolResult.content, null, 2) }}</pre>
+                  </div>
+                  <div v-else-if="toolResult.is_pending" class="tool-pending-section">
+                    <div class="tool-section-title">실행 중...</div>
+                    <div class="pending-indicator">🔄 도구를 실행하고 있습니다.</div>
+                  </div>
+                </div>
+                -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- 일반 사용자 메시지 -->
+          <div v-else class="user-message-wrapper">
+            <!-- 첨부파일 표시 (채팅 블록 위쪽) -->
+            <div v-if="getUserAttachments(message).length > 0" class="user-attachments-container">
+              <!-- 이미지 열 -->
+              <div v-if="getImageAttachments(message).length > 0" class="image-row">
+                <div v-for="(image, iidx) in getImageAttachments(message)" :key="'img-' + iidx" class="attachment-thumbnail image">
+                  <img :src="`data:${image.source.media_type};base64,${image.source.data}`" alt="uploaded image" />
+                </div>
+              </div>
+              
+              <!-- 다른 파일 열 -->
+              <div v-if="getNonImageAttachments(message).length > 0" class="file-column">
+                <div v-for="(file, fidx) in getNonImageAttachments(message)" :key="'file-' + fidx" class="uploaded-file-item">
+                  <div class="file-icon-container" :class="getFileTypeClass(file.type)">
+                    <span class="file-icon">{{ getAttachmentIcon(file.type) }}</span>
+                  </div>
+                  <div class="file-info">
+                    <div class="file-name">{{ getAttachmentName(file) }}</div>
+                    <div class="file-type">{{ getFileTypeLabel(file.type) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 텍스트 메시지 -->
+            <div class="user-bubble">
+              <div v-if="hasText(message)" class="message-text" v-html="renderUserText(message)"></div>
+            </div>
+          </div>
         </div>
+        
+        <!-- 어시스턴트 메시지 -->
+        <div v-else-if="message.role === 'assistant'">
+          <!-- 각 content 블록을 개별 메시지로 처리 -->
+          <div v-for="(content, cidx) in message.content" :key="cidx">
+            
+            <!-- Thinking 메시지 (짜니) -->
+            <div v-if="content.type === 'thinking'" class="ai-message-container thinking-message">
+              <div class="profile-section">
+                <img :src="zzanyProfile" alt="짜니" class="avatar-img" />
+                <span class="profile-name">짜니</span>
+              </div>
+              <div class="message-content thinking-content">
+                <div v-html="renderMarkdown(content.thinking || '')"></div>
+              </div>
+            </div>
+            
+            <!-- Tool Use 메시지는 숨김 (짜니) -->
+            <div v-else-if="content.type === 'tool_use'" style="display: none;"></div>
+            
+            <!-- 일반 텍스트 메시지 (다니) -->
+            <div v-else-if="content.type === 'text'" class="ai-message-container text-message">
+              <div class="profile-section">
+                <img :src="danyProfile" alt="다니" class="avatar-img" />
+                <span class="profile-name">다니</span>
+              </div>
+              <div class="message-content">
+                <div v-html="renderMarkdown(content.text || '')"></div>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+        
       </div>
     </div>
   </div>
@@ -338,7 +430,7 @@ onMounted(() => {
 })
 
 // 메시지 변화 감지해서 스크롤
-watch(() => props.messages, (newMessages, oldMessages) => {
+watch(() => props.messages, (newMessages) => {
   const currentLength = newMessages.length
   
   // 첫 렌더링이거나 메시지가 크게 변화한 경우 (세션 전환)
@@ -460,34 +552,6 @@ const addExampleWorkflow = (workflow: ExampleWorkflow) => {
 }
 
 // 메시지 텍스트 추출 헬퍼 함수
-const getMessageText = (message: any): string => {
-  if (typeof message.content === 'string') {
-    return message.content
-  }
-  if (Array.isArray(message.content)) {
-    return message.content
-      .filter((block: any) => block.type === 'text')
-      .map((block: any) => block.text)
-      .join(' ')
-  }
-  return ''
-}
-
-// 메시지에 파일이 있는지 확인
-const hasFiles = (message: any): boolean => {
-  if (!Array.isArray(message.content)) return false
-  return message.content.some((block: any) => 
-    block.type === 'image' || block.type === 'document'
-  )
-}
-
-// 메시지에서 파일 추출
-const getMessageFiles = (message: any): any[] => {
-  if (!Array.isArray(message.content)) return []
-  return message.content.filter((block: any) => 
-    block.type === 'image' || block.type === 'document'
-  )
-}
 
 
 
@@ -502,6 +566,281 @@ const renderMarkdown = (text: string): string => {
     return text
   }
 }
+
+// 사용자 텍스트 렌더링 (간단한 줄바꿈 처리)
+const renderUserText = (message: any): string => {
+  const textContent = message.content
+    .filter((c: any) => c.type === 'text')
+    .map((c: any) => c.text)
+    .join('\n')
+  return textContent.replace(/\n/g, '<br>')
+}
+
+// 메시지에 특정 타입의 컨텐츠가 있는지 확인
+const hasText = (message: any): boolean => {
+  return message.content.some((c: any) => c.type === 'text')
+}
+
+
+// 사용자 메시지에서 첨부파일 추출 (첫번째 text 타입 제외)
+const getUserAttachments = (message: any): any[] => {
+  if (!message.content || !Array.isArray(message.content)) return []
+  
+  // text 타입을 제외한 모든 첨부파일
+  return message.content.filter((c: any) => {
+    return c.type === 'image' || c.type === 'document' || c.type === 'workflow' || c.type === 'json'
+  })
+}
+
+// 이미지 첨부파일만 추출
+const getImageAttachments = (message: any): any[] => {
+  if (!message.content || !Array.isArray(message.content)) return []
+  return message.content.filter((c: any) => c.type === 'image')
+}
+
+// 이미지가 아닌 첨부파일 추출
+const getNonImageAttachments = (message: any): any[] => {
+  if (!message.content || !Array.isArray(message.content)) return []
+  return message.content.filter((c: any) => {
+    return c.type === 'document' || c.type === 'workflow' || c.type === 'json'
+  })
+}
+
+// 첨부파일 아이콘 결정
+const getAttachmentIcon = (type: string): string => {
+  switch(type) {
+    case 'image': return '🖼️'
+    case 'document': return '📄'
+    case 'workflow': return '📋'
+    case 'json': return '📋'
+    default: return '📁'
+  }
+}
+
+// 첨부파일 이름 추출
+const getAttachmentName = (attachment: any): string => {
+  // workflow나 json 타입의 경우 실제 파일명이 있을 수 있음
+  if (attachment.type === 'workflow') {
+    return attachment.workflow_name || attachment.name || 'Workflow'
+  }
+  if (attachment.type === 'json') {
+    return attachment.file_name || attachment.name || 'Data File'
+  }
+  
+  // attachment에 name 필드가 있으면 사용
+  if (attachment.name) return attachment.name
+  
+  // 타입별 기본 이름
+  switch(attachment.type) {
+    case 'document': return 'Document'
+    default: return 'File'
+  }
+}
+
+// 파일 타입 CSS 클래스
+const getFileTypeClass = (type: string): string => {
+  return type
+}
+
+// 파일 타입 라벨
+const getFileTypeLabel = (type: string): string => {
+  switch(type) {
+    case 'document': return 'PDF'
+    case 'json': return '파일'
+    case 'workflow': return '파일'
+    default: return '파일'
+  }
+}
+
+
+// tool_result 메시지인지 확인
+const isToolResultMessage = (message: any): boolean => {
+  return message.content.some((c: any) => c.type === 'tool_result')
+}
+
+
+// 스트리밍 상태 확인 (실제 구현 시 store와 연동)
+// const isStreaming = (message: any, content: any): boolean => {
+//   // TODO: 실제 스트리밍 상태 확인 로직
+//   return false
+// }
+
+// tool_result 메시지에서 tool_result들 추출
+const getToolResults = (message: any): any[] => {
+  if (!message.content || !Array.isArray(message.content)) return []
+  return message.content.filter((c: any) => c.type === 'tool_result')
+}
+
+// tool_result에 대응하는 tool_use 찾기
+const getToolUseForResult = (toolResult: any): any => {
+  const toolId = toolResult.tool_use_id
+  if (!toolId) return null
+  
+  // 이전 메시지들에서 tool_use 찾기
+  for (let i = props.messages.length - 1; i >= 0; i--) {
+    const message = props.messages[i]
+    if (message.role === 'assistant') {
+      const toolUse = message.content.find((c: any) => 
+        c.type === 'tool_use' && c.id === toolId
+      )
+      if (toolUse) return toolUse
+    }
+  }
+  return null
+}
+
+// tool_result에서 tool 상태 메시지 가져오기
+const getToolNameFromResult = (toolResult: any): string => {
+  const toolUse = getToolUseForResult(toolResult)
+  if (!toolUse) return '도구 실행 중'
+  
+  const toolName = toolUse.name
+  const toolInput = toolUse.input || {}
+  const toolContent = toolResult.content || {}
+  
+  // 실행 중일 때
+  if (toolResult.is_pending) {
+    return getToolPendingMessage(toolName)
+  }
+  
+  // 실행 완료일 때
+  return getToolCompleteMessage(toolName, toolInput, toolContent)
+}
+
+// 실행 중 메시지
+const getToolPendingMessage = (toolName: string): string => {
+  switch(toolName) {
+    case 'search_nodes':
+      return `블록 검색 중`
+    case 'list_nodes':
+      return `블록 검색 중`
+    case 'get_node_info':
+      return `블록 정보 확인 중`
+    case 'validate_workflow':
+      return `워크플로우 점검 중`
+    case 'n8n_create_workflow':
+      return `워크플로우 생성 중`
+    case 'n8n_update_full_workflow':
+      return `워크플로우 변경 중`
+    case 'n8n_delete_workflow':
+      return `워크플로우 삭제 중`
+    case 'n8n_list_workflows':
+      return `워크플로우 검색 중`
+    case 'n8n_get_workflow':
+      return `워크플로우 정보 확인 중`
+    default:
+      return `${toolName} 실행 중`
+  }
+}
+
+// 실행 완료 메시지
+const getToolCompleteMessage = (toolName: string, input: any, content: any): string => {
+  switch(toolName) {
+    case 'search_nodes':
+      if (content && content.results && Array.isArray(content.results)) {
+        const count = content.totalCount || content.results.length
+        return count > 0 
+          ? `${count}개 블록 검색 완료 (${input.query || ''})`
+          : `블록 검색 결과 없음 (${input.query || ''})`
+      } else {
+        return `블록 검색 결과 없음 (${input.query || ''})`
+      }
+    case 'list_nodes':
+      if (content && content.nodes && Array.isArray(content.nodes)) {
+        const count = content.totalCount || content.nodes.length
+        return count > 0 
+          ? `${count}개 블록 검색 완료 (${input.category || ''})`
+          : `블록 검색 결과 없음 (${input.category || ''})`
+      } else {
+        return `블록 검색 결과 없음 (${input.category || ''})`
+      }
+    case 'get_node_info':
+      const displayName = content?.displayName || (input.nodeType ? input.nodeType.replace('nodes-base.', '') : '')
+      if (content && Object.keys(content).length > 0) {
+        return `블록 정보 확인 완료 (${displayName})`
+      } else {
+        return `블록 정보 없음 (${displayName})`
+      }
+    case 'validate_workflow':
+      const workflowName = input.workflow?.name || '워크플로우'
+      if (content.valid === true) {
+        const warningCount = content.summary?.warningCount || 0
+        if (warningCount > 0) {
+          return `워크플로우 점검 완료 "${workflowName}" (경고 ${warningCount}개)`
+        } else {
+          return `워크플로우 점검 완료 "${workflowName}"`
+        }
+      } else {
+        const errorCount = content.summary?.errorCount || 0
+        return `워크플로우 점검 오류 "${workflowName}" (오류 ${errorCount}개)`
+      }
+    case 'n8n_create_workflow':
+      const workflowCreateName = content.data?.name || input.name || '워크플로우'
+      if (content.success === true) {
+        return `"${workflowCreateName}" 워크플로우 생성 완료`
+      } else {
+        return `"${workflowCreateName}" 워크플로우 생성 오류`
+      }
+    case 'n8n_update_full_workflow':
+      if (content.success === true) {
+        return `${input.workflow?.name || ''} 워크플로우 변경 완료`
+      } else {
+        return `${input.workflow?.name || ''} 워크플로우 변경 오류`
+      }
+    case 'n8n_delete_workflow':
+      if (content.success === true) {
+        return `워크플로우 삭제 완료`
+      } else {
+        return `워크플로우 삭제 오류`
+      }
+    case 'n8n_list_workflows':
+      return getListWorkflowCompleteMessage(input, content)
+    case 'n8n_get_workflow':
+      const workflowGetName = content.data?.name || ''
+      if (content.success === true) {
+        return `워크플로우 정보 확인 완료 "${workflowGetName}"`
+      } else {
+        return `워크플로우 정보 확인 오류`
+      }
+    default:
+      return `${toolName} 실행 완료`
+  }
+}
+
+// n8n_list_workflows 실행 완료 메시지
+const getListWorkflowCompleteMessage = (input: any, content: any): string => {
+  const tags = input.tags || []
+  const workflows = content.data?.workflows || content.workflows || []
+  const count = content.data?.returned || workflows.length
+  
+  let searchType = '워크플로우'
+  if (tags.length === 0) {
+    searchType = '내 워크플로우'
+  } else if (tags[0] === 'well_defined_node') {
+    searchType = '검증된 블록'
+  } else if (tags[0] === 'well_defined_workflow') {
+    searchType = '검증된 워크플로우'
+  }
+  
+  if (count > 0) {
+    return `${searchType} ${count}개 검색 완료`
+  } else {
+    return `${searchType} 결과 없음`
+  }
+}
+
+// 블록 접기/펼치기 (디버깅용 - 주석처리)
+// const toggleBlock = (event: Event) => {
+//   const header = event.currentTarget as HTMLElement
+//   const block = header.closest('.thinking-block, .tool-block')
+//   const content = block?.querySelector('.thinking-content, .tool-content')
+//   const toggle = block?.querySelector('.block-toggle')
+//   
+//   if (content && toggle) {
+//     content.classList.toggle('collapsed')
+//     toggle.textContent = content.classList.contains('collapsed') ? '▼' : '▲'
+//   }
+// }
 
 
 </script>
@@ -871,23 +1210,212 @@ const renderMarkdown = (text: string): string => {
 }
 
 .messages-inner {
-  max-width: 1000px;
+  max-width: 1040px;
   margin: 0 auto;
   width: 100%;
 }
 
 .message {
-  margin-bottom: 32px;
-  padding: 0 32px;
+  margin-bottom: 24px;
   animation: messageSlideIn 0.5s ease-out;
   opacity: 0;
   animation-fill-mode: forwards;
+}
+
+.message-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 /* 사용자 메시지 스타일 (오른쪽 정렬, 말풍선) */
 .message.user {
   display: flex;
   justify-content: flex-end;
+  padding: 0px;
+}
+
+.user-message-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 70%;
+}
+
+.user-message-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* 사용자 첨부파일 컨테이너 */
+.user-attachments-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* 이미지 행 (가로 정렬) */
+.image-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 파일 열 (세로 정렬) */
+.file-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+/* 이미지 썸네일 */
+.attachment-thumbnail.image {
+  width: 128px;
+  height: 128px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background: #f9fafb;
+}
+
+
+.attachment-thumbnail.image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 일반 파일 아이템 */
+.uploaded-file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  min-width: 200px;
+}
+
+
+.file-icon-container {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.file-icon-container.json {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+.file-icon-container.document {
+  background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+}
+
+.file-icon-container.workflow {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.file-icon-container .file-icon {
+  font-size: 16px;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-info .file-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-info .file-type {
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* 사용자 메시지의 uploaded-file-inline 스타일 */
+.user-attachments-container .uploaded-file-inline {
+  /* input-box와 동일한 스타일 유지 */
+  display: flex;
+  align-items: center;
+}
+
+/* 사용자 채팅 말풍선 */
+.user-bubble {
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 18px 18px 4px 18px;
+  padding: 12px 16px;
+  max-width: 500px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  animation: fadeInScale 0.3s ease-out;
+}
+
+.message-text {
+  font-size: 15px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.tool-result-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.tool-block-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* Tool Input/Result 섹션 스타일 */
+.tool-input-section,
+.tool-result-section {
+  margin-bottom: 12px;
+}
+
+.tool-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+/* Tool pending 상태 스타일 */
+.tool-pending-section {
+  margin-bottom: 12px;
+}
+
+.pending-indicator {
+  color: #6b7280;
+  font-style: italic;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
 }
 
 /* 사용자 메시지 컨테이너 */
@@ -898,7 +1426,7 @@ const renderMarkdown = (text: string): string => {
   max-width: 540px;
   width: fit-content;
   margin-left: auto;
-  margin-right: 70px;
+  margin-right: 122px;
   animation: fadeInScale 0.3s ease-out;
 }
 
@@ -937,7 +1465,9 @@ const renderMarkdown = (text: string): string => {
 /* AI 메시지 컨테이너 (왼쪽 정렬, 프로필 + 메시지) */
 .message.assistant {
   display: flex;
-  justify-content: flex-start;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 32px;
 }
 
 .ai-message-container {
@@ -948,21 +1478,28 @@ const renderMarkdown = (text: string): string => {
   align-items: flex-start;
 }
 
-.ai-message-container .message-content {
+/* 각 메시지 타입별 여백 */
+.thinking-message,
+.tool-message,
+.text-message {
+  margin-bottom: 24px;
+  max-width: 700px;
+}
+
+.message-content {
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 18px 18px 18px 4px;
-  padding: 16px 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  min-height: 52px;
-  min-width: 24rem;
-  max-width: 40rem; 
-  width: fit-content; /* 내용에 맞춰 조정하되 min/max 범위 내에서 */
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  padding: 8px 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   animation: fadeInScale 0.4s ease-out;
-  position: relative;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.message-content.streaming {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-color: #3b82f6;
 }
 
 /* 말풍선 꼬리 효과 */
@@ -999,7 +1536,6 @@ const renderMarkdown = (text: string): string => {
   gap: 4px;
   justify-self: center;
   min-width: 68px;
-  margin-top: 12px;
   animation: fadeInScale 0.5s ease-out;
 }
 
@@ -1026,7 +1562,6 @@ const renderMarkdown = (text: string): string => {
   font-size: var(--message-font-size);
   line-height: var(--message-line-height);
   color: var(--text-color);
-  padding-top: 4px;
 }
 
 .input-container {
@@ -1361,11 +1896,14 @@ const renderMarkdown = (text: string): string => {
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   border: 1px solid #cbd5e1;
   border-radius: 12px;
-  margin-bottom: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  width: 500px;
   animation: slideInFromLeft 0.4s ease-out;
+}
+
+.thinking-block.streaming {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
 }
 
 .thinking-header {
@@ -1400,8 +1938,7 @@ const renderMarkdown = (text: string): string => {
 }
 
 .thinking-content {
-  padding: 16px;
-  background: #f8fafc;
+  padding: 8px 16px;
   transition: max-height 0.3s ease-out, padding 0.3s ease-out;
   overflow: hidden;
 }
@@ -1558,21 +2095,69 @@ const renderMarkdown = (text: string): string => {
 }
 
 /* Tool 블록 스타일 */
-.tool-use-block {
+.tool-block {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   border: 1px solid #0891b2;
   border-radius: 12px;
-  margin: 12px 0;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(8, 145, 178, 0.1);
+  animation: slideInFromLeft 0.4s ease-out;
 }
 
 .tool-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
   color: white;
   padding: 10px 16px;
   font-weight: 500;
   font-size: 14px;
+  user-select: none;
+}
+
+.tool-header.completed {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.tool-icon {
+  font-size: 16px;
+}
+
+.tool-title {
+  flex: 1;
+}
+
+.tool-spinner {
+  animation: spin 2s linear infinite;
+  font-size: 14px;
+}
+
+.tool-status {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.block-toggle {
+  font-size: 12px;
+  transition: transform 0.3s ease;
+}
+
+.tool-content {
+  padding: 12px 16px;
+  background: #f0f9ff;
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  color: #0c4a6e;
+  transition: all 0.3s ease;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tool-content.collapsed {
+  max-height: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .tool-input {
@@ -1593,9 +2178,10 @@ const renderMarkdown = (text: string): string => {
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   border: 1px solid #22c55e;
   border-radius: 12px;
-  margin: 8px 0;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(34, 197, 94, 0.1);
+  max-width: 500px;
+  animation: slideInFromLeft 0.4s ease-out;
 }
 
 .tool-result-content {

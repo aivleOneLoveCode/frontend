@@ -376,13 +376,27 @@ export const useChatStore = defineStore('chat', {
             }
             this.messages.push(currentClaudeMessage)
           }
-          // tool_use 블록 추가 - 완성된 데이터로만
+          // tool_use 블록 추가 - 백엔드에서 보낸 input 사용
           currentClaudeMessage.content.push({
             type: 'tool_use',
             id: data.id || '',
             name: data.name || '',
-            input: {}  // 빈 객체로 시작, 나중에 완성된 데이터로 업데이트
+            input: data.input || {}  // 백엔드에서 보낸 input 사용
           })
+          
+          // tool 실행 중 상태를 나타내기 위해 임시 tool_result 생성 (실행 중 상태)
+          const pendingToolResult: Message = {
+            role: 'user',
+            content: [{
+              type: 'tool_result',
+              tool_use_id: data.id || '',
+              content: null,  // 아직 결과 없음
+              is_pending: true  // 실행 중 플래그
+            }]
+          }
+          this.messages.push(pendingToolResult)
+          console.log('DEBUG: pending tool_result created for tool:', data.name)
+          this.forceUpdate()  // 반응성 강제 업데이트
           break
         
         case 'tool_use_complete':
@@ -405,17 +419,41 @@ export const useChatStore = defineStore('chat', {
 
         case 'tool_result':
           console.log('DEBUG: tool_result received:', data)
-          // 새 user 메시지 생성하고 tool_result 블록 추가
-          const toolResultMessage: Message = {
-            role: 'user',
-            content: [{
-              type: 'tool_result',
-              tool_use_id: data.tool_use_id,
-              content: data.content
-            }]
+          // 기존 pending tool_result 찾아서 업데이트
+          let foundPending = false
+          for (let i = this.messages.length - 1; i >= 0; i--) {
+            const msg = this.messages[i]
+            if (msg.role === 'user' && msg.content) {
+              for (let j = 0; j < msg.content.length; j++) {
+                const content = msg.content[j]
+                if (content.type === 'tool_result' && 
+                    content.tool_use_id === data.tool_use_id && 
+                    content.is_pending) {
+                  // pending 상태를 완료 상태로 업데이트
+                  content.content = data.content
+                  content.is_pending = false
+                  foundPending = true
+                  break
+                }
+              }
+            }
+            if (foundPending) break
           }
-          this.messages.push(toolResultMessage)
-          console.log('DEBUG: tool_result message added, current isStreaming:', this.isStreaming)
+          
+          // pending을 찾지 못했으면 새로 생성 (호환성)
+          if (!foundPending) {
+            const toolResultMessage: Message = {
+              role: 'user',
+              content: [{
+                type: 'tool_result',
+                tool_use_id: data.tool_use_id,
+                content: data.content
+              }]
+            }
+            this.messages.push(toolResultMessage)
+          }
+          console.log('DEBUG: tool_result updated/added, current isStreaming:', this.isStreaming)
+          this.forceUpdate()  // 반응성 강제 업데이트
           break
 
         case 'session_id':
