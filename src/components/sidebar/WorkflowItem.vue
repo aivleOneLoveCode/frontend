@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useTranslation } from '@/utils/i18n'
 import { openDropdown, closeDropdown, isDropdownOpen, globalDropdownStyle } from '@/utils/dropdownManager'
 
@@ -77,16 +77,16 @@ const emit = defineEmits<{
 const { t } = useTranslation()
 
 // 전역 드롭다운 시스템 사용
-const dropdownId = computed(() => `workflow-${props.workflow.n8n_workflow_id}`)
+const dropdownId = computed(() => `workflow-${props.workflow.workflow_id}`)
 const showMenu = computed(() => isDropdownOpen(dropdownId.value))
 
 // 드래그 앤 드롭 관련
 const handleDragStart = (event: DragEvent) => {
   props.workflow.isDragging = true
   
-  // 올바른 필드명으로 드래그 데이터 생성 (JSON 데이터 포함)
+  // 백엔드 스키마에 맞는 드래그 데이터 생성
   const dragData = {
-    n8n_workflow_id: props.workflow.n8n_workflow_id,
+    workflow_id: props.workflow.workflow_id,
     name: props.workflow.name,
     project_id: props.workflow.project_id,
     status: props.workflow.status,
@@ -120,7 +120,7 @@ const handleCopy = () => {
 
 const handleDelete = () => {
   closeDropdown()
-  emit('delete', props.workflow.n8n_workflow_id)
+  emit('delete', props.workflow.workflow_id)
 }
 
 </script>

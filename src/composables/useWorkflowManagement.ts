@@ -1,6 +1,6 @@
 import { ref, onMounted } from 'vue'
 import type { WorkflowItem } from '../types'
-import { selectWorkflowGlobally, registerSelectionClearCallback, globalSelectedWorkflow, globalWorkflowPanelOpen } from '../utils/workflowSelection'
+import { registerSelectionClearCallback } from '../utils/workflowSelection'
 export function useWorkflowManagement() {
   const workflowPanelOpen = ref(false)
   const selectedWorkflow = ref<WorkflowItem | null>(null)
@@ -31,7 +31,8 @@ export function useWorkflowManagement() {
   ])
 
   const selectWorkflow = async (selectedItem: WorkflowItem) => {
-    await selectWorkflowGlobally(selectedItem)
+    selectedWorkflow.value = selectedItem
+    workflowPanelOpen.value = true
   }
 
   const clearLocalSelections = () => {
@@ -78,7 +79,7 @@ export function useWorkflowManagement() {
 
   const addWorkflow = (name: string, jsonData: any) => {
     const newWorkflow: WorkflowItem = {
-      n8n_workflow_id: `wf_${Date.now()}`,
+      workflow_id: `wf_${Date.now()}`,
       user_id: '1',
       project_id: null,
       name: name,
@@ -117,8 +118,8 @@ export function useWorkflowManagement() {
 
   return {
     workflowItems,
-    workflowPanelOpen: globalWorkflowPanelOpen,
-    selectedWorkflow: globalSelectedWorkflow,
+    workflowPanelOpen,
+    selectedWorkflow,
     workflowPanelWidth,
     isResizing,
     selectWorkflow,

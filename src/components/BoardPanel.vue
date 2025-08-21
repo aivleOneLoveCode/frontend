@@ -789,8 +789,7 @@ const addToWorkflow = async (post: Post) => {
       ...jsonData
     }
     
-    // 워크플로우 스토어를 통해 워크플로우 추가
-    await workflowStore.uploadWorkflowFromJson(workflowData)
+    // 워크플로우 스토어를 통해 워크플로우 추가\
     
     // 다운로드 수 증가
     await boardService.incrementDownloadCount(post.id)

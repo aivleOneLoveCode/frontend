@@ -10,7 +10,7 @@
     />
 
     <!-- 메인 컨텐츠 -->
-    <div class="main-content" :style="{ marginRight: (isAuthenticated && workflowPanelOpen) ? workflowPanelWidth + 'px' : '0px' }">
+    <div class="main-content" :style="{ marginRight: (isAuthenticated && workflowPanelOpen) ? workflowStore.workflowPanelWidth + 'px' : '0px' }">
       <!-- 헤더 -->
       <Header
         :isConnected="isBackendConnected"
@@ -30,8 +30,8 @@
     <WorkflowPanel
       v-if="isAuthenticated && workflowPanelOpen"
       :selectedWorkflow="selectedWorkflow as WorkflowItem"
-      :workflowPanelWidth="workflowPanelWidth"
-      @close-panel="closeWorkflowPanelGlobally"
+      :workflowPanelWidth="workflowStore.workflowPanelWidth"
+      @close-panel="workflowStore.closeWorkflowPanel"
       @start-resize="startResize"
     />
 
@@ -52,12 +52,13 @@ import Sidebar from '@/views/Sidebar.vue'
 import Header from '@/components/Header.vue'
 import WorkflowPanel from '@/components/WorkflowPanel.vue'
 import BoardPanel from '@/components/BoardPanel.vue'
-import { initializeWorkflowSelection, closeWorkflowPanelGlobally, globalSelectedWorkflow, globalWorkflowPanelOpen } from '@/utils/workflowSelection'
+import { useWorkflowStore } from '@/stores/workflow'
 import type { WorkflowItem } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore() // 백엔드 연결 확인용
+const workflowStore = useWorkflowStore()
 
 // 인증 상태
 const isAuthenticated = computed(() => authStore.isAuthenticated)
@@ -67,9 +68,9 @@ const isBackendConnected = ref(false)
 const backendStatus = ref('연결 중...')
 
 
-// 워크플로우 관련 상태 - 글로벌 상태와 연동
-const selectedWorkflow = globalSelectedWorkflow
-const workflowPanelOpen = globalWorkflowPanelOpen
+// 워크플로우 관련 상태 - 스토어 기반
+const selectedWorkflow = computed(() => workflowStore.selectedWorkflow)
+const workflowPanelOpen = computed(() => workflowStore.isWorkflowPanelOpen)
 // 화면 크기에 따른 기본 패널 너비 계산
 const getDefaultPanelWidth = () => {
   const screenWidth = window.innerWidth
@@ -89,7 +90,7 @@ const getDefaultPanelWidth = () => {
   }
 }
 
-const workflowPanelWidth = ref(getDefaultPanelWidth())
+// 패널 너비는 스토어에서 관리
 
 
 // UI 상태
@@ -128,7 +129,7 @@ const handleSelectWorkflow = (workflow: any) => {
 
 const startResize = (event: MouseEvent) => {
   const startX = event.clientX
-  const startWidth = workflowPanelWidth.value
+  const startWidth = workflowStore.workflowPanelWidth
   
   const handleMouseMove = (e: MouseEvent) => {
     const deltaX = startX - e.clientX // 왼쪽으로 드래그하면 증가
@@ -139,7 +140,7 @@ const startResize = (event: MouseEvent) => {
     const maxWidth = Math.min(screenWidth * 0.8, 1200) // 화면의 80% 또는 1200px 중 작은 값
     
     const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + deltaX))
-    workflowPanelWidth.value = newWidth
+    workflowStore.setWorkflowPanelWidth(newWidth)
   }
   
   const handleMouseUp = () => {
@@ -197,13 +198,13 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
 
 // 창 크기 변경 감지 및 패널 크기 재조정
 const handleResize = () => {
-  const currentWidth = workflowPanelWidth.value
+  const currentWidth = workflowStore.workflowPanelWidth
   const newDefaultWidth = getDefaultPanelWidth()
   const screenWidth = window.innerWidth
   
   // 현재 패널이 화면에 비해 너무 크면 조정
   if (currentWidth > screenWidth * 0.8) {
-    workflowPanelWidth.value = newDefaultWidth
+    workflowStore.setWorkflowPanelWidth(newDefaultWidth)
   }
 }
 
@@ -213,7 +214,7 @@ onMounted(async () => {
   window.addEventListener('resize', handleResize)
   
   // 워크플로우 선택 상태 초기화
-  initializeWorkflowSelection()
+  // 스토어 기반으로 변경되어 별도 초기화 불필요
   
   // 인증 상태 확인
   await authStore.checkAuthStatus()

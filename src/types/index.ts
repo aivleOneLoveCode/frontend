@@ -26,8 +26,8 @@ export interface ChatHistoryItem {
 
 // 백엔드 데이터베이스 스키마 그대로 사용
 export interface Project {
-  project_id: number
-  user_id: number
+  project_id: string  // UUID
+  user_id: string     // UUID
   name: string
   created_at: string
   updated_at: string
@@ -39,18 +39,17 @@ export interface Project {
 }
 
 export interface WorkflowItem {
-  n8n_workflow_id: string
-  user_id: string  // UUID 문자열
-  project_id: number | null  // null이면 비소속, 값이 있으면 소속
-  name: string
+  workflow_id: string          // UUID - 백엔드 메인 키
+  user_id?: string             // UUID
+  project_id: string | null    // UUID 또는 null (비소속)
+  name: string                 // 백엔드 메인 필드
   status: 'active' | 'inactive'  // 활성화 여부
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
   
   // UI 상태 추가
   active?: boolean  // UI 선택 상태 (status와는 다름)
   description?: string
-  n8nUrl?: string
   jsonData?: any
   isCustom?: boolean
   isRunning?: boolean  // UI 실행 표시 상태

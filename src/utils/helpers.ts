@@ -68,7 +68,7 @@ export const getPasswordStrength = (password: string): PasswordStrength => {
   
   let score = 0
   const checks = {
-    length: password.length >= 8,
+    length: password.length >= 10,
     lowercase: /[a-z]/.test(password),
     uppercase: /[A-Z]/.test(password),
     numbers: /[0-9]/.test(password),
@@ -93,6 +93,23 @@ export const getPasswordStrength = (password: string): PasswordStrength => {
   }
   
   return { score, level, message, checks }
+}
+
+// 비밀번호 유효성 검사 (필수 조건)
+export const validatePassword = (password: string): { isValid: boolean; message: string } => {
+  if (!password) {
+    return { isValid: false, message: '비밀번호를 입력해주세요.' }
+  }
+  
+  if (password.length < 10) {
+    return { isValid: false, message: '비밀번호는 10자 이상이어야 합니다.' }
+  }
+  
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { isValid: false, message: '특수문자를 포함해야 합니다.' }
+  }
+  
+  return { isValid: true, message: '사용 가능한 비밀번호입니다.' }
 }
 
 // 디바운스 함수
