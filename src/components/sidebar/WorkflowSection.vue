@@ -132,9 +132,10 @@ const createNewProject = async () => {
     try {
       await workflowStore.createProject(projectName.trim())
       // createProject가 이미 백엔드 요청하고 로컬 상태 업데이트함
-    } catch (error) {
+    } catch (error: any) {
       console.error('프로젝트 생성 실패:', error)
-      alert('프로젝트 생성에 실패했습니다.')
+      const errorMessage = error?.response?.data?.detail || error?.response?.data?.message || error?.message || '프로젝트 생성에 실패했습니다.'
+      alert(errorMessage)
     }
   }
 }
@@ -148,9 +149,28 @@ const selectProject = (project: Project) => {
 const toggleWorkflowRunning = async (workflow: WorkflowItem) => {
   try {
     await workflowStore.toggleWorkflowStatus(workflow.workflow_id)
-  } catch (error) {
+  } catch (error: any) {
     console.error('워크플로우 상태 변경 실패:', error)
-    alert('워크플로우 상태 변경에 실패했습니다.')
+    
+    // 에러 메시지 파싱
+    let errorMessage = '워크플로우 상태 변경에 실패했습니다.'
+    
+    // FastAPI는 detail 필드를 사용
+    const serverMessage = error?.response?.data?.detail || error?.response?.data?.message
+    
+    if (serverMessage) {
+      if (serverMessage.includes('no node to start the workflow') || serverMessage.includes('트리거 노드가 필요합니다')) {
+        errorMessage = `워크플로우를 활성화할 수 없습니다.\n트리거, 폴러 또는 웹훅 노드가 필요합니다.`
+      } else if (serverMessage.includes('trigger')) {
+        errorMessage = `워크플로우 시작 노드가 없습니다.\n트리거 노드를 추가해주세요.`
+      } else {
+        errorMessage = serverMessage
+      }
+    } else if (error?.message) {
+      errorMessage = error.message
+    }
+    
+    alert(errorMessage)
   }
 }
 
@@ -204,9 +224,10 @@ const handleProjectDrop = async (project: Project, event: DragEvent) => {
       if (workflowIndex > -1) {
         try {
           await workflowStore.assignWorkflowToProject(draggedWorkflow.workflow_id, project.project_id)
-        } catch (error) {
+        } catch (error: any) {
           console.error('워크플로우 이동 실패:', error)
-          alert('워크플로우 이동에 실패했습니다.')
+          const errorMessage = error?.response?.data?.detail || error?.response?.data?.message || error?.message || '워크플로우 이동에 실패했습니다.'
+          alert(errorMessage)
         }
       }
     } catch (e) {
@@ -244,9 +265,10 @@ const handleSectionDrop = async (event: DragEvent) => {
       if (workflowIndex > -1 && workflows.value[workflowIndex].project_id !== null) {
         try {
           await workflowStore.assignWorkflowToProject(draggedWorkflow.workflow_id, null)
-        } catch (error) {
+        } catch (error: any) {
           console.error('워크플로우 이동 실패:', error)
-          alert('워크플로우 이동에 실패했습니다.')
+          const errorMessage = error?.response?.data?.detail || error?.response?.data?.message || error?.message || '워크플로우 이동에 실패했습니다.'
+          alert(errorMessage)
         }
       }
     } catch (e) {
@@ -299,9 +321,10 @@ const renameWorkflow = async (workflow: WorkflowItem) => {
   if (newName && newName.trim()) {
     try {
       await workflowStore.updateWorkflowName(workflow.workflow_id, newName.trim())
-    } catch (error) {
+    } catch (error: any) {
       console.error('워크플로우 이름 변경 실패:', error)
-      alert('워크플로우 이름 변경에 실패했습니다.')
+      const errorMessage = error?.response?.data?.detail || error?.response?.data?.message || error?.message || '워크플로우 이름 변경에 실패했습니다.'
+      alert(errorMessage)
     }
   }
 }
@@ -322,9 +345,10 @@ const deleteWorkflow = async (workflowId: string) => {
     try {
       await workflowStore.deleteWorkflow(workflowId)
       // 스토어가 백엔드 요청하고 로컬 상태 업데이트함
-    } catch (error) {
+    } catch (error: any) {
       console.error('워크플로우 삭제 실패:', error)
-      alert('워크플로우 삭제에 실패했습니다.')
+      const errorMessage = error?.response?.data?.detail || error?.response?.data?.message || error?.message || '워크플로우 삭제에 실패했습니다.'
+      alert(errorMessage)
     }
   }
 }

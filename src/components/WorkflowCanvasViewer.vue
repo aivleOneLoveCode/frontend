@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, markRaw } from 'vue'
 import type { WorkflowItem } from '../types'
 import { workflowService } from '@/services/workflow'
 
@@ -62,9 +62,9 @@ import { Background } from '@vue-flow/background'
 import WorkflowCustomNode from './WorkflowCustomNode.vue'
 import type { NodeTypesObject } from '@vue-flow/core'
 
-// 커스텀 노드 타입 등록
+// 커스텀 노드 타입 등록 (markRaw로 reactive 방지)
 const nodeTypes: NodeTypesObject = {
-  custom: WorkflowCustomNode as any
+  custom: markRaw(WorkflowCustomNode)
 }
 
 interface Props {
