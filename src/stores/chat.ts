@@ -217,7 +217,7 @@ export const useChatStore = defineStore('chat', {
         session_id: this.currentSessionId
       }
 
-      const response = await fetch('http://localhost:8000/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -541,7 +541,7 @@ export const useChatStore = defineStore('chat', {
       try {
         const token = localStorage.getItem('auth_token')
         if (token && this.currentSessionId) {
-          await fetch(`http://localhost:8000/chat/stop/${this.currentSessionId}`, {
+          await fetch(`/api/chat/stop/${this.currentSessionId}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
