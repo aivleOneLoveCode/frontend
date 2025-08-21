@@ -39,91 +39,14 @@
   </div>
 
   <!-- 메시지 영역 -->
-  <div v-else ref="messagesContainer" class="messages">
+  <div v-else ref="messagesContainer" class="messages" @scroll="handleScroll" tabindex="0">
     <div class="messages-inner">
-      <div v-for="message in messages" 
-           :key="message.id"
-           :class="['message', message.type]">
-        <!-- 사용자 메시지: 아바타 없음, 오른쪽 정렬 -->
-        <div v-if="message.type === 'user'" class="message-content user-bubble">
-          <!-- 일반 메시지 (content blocks 처리) -->
-          <div v-if="message.content && Array.isArray(message.content)">
-            <div v-for="(block, idx) in message.content" :key="idx">
-              <div v-if="block.type === 'text'" v-html="renderMarkdown(block.text)"></div>
-              <div v-else-if="block.type === 'image'" class="message-image">
-                <img :src="`data:${block.source.media_type};base64,${block.source.data}`" alt="uploaded image" />
-              </div>
-              <div v-else-if="block.type === 'document'" class="message-document">
-                📄 PDF 문서가 업로드되었습니다
-              </div>
-            </div>
-          </div>
-          <!-- 일반 텍스트 (fallback) -->
-          <span v-else>{{ getMessageText(message) }}</span>
-          
-          <!-- 파일 표시 (사용자 메시지) -->
-          <div v-if="hasFiles(message)" class="message-files">
-            <div class="file-summary">
-              📎 {{ getMessageFiles(message).length }}개 파일 첨부됨
-            </div>
-          </div>
-        </div>
-
-        <!-- AI 메시지: 프로필 있음, 왼쪽 정렬 -->
-        <div v-else class="ai-message-container">
-          <div class="profile-section">
-            <!-- Thinking이나 Tool 메시지는 zzany 프로필 -->
-            <template v-if="message.isThinking !== undefined || message.isUsingTool !== undefined">
-              <img :src="zzanyProfile" alt="zzany" class="avatar-img" />
-              <span class="profile-name">짜니</span>
-            </template>
-            <!-- 일반 텍스트 메시지는 dany 프로필 -->
-            <template v-else>
-              <img :src="danyProfile" alt="dany" class="avatar-img" />
-              <span class="profile-name">다니</span>
-            </template>
-          </div>
-          <div class="message-content">
-            <!-- Tool 메시지 표시 (닫힌 채로 유지) -->
-            <div v-if="message.isUsingTool !== undefined" class="tool-block">
-              <div class="tool-header" @click="toggleToolBlock">
-                <span class="tool-icon">🔧</span>
-                <span class="tool-title">{{ message.isUsingTool ? '도구 실행 중' : '도구 실행 완료' }}</span>
-                <div v-if="message.isUsingTool" class="tool-spinner">⟳</div>
-                <div v-else class="tool-status">✓</div>
-                <span class="block-toggle">▲</span>
-              </div>
-              <div class="tool-content collapsed">
-                <div v-html="renderMarkdown((message.content && Array.isArray(message.content) && message.content[0] && message.content[0].text) || '')"></div>
-              </div>
-            </div>
-          
-            <!-- 스트리밍 메시지 -->
-            <div v-else-if="message.isStreaming" class="streaming-content">
-              <div v-html="renderMarkdown((message.content && Array.isArray(message.content) && message.content[0] && message.content[0].text) || '')"></div>
-            </div>
-            
-            <!-- 일반 메시지 (content blocks 처리) - 띵킹 메시지 포함 -->
-            <div v-else-if="message.content && Array.isArray(message.content)">
-              <div v-for="(block, idx) in message.content" :key="idx">
-                <div v-if="block.type === 'text'" v-html="renderMarkdown(block.text)"></div>
-                <div v-else-if="block.type === 'image'" class="message-image">
-                  <img :src="`data:${block.source.media_type};base64,${block.source.data}`" alt="uploaded image" />
-                </div>
-                <div v-else-if="block.type === 'document'" class="message-document">
-                  📄 PDF 문서가 업로드되었습니다
-                </div>
-              </div>
-            </div>
-            
-            <!-- 에러 메시지 -->
-            <div v-else-if="message.isError" class="error-message">
-              {{ getMessageText(message) }}
-            </div>
-            
-            <!-- 일반 텍스트 (fallback) -->
-            <span v-else>{{ getMessageText(message) }}</span>
-          </div>
+      <div v-for="(message, index) in messages" 
+           :key="index"
+           class="message">
+        <!-- 전체 메시지 JSON 출력 -->
+        <div class="message-debug">
+          <pre>{{ JSON.stringify(message, null, 2) }}</pre>
         </div>
       </div>
     </div>
@@ -131,71 +54,80 @@
 
   <!-- 입력 영역 -->
   <div class="input-container">
-    <!-- 업로드된 파일 표시 -->
-    <div v-if="uploadedFiles.length > 0" class="uploaded-files">
-      <div v-for="(file, index) in uploadedFiles" :key="index" class="uploaded-file">
-        <span class="file-icon">{{ getFileIcon(file.type) }}</span>
-        <span class="file-name">{{ file.name }}</span>
-        <span class="file-size">{{ formatFileSize(file.size) }}</span>
-        <button v-if="file.type === 'application/json'" class="share-file-btn" @click="$emit('share-file-to-board', file, index)" :title="'게시판에 공유'">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 3h18v18H3zM9 9h6v6H9z"/>
-            <path d="M9 3v6M15 3v6M21 9H15M21 15H15M9 15v6M15 15v6M3 9h6M3 15h6"/>
-          </svg>
-        </button>
-        <button class="remove-file-btn" @click="$emit('remove-uploaded-file', index)" :title="t('remove_file')">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="input-wrapper" 
+    <div class="input-box-container" 
          :class="{ 'drag-over': isDragging }"
          @dragenter="$emit('handle-drag-enter', $event)"
          @dragover="$emit('handle-drag-over', $event)"
          @dragleave="$emit('handle-drag-leave', $event)"
          @drop="$emit('handle-drop', $event)">
-      <div v-if="isDragging" class="drag-overlay">
-        📁 {{ t('drop_files_here') }}
-      </div>
+      
       <input type="file" @change="$emit('handle-file-upload', $event)" style="display: none;" ref="fileInput" multiple>
       
-      
-      <button class="file-upload-btn" :title="t('file_upload')" @click="fileInput?.click()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-        </svg>
-      </button>
-      <textarea 
-        ref="textareaRef"
-        :value="inputText"
-        @input="handleInput"
-        class="input-box"
-        :placeholder="t('enter_message')"
-        rows="1"
-        @keydown="$emit('handle-keydown', $event)"
-      ></textarea>
-      <button 
-        :class="['send-btn', { 'stop-btn': props.isProcessing }]" 
-        @click="props.isProcessing ? handleStopMessage() : handleSendMessage()" 
-        :disabled="!props.isProcessing && !inputText.trim()" 
-        :title="props.isProcessing ? '응답 중단' : t('send_message')">
-        <!-- 중단 아이콘 (AI 응답 중) -->
-        <svg v-if="props.isProcessing" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="6" y="6" width="12" height="12" rx="1"/>
-        </svg>
-        <!-- 전송 아이콘 (평상시) -->
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m5 12 7-7 7 7"/>
-          <path d="M12 19V5"/>
-        </svg>
-      </button>
+      <div class="input-box" :class="{ 'has-files': uploadedFiles.length > 0 }">
+        
+        <!-- 업로드된 파일들을 입력창 상단에 표시 -->
+        <div v-if="uploadedFiles.length > 0" class="uploaded-files-inline" contenteditable="false">
+          <div v-for="(file, index) in uploadedFiles" :key="index" class="uploaded-file-inline">
+            <span class="file-icon">{{ getFileIcon(file.type) }}</span>
+            <span class="file-name">{{ file.name }}</span>
+            <button v-if="file.type === 'application/json'" class="share-file-btn" @click="$emit('share-file-to-board', file, index)" :title="'게시판에 공유'">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3h18v18H3zM9 9h6v6H9z"/>
+                <path d="M9 3v6M15 3v6M21 9H15M21 15H15M9 15v6M15 15v6M3 9h6M3 15h6"/>
+              </svg>
+            </button>
+            <button class="remove-file-btn" @click="$emit('remove-uploaded-file', index)" :title="t('remove_file')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 하단 입력 영역 (첨부버튼 + 텍스트입력 + 전송버튼) -->
+        <div class="input-row">
+          <div class="input-left-btn">
+            <button class="file-upload-btn" :title="t('file_upload')" @click="fileInput?.click()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 텍스트 입력 영역 (contenteditable) -->
+          <div class="text-input-area" 
+               ref="textareaRef"
+               contenteditable="true"
+               :data-placeholder="!inputText.trim() ? t('enter_message') : ''"
+               @input="handleInput"
+               @keydown="$emit('handle-keydown', $event)">
+          </div>
+
+          <div class="input-right-btn">
+            <button 
+              :class="['send-btn', { 'stop-btn': props.isProcessing && !props.isStopRequested }]" 
+              @click="props.isProcessing && !props.isStopRequested ? handleStopMessage() : handleSendMessage()" 
+              :disabled="(props.isProcessing && props.isStopRequested) || (!props.isProcessing && (!props.canSendMessage || (!props.inputText.trim() && uploadedFiles.length === 0)))" 
+              :title="props.isProcessing && !props.isStopRequested ? '응답 중단' : t('send_message')">
+              <!-- 중단 아이콘 (메시지 전송중이고 아직 중단 요청 안됨) -->
+              <svg v-if="props.isProcessing && !props.isStopRequested" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="1"/>
+              </svg>
+              <!-- 전송 아이콘 (평상시 또는 중단 요청됨) -->
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m5 12 7-7 7 7"/>
+                <path d="M12 19V5"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="isDragging" class="drag-overlay">
         📁 {{ t('drop_files_here') }}
       </div>
     </div>
+    
     <div class="disclaimer">
       {{ t('disclaimer') }}
     </div>
@@ -203,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch, onMounted } from 'vue'
+import { ref, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { useTranslation } from '@/utils/i18n'
 import zzanyProfileImg from '@/assets/profile/zzany.png'
 import danyProfileImg from '@/assets/profile/dany.png'
@@ -224,15 +156,8 @@ interface ExampleWorkflow {
 }
 
 interface Message {
-  id: number
-  type: 'user' | 'assistant'
+  role: 'user' | 'assistant'
   content: any[]
-  timestamp: Date
-  isError?: boolean
-  isStreaming?: boolean
-  isThinking?: boolean
-  isUsingTool?: boolean
-  streamingText?: string
 }
 
 import type { UploadedFile } from '../types'
@@ -246,6 +171,8 @@ const props = defineProps<{
   formatFileSize: (size: number) => string
   getFileIcon: (type: string) => string
   isProcessing?: boolean
+  isStopRequested?: boolean
+  canSendMessage?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -267,17 +194,23 @@ const textareaRef = ref<HTMLTextAreaElement>()
 const messagesContainer = ref<HTMLDivElement>()
 const { t } = useTranslation()
 
+// 스마트 스크롤 상태 관리
+const isUserScrolling = ref(false)
+const scrollThrottleTimeout = ref<number | null>(null)
+const lastMessagesLength = ref(0)
+const isInitialRender = ref(true)
+
 // 자동 리사이징 기능 (HTML과 동일)
 const autoResizeTextarea = () => {
   nextTick(() => {
     const textarea = textareaRef.value
     if (textarea) {
       textarea.style.height = 'auto'
-      const newHeight = Math.min(textarea.scrollHeight, 200)
+      const newHeight = Math.min(textarea.scrollHeight, 400)
       textarea.style.height = newHeight + 'px'
       
       // 최대 높이에 도달했을 때 스크롤 표시
-      if (textarea.scrollHeight > 200) {
+      if (textarea.scrollHeight > 400) {
         textarea.style.overflowY = 'auto'
       } else {
         textarea.style.overflowY = 'hidden'
@@ -286,16 +219,19 @@ const autoResizeTextarea = () => {
   })
 }
 
-// input 핸들러
+// contenteditable input 핸들러
 const handleInput = (event: Event) => {
-  const target = event.target as HTMLTextAreaElement
-  emit('update:input-text', target.value)
+  const target = event.target as HTMLDivElement
+  const text = target.textContent || ''
+  emit('update:input-text', text)
   autoResizeTextarea()
 }
 
 // 메시지 전송 핸들러
 const handleSendMessage = () => {
   emit('send-message')
+  // 메시지 전송 시 강제로 맨 아래 스크롤
+  forceScrollToBottom()
   // 포커스만 처리 (초기화는 부모에서 처리)
   nextTick(() => {
     if (textareaRef.value) {
@@ -311,14 +247,68 @@ const handleStopMessage = () => {
 }
 
 // inputText 변경 감지
-watch(() => props.inputText, () => {
+watch(() => props.inputText, (newValue) => {
+  // contenteditable div의 내용 업데이트
+  if (textareaRef.value && textareaRef.value.textContent !== newValue) {
+    textareaRef.value.textContent = newValue
+  }
   autoResizeTextarea()
 })
 
-// 메시지 영역을 맨 아래로 스크롤
-const scrollToBottom = () => {
+// 스크롤이 맨 아래에 있는지 확인
+const isScrolledToBottom = (): boolean => {
+  if (!messagesContainer.value) return true
+  const container = messagesContainer.value
+  const threshold = 100 // 100px 정도 여유를 둠
+  return container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
+}
+
+// 스크롤 이벤트 핸들러 (즉각 반응 + 스로틀링)
+const handleScroll = () => {
+  // 즉시 사용자 스크롤 상태 업데이트 (실시간 반응)
+  const isAtBottom = isScrolledToBottom()
+  isUserScrolling.value = !isAtBottom
+  
+  // 스로틀링으로 성능 최적화 (상태 안정화)
+  if (scrollThrottleTimeout.value) {
+    clearTimeout(scrollThrottleTimeout.value)
+  }
+  
+  scrollThrottleTimeout.value = window.setTimeout(() => {
+    isUserScrolling.value = !isScrolledToBottom()
+    scrollThrottleTimeout.value = null
+  }, 50) // 150ms → 50ms로 줄여서 더 빠른 반응
+}
+
+// 메시지 영역을 맨 아래로 스크롤 (스마트 스크롤)
+const scrollToBottom = (immediate = false) => {
+  nextTick(() => {
+    if (messagesContainer.value && !isUserScrolling.value) {
+      messagesContainer.value.scrollTo({
+        top: messagesContainer.value.scrollHeight,
+        behavior: immediate ? 'instant' : 'smooth'
+      })
+    }
+  })
+}
+
+// 즉시 맨 아래로 스크롤 (애니메이션 없음)
+const scrollToBottomInstant = () => {
+  // DOM 렌더링이 완전히 끝날 때까지 기다린 후 스크롤
+  nextTick(() => {
+    setTimeout(() => {
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      }
+    }, 0)
+  })
+}
+
+// 메시지 전송 시 강제로 맨 아래 스크롤
+const forceScrollToBottom = () => {
   nextTick(() => {
     if (messagesContainer.value) {
+      isUserScrolling.value = false // 사용자 스크롤 상태 재설정
       messagesContainer.value.scrollTo({
         top: messagesContainer.value.scrollHeight,
         behavior: 'smooth'
@@ -327,16 +317,66 @@ const scrollToBottom = () => {
   })
 }
 
+// 사용자 인터랙션 감지 (즉시 제어권 가져가기)
+const handleUserInteraction = () => {
+  if (!isScrolledToBottom()) {
+    isUserScrolling.value = true
+  }
+}
+
 // 초기 로드 시 실행
 onMounted(() => {
   autoResizeTextarea()
-  scrollToBottom()
+  
+  // 이벤트 리스너들 추가
+  if (messagesContainer.value) {
+    messagesContainer.value.addEventListener('scroll', handleScroll, { passive: true })
+    messagesContainer.value.addEventListener('wheel', handleUserInteraction, { passive: true })
+    messagesContainer.value.addEventListener('touchstart', handleUserInteraction, { passive: true })
+    messagesContainer.value.addEventListener('keydown', handleUserInteraction, { passive: true })
+  }
 })
 
 // 메시지 변화 감지해서 스크롤
-watch(() => props.messages, () => {
-  scrollToBottom()
-}, { deep: true })
+watch(() => props.messages, (newMessages, oldMessages) => {
+  const currentLength = newMessages.length
+  
+  // 첫 렌더링이거나 메시지가 크게 변화한 경우 (세션 전환)
+  const isDramaticChange = Math.abs(currentLength - lastMessagesLength.value) > 1 || currentLength === 0
+  const isNewSession = isInitialRender.value || isDramaticChange
+  
+  if (isNewSession) {
+    // 세션 전환이나 초기 로드시에는 즉시 스크롤
+    scrollToBottomInstant()
+    isInitialRender.value = false
+  } else {
+    // 실시간 스트리밍 중에는 스마트 스크롤 (1개씩 증가하는 경우)
+    scrollToBottom()
+  }
+  
+  lastMessagesLength.value = currentLength
+}, { deep: true, immediate: true })
+
+// showWelcome 변화 감지 (새 채팅 시작)
+watch(() => props.showWelcome, (newVal, oldVal) => {
+  if (oldVal === true && newVal === false) {
+    // Welcome에서 채팅으로 전환되는 순간
+    isInitialRender.value = true
+  }
+})
+
+// cleanup
+onUnmounted(() => {
+  if (messagesContainer.value) {
+    messagesContainer.value.removeEventListener('scroll', handleScroll)
+    messagesContainer.value.removeEventListener('wheel', handleUserInteraction)
+    messagesContainer.value.removeEventListener('touchstart', handleUserInteraction)
+    messagesContainer.value.removeEventListener('keydown', handleUserInteraction)
+  }
+  if (scrollThrottleTimeout.value) {
+    clearTimeout(scrollThrottleTimeout.value)
+  }
+})
 
 // n8n 자동화 워크플로우 예시
 const exampleWorkflows: ExampleWorkflow[] = [
@@ -403,6 +443,7 @@ const getWorkflowIcon = (category: string): string => {
   return icons[category] || '⚡'
 }
 
+
 // HTML과 동일한 addExampleWorkflow 함수
 const addExampleWorkflow = (workflow: ExampleWorkflow) => {
   // 워크플로우 예시 클릭 시 채팅 입력창에 질문 채우기 (자동 전송 안함)
@@ -463,18 +504,6 @@ const renderMarkdown = (text: string): string => {
 }
 
 
-// 접기/펼치기 함수들
-const toggleToolBlock = (event: Event) => {
-  const header = event.currentTarget as HTMLElement
-  const block = header.closest('.tool-block')
-  const content = block?.querySelector('.tool-content') as HTMLElement
-  const toggle = block?.querySelector('.block-toggle') as HTMLElement
-  
-  if (content && toggle) {
-    content.classList.toggle('collapsed')
-    toggle.classList.toggle('collapsed')
-  }
-}
 </script>
 
 <style scoped>
@@ -595,15 +624,17 @@ const toggleToolBlock = (event: Event) => {
 .chat-container {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 20px;
+  padding-top: 60px;
 }
 
 .welcome-area {
   text-align: center;
   max-width: 1200px;
   animation: fadeInScale 0.8s ease-out;
+  padding-top: 100px;
 }
 
 .logo-container {
@@ -707,6 +738,7 @@ const toggleToolBlock = (event: Event) => {
   gap: 20px;
   position: relative;
   overflow: hidden;
+  z-index: 10;
 }
 
 .example-workflow::before {
@@ -835,10 +867,11 @@ const toggleToolBlock = (event: Event) => {
   width: 100%;
   padding: 20px;
   overflow-y: auto;
+  outline: none; /* 키보드 포커스 시 outline 제거 */
 }
 
 .messages-inner {
-  max-width: 64rem; /* 1024px */
+  max-width: 1000px;
   margin: 0 auto;
   width: 100%;
 }
@@ -857,17 +890,48 @@ const toggleToolBlock = (event: Event) => {
   justify-content: flex-end;
 }
 
-.user-bubble {
+/* 사용자 메시지 컨테이너 */
+.user-message-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 540px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: 70px;
+  animation: fadeInScale 0.3s ease-out;
+}
+
+/* 일반 사용자 텍스트 메시지 스타일 */
+.user-text-message {
   background: var(--message-bg-user, #007bff);
-  color: white;
   border-radius: 18px 18px 4px 18px;
   padding: 14px 18px;
-  max-width: 75%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   word-wrap: break-word;
   font-size: 15px;
   line-height: 1.5;
-  animation: fadeInScale 0.3s ease-out;
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* 디버그용 메시지 스타일 */
+.message-debug {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.message-debug pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 /* AI 메시지 컨테이너 (왼쪽 정렬, 프로필 + 메시지) */
@@ -880,7 +944,7 @@ const toggleToolBlock = (event: Event) => {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 16px;
-  max-width: 90%;
+  max-width: 100%;
   align-items: flex-start;
 }
 
@@ -966,68 +1030,134 @@ const toggleToolBlock = (event: Event) => {
 }
 
 .input-container {
-  position: sticky;
-  bottom: 0;
   background: var(--bg-color);
-  padding: 24px;
-  border-top: 1px solid var(--border-color);
+  padding: 0;
+  margin: 0;
   z-index: 100;
-  margin-top: 50px;
 }
 
-.input-wrapper {
-  max-width: 64rem; /* 1024px */
+.input-box-container {
+  max-width: 780px;
   width: 100%;
   margin: 0 auto;
-  position: relative;
 }
 
 .input-box {
-  width: 100%;
-  min-height: 52px;
-  max-height: 200px;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: 24px;
-  padding: 12px 56px 12px 50px;
-  font-size: 16px;
-  line-height: 1.5;
-  resize: none;
+  padding: 8px;
+  max-height: 100%;
+}
+
+
+
+/* 인라인 첨부파일 스타일 */
+.uploaded-files-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 0;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.input-left-btn,
+.input-right-btn {
+  flex-shrink: 0;
+}
+
+.text-input-area {
+  flex: 1;
+  min-height: 28px;
   outline: none;
-  font-family: inherit;
+  padding: 4px 8px;
+}
+
+.uploaded-file-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--panel-bg, #f3f4f6);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  font-size: 12px;
   color: var(--text-color);
-  box-shadow: var(--shadow-sm);
   transition: all 0.2s;
-  overflow-y: hidden;
+  user-select: none;
+  pointer-events: auto;
 }
 
-.input-box:focus {
-  border-color: var(--input-focus) !important;
-  box-shadow: var(--shadow-focus) !important;
-  outline: none !important;
+.uploaded-file-inline:hover {
+  background: var(--panel-hover, #f9fafb);
 }
 
-.input-box::placeholder {
+.uploaded-file-inline .file-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.uploaded-file-inline .file-name {
+  font-weight: 500;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploaded-file-inline .file-size {
+  font-size: 10px;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
-.file-upload-btn {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
-  width: 32px;
-  height: 32px;
-  background: transparent;
+.uploaded-file-inline .share-file-btn,
+.uploaded-file-inline .remove-file-btn {
+  background: none;
   border: none;
-  border-radius: 16px;
-  color: var(--text-muted);
   cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  font-size: 16px;
-  z-index: 10;
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.uploaded-file-inline .share-file-btn:hover {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.uploaded-file-inline .remove-file-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+
+.text-input-area:empty:before,
+.text-input-area[data-placeholder]:before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+  position: absolute;
+}
+
+.file-upload-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .file-upload-btn:hover {
@@ -1036,42 +1166,29 @@ const toggleToolBlock = (event: Event) => {
 }
 
 .send-btn {
-  position: absolute;
-  right: 12px;
-  bottom: 10px;
-  width: 32px;
-  height: 32px;
-  background: #2d2d2d !important;
+  background: #2d2d2d;
   border: none;
-  border-radius: 50%;
-  color: white !important;
+  color: white;
   cursor: pointer;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  font-size: 14px;
-  z-index: 100 !important;
 }
 
 .send-btn:hover {
-  background: #1a1a1a !important;
+  background: #1a1a1a;
 }
 
 /* 중단 버튼 (processing 상태) 빨간색 스타일 */
 .send-btn.stop-btn {
-  background: #dc2626 !important;
+  background: #dc2626;
 }
 
 .send-btn.stop-btn:hover {
-  background: #b91c1c !important;
+  background: #b91c1c;
 }
 
 .send-btn svg {
-  color: white !important;
-  stroke: white !important;
-  fill: none !important;
-  z-index: 101 !important;
+  color: white;
+  stroke: white;
+  fill: none;
 }
 
 .send-btn:disabled {
@@ -1079,22 +1196,17 @@ const toggleToolBlock = (event: Event) => {
   cursor: not-allowed;
 }
 
-.input-wrapper.drag-over {
+.input-box-container.drag-over {
   border-color: #67bdc6;
   background: #f0fdf4;
 }
 
-.input-wrapper.drag-over .input-box {
+.input-box-container.drag-over .input-box {
   border-color: #67bdc6;
   background: #f0fdf4;
 }
 
 .drag-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
   background: rgba(16, 163, 127, 0.1);
   border: 2px dashed #67bdc6;
   border-radius: 24px;
@@ -1104,7 +1216,6 @@ const toggleToolBlock = (event: Event) => {
   color: #67bdc6;
   font-size: 14px;
   font-weight: 500;
-  z-index: 10;
   pointer-events: none;
 }
 
@@ -1112,15 +1223,13 @@ const toggleToolBlock = (event: Event) => {
   text-align: center;
   font-size: 12px;
   color: #9ca3af;
-  margin-top: 12px;
-  max-width: 64rem; /* 1024px */
-  margin-left: auto;
-  margin-right: auto;
+  margin: 7px auto;
+  max-width: 780px;
 }
 
 /* 업로드된 파일 표시 스타일 */
 .uploaded-files {
-  max-width: 64rem; /* 1024px */
+  max-width: 1000px;
   width: 100%;
   margin: 0 auto 16px;
   display: flex;
@@ -1211,9 +1320,6 @@ const toggleToolBlock = (event: Event) => {
 }
 
 .share-all-files-btn {
-  position: absolute;
-  left: -45px;
-  bottom: 75px;
   width: 32px;
   height: 32px;
   background: #10b981;
@@ -1225,7 +1331,6 @@ const toggleToolBlock = (event: Event) => {
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  z-index: 10;
 }
 
 .share-all-files-btn:hover {
@@ -1238,9 +1343,6 @@ const toggleToolBlock = (event: Event) => {
 }
 
 .file-count-badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
   background: #ef4444;
   color: white;
   border-radius: 50%;
@@ -1310,15 +1412,6 @@ const toggleToolBlock = (event: Event) => {
   padding-bottom: 0;
 }
 
-.block-toggle {
-  font-size: 14px;
-  transition: transform 0.2s;
-  margin-left: auto;
-}
-
-.block-toggle.collapsed {
-  transform: rotate(-90deg);
-}
 
 .thinking-text {
   font-size: 13px;
@@ -1330,118 +1423,7 @@ const toggleToolBlock = (event: Event) => {
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
-/* Tool Usage 표시 스타일 */
-.tool-block {
-  background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 20%, #f59e0b 100%);
-  border: 1px solid #d97706;
-  border-radius: 12px;
-  margin-bottom: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  width: 500px;
-  animation: slideInFromLeft 0.4s ease-out;
-}
 
-.tool-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-  font-weight: 500;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-  justify-content: space-between;
-}
-
-.tool-header:hover {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-}
-
-.tool-header.completed {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-.tool-icon {
-  font-size: 16px;
-}
-
-.tool-title {
-  flex: 1;
-  font-size: 14px;
-}
-
-.tool-spinner {
-  animation: spin 1.5s linear infinite;
-  font-size: 14px;
-}
-
-.tool-status {
-  font-size: 14px;
-}
-
-.tool-status.error {
-  color: #ef4444;
-}
-
-.tool-content {
-  padding: 16px;
-  background: #fffbeb;
-  font-size: 13px;
-  line-height: 1.5;
-  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
-  overflow: hidden;
-}
-
-.tool-content.collapsed {
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-.tool-input,
-.tool-result,
-.tool-error {
-  margin-bottom: 8px;
-  padding: 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.tool-error {
-  background: rgba(254, 226, 226, 0.8);
-  border: 1px solid #fca5a5;
-  color: #dc2626;
-}
-
-.tool-input strong,
-.tool-result strong,
-.tool-error strong {
-  color: #374151;
-  display: block;
-  margin-bottom: 4px;
-}
-
-/* 완료된 도구들 표시 */
-.completed-tools {
-  margin-bottom: 16px;
-}
-
-.completed-tool {
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  border: 1px solid #10b981;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  overflow: hidden;
-}
-
-.tool-summary {
-  padding: 8px 16px;
-  font-size: 12px;
-  color: #059669;
-  background: #ecfdf5;
-}
 
 /* 스피너 애니메이션 */
 @keyframes spin {
@@ -1573,5 +1555,60 @@ const toggleToolBlock = (event: Event) => {
 
 .message-content :deep(a:hover) {
   color: #1d4ed8;
+}
+
+/* Tool 블록 스타일 */
+.tool-use-block {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #0891b2;
+  border-radius: 12px;
+  margin: 12px 0;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(8, 145, 178, 0.1);
+}
+
+.tool-header {
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  color: white;
+  padding: 10px 16px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.tool-input {
+  padding: 12px 16px;
+  background: #f0f9ff;
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  color: #0c4a6e;
+}
+
+.tool-input pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.tool-result-block {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #22c55e;
+  border-radius: 12px;
+  margin: 8px 0;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(34, 197, 94, 0.1);
+}
+
+.tool-result-content {
+  padding: 12px 16px;
+  background: #f0fdf4;
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  color: #15803d;
+}
+
+.tool-result-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 </style>

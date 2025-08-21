@@ -5,15 +5,8 @@ import { FileUploadService, type UploadedFile } from '@/services/fileUpload'
 import { useWorkflowStore } from './workflow'
 
 interface Message {
-  id: number
-  type: 'user' | 'assistant'
-  content: any[] // Claude content blocks 형태
-  timestamp: Date
-  isError?: boolean
-  isStreaming?: boolean
-  isThinking?: boolean
-  isUsingTool?: boolean
-  streamingText?: string
+  role: 'user' | 'assistant'
+  content: any[] // Claude content blocks 형태 
 }
 
 interface ChatHistory {
@@ -47,6 +40,9 @@ interface ChatState {
   currentToolExecution: ToolExecution | null
   toolExecutions: ToolExecution[]
   uploadedFiles: UploadedFile[]
+  updateThrottleId: number | null
+  abortController: AbortController | null
+  isStopRequested: boolean
 }
 
 export const useChatStore = defineStore('chat', {
@@ -63,7 +59,10 @@ export const useChatStore = defineStore('chat', {
     isUsingTool: false,
     currentToolExecution: null,
     toolExecutions: [],
-    uploadedFiles: []
+    uploadedFiles: [],
+    updateThrottleId: null,
+    abortController: null,
+    isStopRequested: false
   }),
 
   getters: {
@@ -85,7 +84,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     canSendMessage: (state): boolean => {
-      return !state.isLoading && !state.isStreaming
+      return !state.isLoading && !state.isStreaming && !state.isStopRequested
     },
 
     isProcessing: (state): boolean => {
@@ -94,6 +93,17 @@ export const useChatStore = defineStore('chat', {
   },
 
   actions: {
+    // Vue 반응성 강제 업데이트 (스로틀링됨)
+    forceUpdate() {
+      if (this.updateThrottleId) {
+        cancelAnimationFrame(this.updateThrottleId)
+      }
+      this.updateThrottleId = requestAnimationFrame(() => {
+        this.messages = [...this.messages]
+        this.updateThrottleId = null
+      })
+    },
+
     // 세션 목록 로드
     async loadSessions() {
       try {
@@ -127,8 +137,8 @@ export const useChatStore = defineStore('chat', {
         const sessionIndex = this.sessions.findIndex(s => s.session_id === sessionId)
         
         if (sessionIndex !== -1) {
-          this.sessions[sessionIndex].messages = this.convertBackendMessages(sessionData.messages)
-          this.messages = [...this.sessions[sessionIndex].messages]
+          this.sessions[sessionIndex].messages = sessionData.messages
+          this.messages = sessionData.messages
         }
       } catch (error) {
         console.error('세션 선택 실패:', error)
@@ -142,6 +152,7 @@ export const useChatStore = defineStore('chat', {
       this.currentSessionId = null
       this.messages = []
       this.uploadedFiles = []
+      this.isStopRequested = false
       
       // 모든 세션의 active 상태 초기화
       this.sessions.forEach(session => {
@@ -157,10 +168,8 @@ export const useChatStore = defineStore('chat', {
       try {
         // 사용자 메시지를 화면에 먼저 표시
         const userMessage: Message = {
-          id: Date.now(),
-          type: 'user',
-          content: FileUploadService.createContentBlocks(text, files),
-          timestamp: new Date()
+          role: 'user',
+          content: FileUploadService.createContentBlocks(text, files)
         }
         this.messages.push(userMessage)
         this.uploadedFiles = [] // 파일 목록 초기화
@@ -177,30 +186,28 @@ export const useChatStore = defineStore('chat', {
           }
         }
 
-        // 임시프론트와 동일한 방식으로 스트리밍 요청
+        // AbortController 생성 및 스트리밍 요청
+        this.abortController = new AbortController()
         this.isStreaming = true
         await this.streamChatLikeTemp(content)
 
       } catch (error) {
         console.error('메시지 전송 실패:', error)
         
-        // 에러 메시지 표시
-        const errorMessage: Message = {
-          id: Date.now() + 2,
-          type: 'assistant',
-          content: [{ type: 'text', text: '죄송합니다. 메시지 전송 중 오류가 발생했습니다.' }],
-          timestamp: new Date(),
-          isError: true
+        // 사용자가 중단한 경우가 아닌 실제 에러인 경우에만 에러 메시지 표시
+        if (error instanceof Error && error.name !== 'AbortError') {
+          const errorMessage: Message = {
+            role: 'assistant',
+            content: [{ type: 'text', text: '죄송합니다. 메시지 전송 중 오류가 발생했습니다.' }]
+          }
+          this.messages.push(errorMessage)
+        } else if (error instanceof Error && error.name === 'AbortError') {
+          console.log('DEBUG: Request was aborted by user')
         }
-        this.messages.push(errorMessage)
       } finally {
         this.isStreaming = false
-        this.streamingMessage = null
-        this.isThinking = false
-        this.thinkingText = ''
-        this.isUsingTool = false
-        this.currentToolExecution = null
-        this.toolExecutions = []
+        this.abortController = null
+        this.isStopRequested = false
       }
     },
 
@@ -223,7 +230,8 @@ export const useChatStore = defineStore('chat', {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: this.abortController?.signal
       })
 
       if (!response.ok) {
@@ -239,11 +247,16 @@ export const useChatStore = defineStore('chat', {
       let currentClaudeMessage: Message | null = null
       let currentThinkingElement: any = null
       let currentToolBlocks = new Map()
+      
+      console.log('DEBUG: Starting new stream, currentClaudeMessage reset to null')
 
       try {
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done) {
+            console.log('DEBUG: Stream ended normally')
+            break
+          }
           
           const chunk = decoder.decode(value)
           const lines = chunk.split('\n')
@@ -252,127 +265,157 @@ export const useChatStore = defineStore('chat', {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
+                console.log('DEBUG: Stream event:', data.type)
                 currentClaudeMessage = this.handleTempStyleStreamEvent(data, currentClaudeMessage, currentThinkingElement, currentToolBlocks)
               } catch (error) {
+                console.log('DEBUG: JSON parse error:', error, 'line:', line)
                 // JSON parse error - skip line
               }
             }
           }
         }
+      } catch (error) {
+        console.log('DEBUG: Stream reading error:', error)
+        // AbortError인 경우 다시 throw하지 않음 (정상적인 중단)
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('DEBUG: Stream was aborted by user')
+        } else {
+          throw error
+        }
       } finally {
+        console.log('DEBUG: Stream reader released')
         reader.releaseLock()
+        this.isStreaming = false
+        console.log('DEBUG: isStreaming set to false')
       }
     },
 
-    // 임시프론트 스타일의 스트림 이벤트 처리
+    // 백엔드 구조에 맞는 스트림 이벤트 처리
     handleTempStyleStreamEvent(data: any, currentClaudeMessage: Message | null, currentThinkingElement: any, currentToolBlocks: Map<string, any>): Message | null {
       switch (data.type) {
         case 'thinking_start':
-          // 새 thinking 블록 생성
-          const thinkingMessage: Message = {
-            id: Date.now() + Math.random(),
-            type: 'assistant',
-            content: [{ type: 'text', text: '' }],
-            timestamp: new Date(),
-            isStreaming: false,
-            isThinking: true
+          console.log('DEBUG: thinking_start - currentClaudeMessage is null?', currentClaudeMessage === null)
+          // 항상 새로운 assistant 메시지 생성 (이전 메시지 재사용 방지)
+          if (!currentClaudeMessage) {
+            currentClaudeMessage = {
+              role: 'assistant',
+              content: []
+            }
+            this.messages.push(currentClaudeMessage)
+            console.log('DEBUG: New Claude message created for thinking, total messages:', this.messages.length)
+          } else {
+            console.log('DEBUG: ERROR - currentClaudeMessage should be null at start of new stream!')
+            // 강제로 새 메시지 생성
+            currentClaudeMessage = {
+              role: 'assistant',
+              content: []
+            }
+            this.messages.push(currentClaudeMessage)
+            console.log('DEBUG: Forced new Claude message creation, total messages:', this.messages.length)
           }
-          this.messages.push(thinkingMessage)
-          this.isThinking = true
-          this.thinkingText = ''
+          // thinking 블록 추가
+          currentClaudeMessage.content.push({ type: 'thinking', thinking: '' })
+          console.log('DEBUG: Thinking block added, content blocks:', currentClaudeMessage.content.length)
           break
 
         case 'thinking_delta':
-          if (data.text) {
-            this.thinkingText += data.text
-            // 가장 최근 thinking 메시지 업데이트
-            const lastThinkingMessage = [...this.messages].reverse().find(m => m.isThinking)
-            if (lastThinkingMessage && Array.isArray(lastThinkingMessage.content)) {
-              lastThinkingMessage.content[0].text = this.thinkingText
+          if (data.text && currentClaudeMessage) {
+            // 현재 메시지의 가장 최근 thinking 블록 찾아서 업데이트
+            for (let i = currentClaudeMessage.content.length - 1; i >= 0; i--) {
+              if (currentClaudeMessage.content[i].type === 'thinking') {
+                currentClaudeMessage.content[i].thinking += data.text
+                break
+              }
             }
+            // Vue 반응성을 위한 스로틀링된 업데이트
+            this.forceUpdate()
           }
           break
 
         case 'thinking_stop':
-          this.isThinking = false
-          // thinking 메시지를 완료 상태로 표시
-          const completedThinkingMessage = [...this.messages].reverse().find(m => m.isThinking)
-          if (completedThinkingMessage) {
-            completedThinkingMessage.isThinking = false
-          }
+          // thinking 완료 - 추가 처리 불필요
           break
 
         case 'text_start':
-          // 새 Claude 메시지 시작
-          this.streamingText = ''  // 스트리밍 텍스트 초기화
-          currentClaudeMessage = {
-            id: Date.now() + 1,
-            type: 'assistant',
-            content: [{ type: 'text', text: '' }],
-            timestamp: new Date(),
-            isStreaming: true
+          // 현재 assistant 메시지가 없으면 생성
+          if (!currentClaudeMessage) {
+            currentClaudeMessage = {
+              role: 'assistant',
+              content: []
+            }
+            this.messages.push(currentClaudeMessage)
+            console.log('DEBUG: New Claude message created for text, total messages:', this.messages.length)
+          } else {
+            console.log('DEBUG: text_start - reusing existing message with', currentClaudeMessage.content.length, 'blocks')
           }
-          this.messages.push(currentClaudeMessage)
-          this.streamingMessage = currentClaudeMessage
+          // text 블록 추가
+          currentClaudeMessage.content.push({ type: 'text', text: '' })
+          console.log('DEBUG: Text block added, content blocks:', currentClaudeMessage.content.length)
           break
 
         case 'text_delta':
-          if (currentClaudeMessage && data.text) {
-            this.streamingText += data.text  // Pinia state 업데이트
-            // 가장 최근 스트리밍 메시지 업데이트
-            const lastStreamingMessage = [...this.messages].reverse().find(m => m.isStreaming)
-            if (lastStreamingMessage && Array.isArray(lastStreamingMessage.content)) {
-              lastStreamingMessage.content[0].text = this.streamingText
+          if (data.text && currentClaudeMessage) {
+            // 현재 메시지의 가장 최근 text 블록 찾아서 업데이트
+            for (let i = currentClaudeMessage.content.length - 1; i >= 0; i--) {
+              if (currentClaudeMessage.content[i].type === 'text') {
+                currentClaudeMessage.content[i].text += data.text
+                break
+              }
             }
+            // Vue 반응성을 위한 스로틀링된 업데이트
+            this.forceUpdate()
           }
           break
 
         case 'tool_use_start':
-          // 새 tool 블록 생성
-          const toolMessage: Message = {
-            id: Date.now() + Math.random(),
-            type: 'assistant',
-            content: [{ type: 'text', text: `🔧 도구 사용: ${data.name}` }],
-            timestamp: new Date(),
-            isStreaming: false,
-            isUsingTool: true
+          // 현재 assistant 메시지가 없으면 생성
+          if (!currentClaudeMessage) {
+            currentClaudeMessage = {
+              role: 'assistant',
+              content: []
+            }
+            this.messages.push(currentClaudeMessage)
           }
-          this.messages.push(toolMessage)
-          this.isUsingTool = true
-          if (data.name) {
-            this.currentToolExecution = {
-              name: data.name,
-              input: data.input,
-              isExecuting: true
+          // tool_use 블록 추가 - 완성된 데이터로만
+          currentClaudeMessage.content.push({
+            type: 'tool_use',
+            id: data.id || '',
+            name: data.name || '',
+            input: {}  // 빈 객체로 시작, 나중에 완성된 데이터로 업데이트
+          })
+          break
+        
+        case 'tool_use_complete':
+          // tool_use 완성 - input 정보 업데이트
+          if (currentClaudeMessage && data.id) {
+            for (let i = currentClaudeMessage.content.length - 1; i >= 0; i--) {
+              if (currentClaudeMessage.content[i].type === 'tool_use' && currentClaudeMessage.content[i].id === data.id) {
+                currentClaudeMessage.content[i].input = data.input
+                break
+              }
             }
           }
           break
 
         case 'tool_execution':
-          // 가장 최근 tool 메시지 업데이트
-          const executingToolMessage = [...this.messages].reverse().find(m => m.isUsingTool)
-          if (executingToolMessage && Array.isArray(executingToolMessage.content)) {
-            executingToolMessage.content[0].text = `🔧 도구 실행 중: ${data.name}\n입력: ${JSON.stringify(data.input, null, 2)}`
-          }
+          console.log('DEBUG: tool_execution received:', data)
+          // tool_execution은 백엔드에서 도구 실행 중임을 알리는 이벤트
+          // 특별한 처리 없이 로그만 남김
           break
 
         case 'tool_result':
-          if (this.currentToolExecution) {
-            this.currentToolExecution.result = data.result
-            this.currentToolExecution.isExecuting = false
-            this.toolExecutions.push({...this.currentToolExecution})
+          console.log('DEBUG: tool_result received:', data)
+          // 새 user 메시지 생성하고 tool_result 블록 추가
+          const toolResultMessage: Message = {
+            role: 'user',
+            content: [{
+              type: 'tool_result',
+              tool_use_id: data.tool_use_id,
+              content: data.content
+            }]
           }
-          
-          this.isUsingTool = false
-          this.currentToolExecution = null
-          
-          // 가장 최근 tool 메시지 업데이트
-          const completedToolMessage = [...this.messages].reverse().find(m => m.isUsingTool)
-          if (completedToolMessage && Array.isArray(completedToolMessage.content)) {
-            completedToolMessage.content[0].text = `✅ 도구 완료: ${data.name}\n결과: ${data.result ? data.result.substring(0, 200) + '...' : '완료됨'}`
-            completedToolMessage.isUsingTool = false
-          }
-          
+          this.messages.push(toolResultMessage)
+          console.log('DEBUG: tool_result message added, current isStreaming:', this.isStreaming)
           break
 
         case 'session_id':
@@ -398,91 +441,28 @@ export const useChatStore = defineStore('chat', {
           break
 
         case 'complete':
+          console.log('DEBUG: Stream complete event received, total messages:', this.messages.length)
           if (currentClaudeMessage) {
-            currentClaudeMessage.isStreaming = false
+            console.log('DEBUG: Final message content blocks:', currentClaudeMessage.content.length)
           }
-          this.streamingMessage = null
-          this.streamingText = ''  // 스트리밍 텍스트 초기화
+          // 스트리밍 완료
+          currentClaudeMessage = null
+          break
+
+        case 'error':
+          console.log('DEBUG: Error event received:', data)
+          // 에러가 발생해도 스트리밍을 계속 진행해야 함
+          // 단순히 에러 로그만 출력하고 계속
+          break
+
+        default:
+          console.log('DEBUG: Unknown event type:', data.type, data)
           break
       }
       return currentClaudeMessage
     },
 
 
-    // 백엔드 메시지를 프론트엔드 형태로 변환 (thinking, tool 블록 분리)
-    convertBackendMessages(backendMessages: any[]): Message[] {
-      const messages: Message[] = []
-      let messageId = 0
-
-      for (const msg of backendMessages) {
-        const content = Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content }]
-        
-        if (msg.role === 'assistant') {
-          // assistant 메시지에서 thinking, text 블록 분리
-          const thinkingBlocks: any[] = []
-          const textBlocks: any[] = []
-          
-          for (const block of content) {
-            if (block.type === 'thinking') {
-              thinkingBlocks.push(block)
-            } else if (block.type === 'text') {
-              textBlocks.push(block)
-            }
-          }
-          
-          // thinking 블록이 있으면 별도 메시지로 생성
-          if (thinkingBlocks.length > 0) {
-            const thinkingText = thinkingBlocks.map(block => block.thinking || block.text || '').join('')
-            messages.push({
-              id: messageId++,
-              type: 'assistant',
-              content: [{ type: 'text', text: thinkingText }],
-              timestamp: new Date(),
-              isThinking: false // 이미 완료된 상태
-            })
-          }
-          
-          // text 블록이 있으면 일반 응답 메시지로 생성
-          if (textBlocks.length > 0) {
-            messages.push({
-              id: messageId++,
-              type: 'assistant',
-              content: textBlocks,
-              timestamp: new Date()
-            })
-          }
-          
-        } else if (msg.role === 'user') {
-          // user 메시지 처리
-          const toolResults = content.filter((block: any) => block.type === 'tool_result')
-          const nonToolContent = content.filter((block: any) => block.type !== 'tool_result')
-          
-          // 일반 사용자 메시지 (tool_result가 아닌 것들)
-          if (nonToolContent.length > 0) {
-            messages.push({
-              id: messageId++,
-              type: 'user',
-              content: nonToolContent,
-              timestamp: new Date()
-            })
-          }
-          
-          // tool_result 메시지들을 도구 완료 메시지로 변환
-          for (const toolResult of toolResults) {
-            const toolResultText = `🔧 도구 완료\n결과: ${toolResult.content ? (typeof toolResult.content === 'string' ? toolResult.content.substring(0, 200) + '...' : JSON.stringify(toolResult.content).substring(0, 200) + '...') : '완료됨'}`
-            messages.push({
-              id: messageId++,
-              type: 'assistant',
-              content: [{ type: 'text', text: toolResultText }],
-              timestamp: new Date(),
-              isUsingTool: false // 이미 완료된 상태
-            })
-          }
-        }
-      }
-
-      return messages
-    },
 
     // 파일 추가
     addUploadedFile(file: UploadedFile) {
@@ -523,34 +503,32 @@ export const useChatStore = defineStore('chat', {
 
     // 채팅 중단
     async stopMessage() {
-      // 스트리밍 상태 즉시 종료
-      this.isStreaming = false
-      this.isThinking = false
-      this.isUsingTool = false
-      this.streamingMessage = null
-      this.streamingText = ''
-      this.currentToolExecution = null
+      console.log('DEBUG: stopMessage called, isStreaming before:', this.isStreaming)
       
-      // 현재 스트리밍 중인 메시지가 있으면 완료 상태로 변경
-      const streamingMsg = this.messages.find(m => m.isStreaming)
-      if (streamingMsg) {
-        streamingMsg.isStreaming = false
-      }
+      // 중단 요청 상태 설정 (UI 변경)
+      this.isStopRequested = true
       
-      // 백엔드에 중단 요청 (필요시 구현)
-      try {
-        const token = localStorage.getItem('auth_token')
-        if (token && this.currentSessionId) {
-          await fetch(`http://localhost:8000/chat/stop/${this.currentSessionId}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
+      // 백엔드에 중단 요청 전송 (reason-act 루프 중단)
+      if (this.currentSessionId) {
+        try {
+          const token = localStorage.getItem('auth_token')
+          if (token) {
+            await fetch(`http://localhost:8000/chat/stop/${this.currentSessionId}`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            console.log('DEBUG: Stop request sent to backend - reason-act loop will stop after current tool_result')
+          }
+        } catch (error) {
+          console.error('백엔드 중단 요청 실패:', error)
         }
-      } catch (error) {
-        // 백엔드 중단 요청 실패 (무시)
       }
+      
+      // 프론트엔드는 스트림을 계속 받아서 tool_result까지 출력
+      // 백엔드가 자연스럽게 스트림을 종료할 때까지 기다림
+      console.log('DEBUG: Frontend continues to receive stream until backend naturally ends')
     },
 
     // 백엔드 연결 상태 확인
@@ -560,6 +538,11 @@ export const useChatStore = defineStore('chat', {
 
     // 로그아웃 시 모든 데이터 초기화
     clearAllData() {
+      // 진행 중인 요청 중단
+      if (this.abortController) {
+        this.abortController.abort()
+      }
+      
       this.sessions = []
       this.currentSessionId = null
       this.messages = []
@@ -573,6 +556,8 @@ export const useChatStore = defineStore('chat', {
       this.currentToolExecution = null
       this.toolExecutions = []
       this.uploadedFiles = []
+      this.abortController = null
+      this.isStopRequested = false
     }
   }
 })

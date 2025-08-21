@@ -283,12 +283,12 @@ export const translations: Translations = {
     'ja': 'DA-ZZANY'
   },
   'welcome_subtitle': {
-    'ko': '무엇을 도와드릴까요?',
+    'ko': '무슨 작업을 자동화 하고싶나요?',
     'en': 'How can I help you today?',
     'ja': '何かお手伝いしましょうか？'
   },
   'enter_message': {
-    'ko': '메시지를 입력하세요...',
+    'ko': '무엇이든 만들어보세요',
     'en': 'Enter your message...',
     'ja': 'メッセージを入力してください...'
   },
@@ -313,7 +313,7 @@ export const translations: Translations = {
     'ja': 'ファイルを削除'
   },
   'disclaimer': {
-    'ko': 'DA-ZZANY는 실수할 수 있습니다. 중요한 정보를 확인해 보세요.',
+    'ko': 'DA-ZZANY는 실수를 할 수 있습니다. 중요한 정보는 재차 확인하세요.',
     'en': 'DA-ZZANY can make mistakes. Please verify important information.',
     'ja': 'DA-ZZANYは間違いを犯す可能性があります。重要な情報は確認してください。'
   },

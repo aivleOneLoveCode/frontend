@@ -9,6 +9,8 @@
     :formatFileSize="formatFileSize"
     :getFileIcon="getFileIcon"
     :isProcessing="chatStore.isProcessing"
+    :isStopRequested="chatStore.isStopRequested"
+    :canSendMessage="chatStore.canSendMessage"
     @send-message="sendMessage"
     @stop-message="stopMessage"
     @handle-keydown="handleKeydown"
