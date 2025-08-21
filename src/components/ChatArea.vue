@@ -569,40 +569,72 @@ const renderMarkdown = (text: string): string => {
 
 // 사용자 텍스트 렌더링 (간단한 줄바꿈 처리)
 const renderUserText = (message: any): string => {
-  const textContent = message.content
-    .filter((c: any) => c.type === 'text')
-    .map((c: any) => c.text)
-    .join('\n')
-  return textContent.replace(/\n/g, '<br>')
+  // 첫 번째 text content만 메시지로 표시
+  const firstText = message.content.find((c: any) => c.type === 'text')
+  if (firstText) {
+    return firstText.text.replace(/\n/g, '<br>')
+  }
+  return ''
 }
 
-// 메시지에 특정 타입의 컨텐츠가 있는지 확인
+// 메시지에 특정 타입의 컨텐츠가 있는지 확인 (첫 번째 text만 체크)
 const hasText = (message: any): boolean => {
-  return message.content.some((c: any) => c.type === 'text')
+  return message.content.length > 0 && message.content[0].type === 'text'
 }
 
 
-// 사용자 메시지에서 첨부파일 추출 (첫번째 text 타입 제외)
+// 사용자 메시지에서 첨부파일 추출 (첫번째 content 이후의 모든 것)
 const getUserAttachments = (message: any): any[] => {
   if (!message.content || !Array.isArray(message.content)) return []
   
-  // text 타입을 제외한 모든 첨부파일
-  return message.content.filter((c: any) => {
-    return c.type === 'image' || c.type === 'document' || c.type === 'workflow' || c.type === 'json'
+  // 첫 번째 content를 제외한 나머지 모든 content를 첨부파일로 처리
+  // (두 번째 text도 첨부파일로 취급)
+  return message.content.slice(1).map((c: any, index: number) => {
+    // text 타입도 첨부파일로 처리 (워크플로우 JSON 등)
+    if (c.type === 'text') {
+      // JSON 파싱 시도
+      let isJson = false
+      let jsonData = null
+      try {
+        jsonData = JSON.parse(c.text)
+        isJson = true
+      } catch {}
+      
+      // 워크플로우 JSON에서 이름 추출
+      let fileName = `attachment_${index + 1}.${isJson ? 'json' : 'txt'}`
+      if (isJson && jsonData) {
+        // 워크플로우 이름 추출 시도
+        if (jsonData.workflow_name) {
+          fileName = `${jsonData.workflow_name}.json`
+        } else if (jsonData.workflow_json?.name) {
+          fileName = `${jsonData.workflow_json.name}.json`
+        } else if (jsonData.name) {
+          fileName = `${jsonData.name}.json`
+        }
+      }
+      
+      return {
+        ...c,
+        type: isJson ? 'json' : 'text',
+        name: fileName,
+        text: c.text
+      }
+    }
+    return c
   })
 }
 
 // 이미지 첨부파일만 추출
 const getImageAttachments = (message: any): any[] => {
-  if (!message.content || !Array.isArray(message.content)) return []
-  return message.content.filter((c: any) => c.type === 'image')
+  const attachments = getUserAttachments(message)
+  return attachments.filter((c: any) => c.type === 'image')
 }
 
 // 이미지가 아닌 첨부파일 추출
 const getNonImageAttachments = (message: any): any[] => {
-  if (!message.content || !Array.isArray(message.content)) return []
-  return message.content.filter((c: any) => {
-    return c.type === 'document' || c.type === 'workflow' || c.type === 'json'
+  const attachments = getUserAttachments(message)
+  return attachments.filter((c: any) => {
+    return c.type !== 'image'
   })
 }
 
@@ -613,18 +645,26 @@ const getAttachmentIcon = (type: string): string => {
     case 'document': return '📄'
     case 'workflow': return '📋'
     case 'json': return '📋'
+    case 'text': return '📝'
     default: return '📁'
   }
 }
 
 // 첨부파일 이름 추출
 const getAttachmentName = (attachment: any): string => {
+  // 워크플로우 JSON인 경우 (게시판에서 추가된 경우)
+  if (attachment.type === 'json' || attachment.type === 'text') {
+    // 파일명에서 워크플로우 이름 추출 (예: "간단한 데이터 가져오기.json")
+    if (attachment.name) {
+      // .json 확장자 제거
+      return attachment.name.replace(/\.json$/i, '').replace(/\.txt$/i, '')
+    }
+    return 'Workflow'
+  }
+  
   // workflow나 json 타입의 경우 실제 파일명이 있을 수 있음
   if (attachment.type === 'workflow') {
     return attachment.workflow_name || attachment.name || 'Workflow'
-  }
-  if (attachment.type === 'json') {
-    return attachment.file_name || attachment.name || 'Data File'
   }
   
   // attachment에 name 필드가 있으면 사용
@@ -646,8 +686,9 @@ const getFileTypeClass = (type: string): string => {
 const getFileTypeLabel = (type: string): string => {
   switch(type) {
     case 'document': return 'PDF'
-    case 'json': return '파일'
-    case 'workflow': return '파일'
+    case 'json': return '워크플로우'
+    case 'text': return '워크플로우'
+    case 'workflow': return '워크플로우'
     default: return '파일'
   }
 }

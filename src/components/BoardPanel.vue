@@ -16,12 +16,11 @@
               type="text" 
               placeholder="키워드로 게시물 검색..." 
               class="search-input"
-              @input="handleSearch"
             />
           </div>
           <div class="search-info">
             <span v-if="searchKeyword" class="search-results">
-              "{{ searchKeyword }}" 검색 결과: {{ filteredPosts.length }}건
+              "{{ searchKeyword }}" 검색 결과: {{ totalPosts }}건
             </span>
           </div>
         </div>
@@ -45,13 +44,9 @@
             <div 
               v-for="post in paginatedPosts" 
               :key="post.id" 
-              class="post-accordion"
+              class="post-card"
             >
-              <div 
-                class="post-header"
-                @click="togglePost(post.id)"
-                :class="{ 'expanded': expandedPosts.includes(post.id) }"
-              >
+              <div class="post-header">
                 <div class="post-title-area">
                   <h4 class="post-title">{{ post.title }}</h4>
                   <span class="post-meta-inline">
@@ -60,53 +55,27 @@
                     <span class="post-views">다운로드: {{ post.downloadCount }}회</span>
                   </span>
                 </div>
-                <div class="accordion-toggle">
-                  <svg 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    stroke-width="2"
-                    :class="{ 'rotated': expandedPosts.includes(post.id) }"
-                  >
-                    <polyline points="6,9 12,15 18,9"></polyline>
-                  </svg>
-                </div>
               </div>
               
-              <!-- 아코디언 컨텐츠 -->
-              <div 
-                v-if="expandedPosts.includes(post.id)" 
-                class="post-content-area"
-              >
+              <!-- 게시글 내용 -->
+              <div class="post-content-area">
                 <div class="post-content">
                   {{ post.content }}
-                </div>
-                
-                <!-- 워크플로우 정보 -->
-                <div v-if="post.workflowName" class="workflow-info">
-                  <h5>워크플로우 정보</h5>
-                  <div class="workflow-details">
-                    <span class="workflow-name">{{ post.workflowName }}</span>
-                    <span class="workflow-id">ID: {{ post.workflowId }}</span>
-                  </div>
                 </div>
 
                 <div class="post-actions">
                   <button 
                     v-if="!canEditPost(post)"
                     class="add-workflow-btn" 
-                    @click="addToWorkflow(post)"
-                    title="워크플로우에 추가"
+                    @click="addToChat(post)"
+                    title="채팅에 추가"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14,2 14,8 20,8"/>
-                      <line x1="12" y1="11" x2="12" y2="17"/>
-                      <line x1="9" y1="14" x2="15" y2="14"/>
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                      <line x1="12" y1="8" x2="12" y2="12"/>
+                      <line x1="10" y1="10" x2="14" y2="10"/>
                     </svg>
-                    워크플로우에 추가
+                    채팅에 추가
                   </button>
                   <button 
                     v-if="canEditPost(post)"
@@ -199,6 +168,7 @@
                     v-model="newPost.workflowId" 
                     class="workflow-select"
                     :disabled="isLoadingWorkflows"
+                    @change="onWorkflowSelect"
                   >
                     <option value="" disabled>워크플로우를 선택하세요</option>
                     <option 
@@ -206,7 +176,7 @@
                       :key="workflow.workflow_id"
                       :value="workflow.workflow_id"
                     >
-                      {{ workflow.name }}
+                      {{ workflow.name || workflow.title }}
                     </option>
                   </select>
                 </div>
@@ -258,6 +228,7 @@
                     v-model="editPost.workflow_id" 
                     class="workflow-select"
                     :disabled="isLoadingWorkflows"
+                    @change="onEditWorkflowSelect"
                   >
                     <option value="" disabled>워크플로우를 선택하세요</option>
                     <option 
@@ -265,7 +236,7 @@
                       :key="workflow.workflow_id"
                       :value="workflow.workflow_id"
                     >
-                      {{ workflow.name }}
+                      {{ workflow.name || workflow.title }}
                     </option>
                   </select>
                 </div>
@@ -311,7 +282,8 @@
 import { ref, defineProps, defineEmits, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useWorkflowStore } from '@/stores/workflow'
 import { useAuthStore } from '@/stores/auth'
-import { boardService, type BoardPost, type CreatePostData, type UpdatePostData } from '@/services/board'
+import { useChatStore } from '@/stores/chat'
+import { boardService, type BoardPost, type CreatePostData } from '@/services/board'
 import api from '@/services/api'
 
 // 백엔드 데이터를 프론트엔드 형식으로 변환하는 인터페이스
@@ -361,17 +333,16 @@ const editPost = ref({
   workflow_id: ''
 })
 
-// 워크플로우 목록
-const userWorkflows = ref<Array<{ workflow_id: string; name: string }>>([])
+// 워크플로우 목록 (백엔드가 name 또는 title로 반환할 수 있음)
+const userWorkflows = ref<Array<{ workflow_id: string; name?: string; title?: string }>>([])
 const isLoadingWorkflows = ref(false)
 
 // const selectedPost = ref<Post | null>(null) // 사용하지 않음
 const searchKeyword = ref('')
 const currentPage = ref(1)
-const postsPerPage = 10
+const postsPerPage = 6
 
-// 아코디언 상태
-const expandedPosts = ref<string[]>([])
+// 아코디언 기능 제거됨 (카드는 항상 열려있음)
 
 // 게시물 데이터 및 로딩 상태
 const posts = ref<Post[]>([])
@@ -454,26 +425,12 @@ const canEditPost = (post: Post): boolean => {
   return false
 }
 
-// 계산된 속성
-const filteredPosts = computed(() => {
-  if (!searchKeyword.value.trim()) {
-    return posts.value
-  }
-  
-  const keyword = searchKeyword.value.toLowerCase()
-  return posts.value.filter(post => 
-    post.title.toLowerCase().includes(keyword) ||
-    post.content.toLowerCase().includes(keyword) ||
-    post.author.toLowerCase().includes(keyword)
-  )
-})
+// 계산된 속성 (서버 페이지네이션 사용)
+const totalPages = computed(() => Math.ceil(totalPosts.value / postsPerPage))
 
-const totalPages = computed(() => Math.ceil(filteredPosts.value.length / postsPerPage))
-
+// 서버에서 이미 페이지네이션된 데이터를 받으므로 그대로 사용
 const paginatedPosts = computed(() => {
-  const start = (currentPage.value - 1) * postsPerPage
-  const end = start + postsPerPage
-  return filteredPosts.value.slice(start, end)
+  return posts.value
 })
 
 const visiblePages = computed(() => {
@@ -512,31 +469,68 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// 데이터 로딩 함수
-const loadPosts = async () => {
+// 전체 게시물 수를 저장할 변수 추가
+const totalPosts = ref(0)
+const allPosts = ref<Post[]>([]) // 검색용 전체 게시물
+const isSearchDataLoaded = ref(false) // 검색 데이터 로드 여부
+
+// 데이터 로딩 함수 (페이지네이션 적용)
+const loadPosts = async (page: number = 1, forceReload: boolean = false) => {
   try {
     isLoading.value = true
     error.value = null
     
-    console.log('=== 데이터 로딩 시작 ===')
-    console.log('현재 로그인 사용자:', {
-      user: authStore.currentUser,
-      userId: authStore.currentUser?.user_id,
-      isLoggedIn: authStore.isLoggedIn
-    })
+    // 검색 모드인 경우
+    if (searchKeyword.value.trim()) {
+      // 검색 데이터가 없거나 강제 리로드인 경우에만 서버 요청
+      if (!isSearchDataLoaded.value || forceReload) {
+        console.log('=== 검색용 데이터 서버에서 가져오기 ===')
+        
+        const response = await boardService.getPosts({
+          limit: 50,
+          offset: 0
+        })
+        
+        allPosts.value = response.posts.map(convertBoardPostToPost)
+        isSearchDataLoaded.value = true
+      }
+      
+      // 클라이언트 사이드 검색 (이미 로드된 데이터에서)
+      console.log('=== 클라이언트 사이드 검색 ===')
+      const keyword = searchKeyword.value.toLowerCase()
+      const filtered = allPosts.value.filter(post => 
+        post.title.toLowerCase().includes(keyword) ||
+        post.content.toLowerCase().includes(keyword) ||
+        post.author.toLowerCase().includes(keyword)
+      )
+      
+      // 검색 결과를 페이지네이션
+      totalPosts.value = filtered.length
+      const start = (page - 1) * postsPerPage
+      const end = start + postsPerPage
+      posts.value = filtered.slice(start, end)
+      
+      console.log('검색 결과:', filtered.length, '건, 현재 페이지:', page)
+    } else {
+      // 일반 모드: 서버 페이지네이션
+      isSearchDataLoaded.value = false // 검색 모드 해제
+      allPosts.value = [] // 검색 데이터 초기화
+      
+      const offset = (page - 1) * postsPerPage
+      
+      console.log('=== 일반 모드 데이터 로딩 ===')
+      console.log('페이지:', page, 'Offset:', offset, 'Limit:', postsPerPage)
+      
+      const response = await boardService.getPosts({
+        limit: postsPerPage,
+        offset: offset
+      })
+      
+      posts.value = response.posts.map(convertBoardPostToPost)
+      totalPosts.value = response.total || posts.value.length
+    }
     
-    const response = await boardService.getPosts({
-      limit: 50,
-      offset: 0,
-      search: searchKeyword.value || undefined
-    })
-    
-    console.log('백엔드 응답:', response)
-    console.log('첫 번째 게시물 예시:', response.posts[0])
-    
-    posts.value = response.posts.map(convertBoardPostToPost)
-    
-    console.log('변환된 게시물들:', posts.value.slice(0, 2))
+    console.log('로드된 게시물 수:', posts.value.length, '전체:', totalPosts.value)
     console.log('=== 데이터 로딩 완료 ===')
   } catch (err) {
     console.error('게시물 로딩 실패:', err)
@@ -548,6 +542,8 @@ const loadPosts = async () => {
 
 // 메서드
 const closeBoard = () => {
+  // 게시판 닫을 때 검색 초기화
+  clearSearch()
   emit('close')
 }
 
@@ -596,12 +592,13 @@ const clearEditForm = () => {
 
 const handleSearch = () => {
   currentPage.value = 1 // 검색 시 첫 페이지로 이동
-  loadPosts() // 검색어에 따라 게시물 다시 로드
+  loadPosts(1) // 검색어에 따라 게시물 다시 로드
 }
 
 const goToPage = (page: number) => {
   if (page >= 1 && page <= totalPages.value) {
     currentPage.value = page
+    loadPosts(page) // 해당 페이지 데이터 로드
   }
 }
 
@@ -640,8 +637,11 @@ const createPost = async () => {
 
   try {
     // 선택된 워크플로우 정보 찾기
+    console.log('선택된 워크플로우 ID:', newPost.value.workflowId)
+    console.log('전체 워크플로우 목록:', userWorkflows.value)
     const selectedWorkflow = userWorkflows.value.find(w => w.workflow_id === newPost.value.workflowId)
-    const workflowName = selectedWorkflow ? selectedWorkflow.name : ''
+    console.log('찾은 워크플로우:', selectedWorkflow)
+    const workflowName = selectedWorkflow ? (selectedWorkflow.name || selectedWorkflow.title || '') : ''
     
     // 백엔드 API로 게시물 생성
     const postData: CreatePostData = {
@@ -651,12 +651,14 @@ const createPost = async () => {
       workflow_name: workflowName
     }
     
-    console.log('게시물 생성 요청 데이터:', postData)
+    console.log('게시물 생성 요청 데이터 상세:', JSON.stringify(postData, null, 2))
     const response = await boardService.createPost(postData)
     console.log('게시물 생성 응답:', response)
     
-    // 백엔드가 완전한 데이터를 반환하지 않으므로 목록을 다시 불러옴
-    await loadPosts()
+    // 검색 초기화 후 첫 페이지로 이동
+    clearSearch()
+    currentPage.value = 1
+    await loadPosts(1, true)
     
     clearForm()
     closeWriteForm()
@@ -699,7 +701,7 @@ const updatePost = async () => {
   try {
     // 선택된 워크플로우 정보 찾기
     const selectedWorkflow = userWorkflows.value.find(w => w.workflow_id === editPost.value.workflow_id)
-    const workflowName = selectedWorkflow ? selectedWorkflow.name : ''
+    const workflowName = selectedWorkflow ? (selectedWorkflow.name || selectedWorkflow.title || '') : ''
     
     console.log('게시글 수정 요청:', { id: editingPost.value.id, data: editPost.value })
     const response = await boardService.updatePost(editingPost.value.id, {
@@ -710,8 +712,9 @@ const updatePost = async () => {
     })
     console.log('게시글 수정 응답:', response)
     
-    // 목록 새로고침
-    await loadPosts()
+    // 검색 초기화 후 현재 페이지 새로고침
+    clearSearch()
+    await loadPosts(currentPage.value, true)
     
     closeEditForm()
     alert('게시글이 성공적으로 수정되었습니다!')
@@ -727,9 +730,36 @@ const clearForm = () => {
   newPost.value.workflowId = ''
 }
 
-// 파일 업로드 기능은 제거됨 (워크플로우 선택으로 대체)
+// 검색 초기화 함수
+const clearSearch = () => {
+  searchKeyword.value = ''
+  isSearchDataLoaded.value = false
+  allPosts.value = []
+}
 
-const addToWorkflow = async (post: Post) => {
+// 워크플로우 선택 시 제목 자동 채우기 (글쓰기)
+const onWorkflowSelect = () => {
+  if (newPost.value.workflowId) {
+    const selectedWorkflow = userWorkflows.value.find(w => w.workflow_id === newPost.value.workflowId)
+    if (selectedWorkflow) {
+      // 워크플로우 변경 시 항상 제목을 워크플로우 이름으로 변경
+      newPost.value.title = selectedWorkflow.name || selectedWorkflow.title || ''
+    }
+  }
+}
+
+// 워크플로우 선택 시 제목 자동 채우기 (수정)
+const onEditWorkflowSelect = () => {
+  if (editPost.value.workflow_id) {
+    const selectedWorkflow = userWorkflows.value.find(w => w.workflow_id === editPost.value.workflow_id)
+    if (selectedWorkflow) {
+      // 워크플로우 변경 시 항상 제목을 워크플로우 이름으로 변경
+      editPost.value.title = selectedWorkflow.name || selectedWorkflow.title || ''
+    }
+  }
+}
+
+const addToChat = async (post: Post) => {
   try {
     // 워크플로우 ID가 있는지 확인
     if (!post.workflowId) {
@@ -737,28 +767,37 @@ const addToWorkflow = async (post: Post) => {
       return
     }
 
-    // 백엔드에서 워크플로우 JSON 데이터 가져오기
-    const jsonData = await boardService.getWorkflowJson(post.workflowId)
+    // 백엔드에서 워크플로우 JSON 데이터 가져오기 (다운로드 수 자동 증가)
+    const workflowJson = await boardService.downloadWorkflow(post.id)
     
-    // 워크플로우 이름 설정 (게시물 제목 또는 워크플로우 이름 사용)
-    const workflowData = {
-      name: post.workflowName || post.title,
-      ...jsonData
+    // 채팅 스토어를 가져와서 파일로 추가
+    const chatStore = useChatStore()
+    
+    // 워크플로우 JSON을 UploadedFile 형식으로 추가
+    const workflowText = JSON.stringify(workflowJson, null, 2)
+    const workflowFile = {
+      name: `${post.workflowName || post.title}.json`,
+      type: 'text/plain',
+      size: workflowText.length,
+      content: workflowText,
+      contentBlock: {
+        type: 'text',
+        text: workflowText
+      },
+      source: 'board'  // 게시판에서 추가됨을 표시
     }
     
-    // 워크플로우 스토어를 통해 워크플로우 추가\
-    
-    // 다운로드 수 증가
-    await boardService.incrementDownloadCount(post.id)
+    chatStore.addUploadedFile(workflowFile)
     
     // 로컬 상태 업데이트
     post.downloadCount++
     
-    alert(`"${post.title}"의 워크플로우가 성공적으로 추가되었습니다!`)
+    // 게시판 닫기 (alert 없이 바로)
+    closeBoard()
     
   } catch (error) {
-    console.error('워크플로우 추가 실패:', error)
-    alert('워크플로우 추가에 실패했습니다. 다시 시도해주세요.')
+    console.error('채팅에 추가 실패:', error)
+    alert('채팅에 추가하는데 실패했습니다. 다시 시도해주세요.')
   }
 }
 
@@ -771,14 +810,18 @@ const deletePost = async (post: Post) => {
       const response = await boardService.deletePost(post.id)
       console.log('API 삭제 응답:', response)
       
-      // 목록 새로고침
-      await loadPosts()
-      
       alert('게시물이 삭제되었습니다.')
       
-      // 현재 페이지가 비어있으면 이전 페이지로 이동
-      if (paginatedPosts.value.length === 0 && currentPage.value > 1) {
+      // 검색 초기화
+      clearSearch()
+      
+      // 현재 페이지가 비어있을 수 있으므로 다시 로드
+      // 마지막 게시물을 삭제했다면 이전 페이지로
+      if (posts.value.length === 1 && currentPage.value > 1) {
         currentPage.value--
+        await loadPosts(currentPage.value, true)
+      } else {
+        await loadPosts(currentPage.value, true)
       }
     } catch (error: any) {
       console.error('게시물 삭제 실패:', error)
@@ -792,26 +835,7 @@ const deletePost = async (post: Post) => {
   }
 }
 
-// 아코디언 토글 메서드
-const togglePost = async (postId: string) => {
-  const index = expandedPosts.value.indexOf(postId)
-  if (index > -1) {
-    expandedPosts.value.splice(index, 1)
-  } else {
-    expandedPosts.value.push(postId)
-    // 조회수 증가 (백엔드에 요청)
-    try {
-      await boardService.incrementDownloadCount(postId)
-      // 로컬 상태도 업데이트
-      const post = posts.value.find(p => p.id === postId)
-      if (post) {
-        post.views++
-      }
-    } catch (error) {
-      console.error('조회수 증가 실패:', error)
-    }
-  }
-}
+// 아코디언 토글 기능 제거됨 (카드는 항상 열려있음)
 
 // 이름 마스킹 함수
 const maskName = (name: string): string => {
@@ -877,9 +901,10 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 }
 
-// 검색어 변경 시 페이지 초기화
+// 검색어 변경 시 자동 검색
 watch(searchKeyword, () => {
   currentPage.value = 1
+  loadPosts(1)
 })
 
 // 워크플로우 목록 가져오기
@@ -887,8 +912,12 @@ const loadWorkflows = async () => {
   isLoadingWorkflows.value = true
   try {
     const response = await api.get('/workflows')
+    console.log('워크플로우 API 응답:', response.data)
     userWorkflows.value = response.data.workflows || []
-    console.log('워크플로우 목록:', userWorkflows.value)
+    console.log('워크플로우 목록 상세:', userWorkflows.value)
+    if (userWorkflows.value.length > 0) {
+      console.log('첫 번째 워크플로우 구조:', userWorkflows.value[0])
+    }
   } catch (error) {
     console.error('워크플로우 목록 로드 실패:', error)
   } finally {
@@ -898,7 +927,7 @@ const loadWorkflows = async () => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  loadPosts() // 컴포넌트 마운트 시 게시물 로드
+  loadPosts(1) // 컴포넌트 마운트 시 첫 페이지 로드
   loadWorkflows() // 워크플로우 목록 로드
 })
 
@@ -958,18 +987,20 @@ onUnmounted(() => {
 }
 
 .pagination-section {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 24px;
+  position: relative;
 }
 
 .pagination {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  flex: 1;
 }
 
 .new-post-btn.compact {
@@ -977,7 +1008,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #10a37f;
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -988,10 +1019,11 @@ onUnmounted(() => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   height: 36px;
   line-height: 1;
+  grid-column: 2;
 }
 
 .new-post-btn.compact:hover {
-  background: #0d8a6b;
+  background: linear-gradient(135deg, #0e7490 0%, #0c6a7f 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
@@ -1000,32 +1032,23 @@ onUnmounted(() => {
   margin-bottom: 24px;
 }
 
-/* 아코디언 스타일 */
-.post-accordion {
+/* 카드 스타일 */
+.post-card {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  margin-bottom: 8px;
   overflow: hidden;
   background: white;
+  transition: box-shadow 0.2s;
+  height: fit-content;
 }
 
-.post-accordion .post-header {
+.post-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.post-card .post-header {
   padding: 16px 20px;
-  cursor: pointer;
-  transition: all 0.2s;
   background: #f9fafb;
-  border: none;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.post-accordion .post-header:hover {
-  background: #f3f4f6;
-}
-
-.post-accordion .post-header.expanded {
-  background: #eff6ff;
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -1035,15 +1058,22 @@ onUnmounted(() => {
 
 .post-title {
   margin: 0 0 8px 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
 }
 
 .post-meta-inline {
   display: flex;
-  gap: 12px;
-  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
   color: #6b7280;
 }
 
@@ -1051,22 +1081,9 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.accordion-toggle {
-  display: flex;
-  align-items: center;
-  color: #6b7280;
-  transition: transform 0.2s;
-}
-
-.accordion-toggle svg.rotated {
-  transform: rotate(180deg);
-}
-
 .post-content-area {
   padding: 20px;
-  border-top: 1px solid #e5e7eb;
   background: white;
-  animation: slideDown 0.2s ease-out;
 }
 
 .post-content {
@@ -1090,7 +1107,7 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border: 3px solid #f3f4f6;
-  border-top: 3px solid #10a37f;
+  border-top: 3px solid #0891b2;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -1113,73 +1130,42 @@ onUnmounted(() => {
 .retry-btn {
   margin-top: 16px;
   padding: 8px 16px;
-  background: #10a37f;
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .retry-btn:hover {
-  background: #0d8a6b;
+  background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* 워크플로우 정보 */
-.workflow-info {
-  margin-top: 16px;
-  padding: 12px;
-  background: #f0f9ff;
-  border: 1px solid #e0f2fe;
-  border-radius: 6px;
-}
-
-.workflow-info h5 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #0c4a6e;
-}
-
-.workflow-details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-}
-
-.workflow-name {
-  font-weight: 500;
-  color: #1e40af;
-}
-
-.workflow-id {
-  color: #64748b;
-  font-family: monospace;
-}
+/* 워크플로우 정보 스타일 제거됨 (더 이상 표시하지 않음) */
 
 .post-actions {
   display: flex;
   gap: 8px;
   margin-top: 16px;
+  justify-content: center;
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 500px;
-  }
-}
+/* slideDown 애니메이션 제거됨 (카드는 항상 열려있음) */
 
 .posts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
   margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .posts-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .add-workflow-btn {
@@ -1187,9 +1173,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: #10a37f;
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
   color: white;
-  border: 1px solid #10a37f;
+  border: none;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1198,8 +1184,7 @@ onUnmounted(() => {
 }
 
 .add-workflow-btn:hover {
-  background: #0d8a6b;
-  border-color: #0d8a6b;
+  background: linear-gradient(135deg, #0e7490 0%, #0c6a7f 100%);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1209,9 +1194,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: #3b82f6;
-  color: white;
-  border: 1px solid #3b82f6;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1220,39 +1205,41 @@ onUnmounted(() => {
 }
 
 .edit-btn:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #e5e7eb;
+  border-color: #d1d5db;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .delete-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  background: transparent;
-  border: 1px solid #ef4444;
-  border-radius: 4px;
-  cursor: pointer;
+  gap: 6px;
+  padding: 8px 12px;
+  background: white;
   color: #ef4444;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  cursor: pointer;
   transition: all 0.2s;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .delete-btn:hover {
   background: #fef2f2;
-  border-color: #dc2626;
-  color: #dc2626;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);
 }
 
 
 
 .page-btn {
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e5e7eb;
   background: white;
-  color: #374151;
+  color: #6b7280;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1262,22 +1249,26 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 500;
 }
 
 .page-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #374151;
 }
 
 .page-btn.active {
-  background: #10a37f;
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
   color: white;
-  border-color: #10a37f;
+  border-color: transparent;
+  font-weight: 600;
 }
 
 .page-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  background: #f9fafb;
 }
 
 .page-btn.separator {
@@ -1324,16 +1315,18 @@ onUnmounted(() => {
 .search-input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   font-size: 14px;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  background: #f9fafb;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #10a37f;
-  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+  border-color: #0891b2;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
 }
 
 
@@ -1343,8 +1336,8 @@ onUnmounted(() => {
 }
 
 .search-results {
-  color: #10a37f;
-  font-weight: 500;
+  color: #0891b2;
+  font-weight: 600;
 }
 
 /* 글쓰기 폼 모달 */
@@ -1441,8 +1434,8 @@ onUnmounted(() => {
 .post-title-input:focus,
 .post-content-input:focus {
   outline: none;
-  border-color: #10a37f;
-  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+  border-color: #0891b2;
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
 }
 
 .char-count {
@@ -1482,7 +1475,7 @@ onUnmounted(() => {
 }
 
 .file-upload-area:hover {
-  border-color: #10a37f;
+  border-color: #0891b2;
 }
 
 .file-input {
@@ -1513,17 +1506,19 @@ onUnmounted(() => {
 .file-select-btn {
   pointer-events: auto;
   padding: 8px 16px;
-  background: #10a37f;
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .file-select-btn:hover {
-  background: #0d8a6b;
+  background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .attached-file {
@@ -1571,11 +1566,6 @@ onUnmounted(() => {
   background: #fef2f2;
 }
 
-.post-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-}
 
 .post-btn {
   padding: 12px 24px;
@@ -1588,22 +1578,24 @@ onUnmounted(() => {
 }
 
 .post-btn.primary {
-  background: #10a37f;
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
   color: white;
+  border: none;
 }
 
 .post-btn.primary:hover {
-  background: #0d8a6b;
+  background: linear-gradient(135deg, #0e7490 0%, #0c6a7f 100%);
 }
 
 .post-btn.secondary {
   background: #f3f4f6;
   color: #374151;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e5e7eb;
 }
 
 .post-btn.secondary:hover {
   background: #e5e7eb;
+  border-color: #d1d5db;
 }
 
 /* 파일 업로드 섹션 */
@@ -1632,7 +1624,7 @@ onUnmounted(() => {
 }
 
 .file-upload-area:hover {
-  border-color: #10a37f;
+  border-color: #0891b2;
 }
 
 .file-input {
@@ -1663,17 +1655,19 @@ onUnmounted(() => {
 .file-select-btn {
   pointer-events: auto;
   padding: 8px 16px;
-  background: #10a37f;
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .file-select-btn:hover {
-  background: #0d8a6b;
+  background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .attached-file {

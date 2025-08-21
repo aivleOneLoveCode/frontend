@@ -66,18 +66,10 @@ export const boardService = {
     return response.data
   },
 
-  // 워크플로우 JSON 데이터 가져오기
-  async getWorkflowJson(workflowId: string): Promise<any> {
-    const response = await api.get(`/workflows/${workflowId}/json`)
+  // 워크플로우 JSON 데이터 가져오기 (다운로드 수 자동 증가)
+  async downloadWorkflow(postId: string): Promise<any> {
+    const response = await api.get(`/board/posts/${postId}/download`)
     return response.data
-  },
-
-  // 다운로드 수 증가 (임시 비활성화)
-  async incrementDownloadCount(postId: string): Promise<void> {
-    console.log('조회수 증가 API 임시 비활성화:', postId)
-    // 백엔드 API 엔드포인트가 확실하지 않으므로 임시 비활성화
-    // TODO: 백엔드 API 문서 확인 후 올바른 엔드포인트로 수정
-    return Promise.resolve()
   },
 
   // 게시물 수정

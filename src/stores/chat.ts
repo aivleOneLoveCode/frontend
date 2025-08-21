@@ -166,30 +166,21 @@ export const useChatStore = defineStore('chat', {
       if (this.isStreaming || this.isLoading) return
 
       try {
+        // content 블록 생성 (화면 표시와 백엔드 전송 모두 동일하게)
+        const contentBlocks = FileUploadService.createContentBlocks(text, files)
+        
         // 사용자 메시지를 화면에 먼저 표시
         const userMessage: Message = {
           role: 'user',
-          content: FileUploadService.createContentBlocks(text, files)
+          content: contentBlocks
         }
         this.messages.push(userMessage)
         this.uploadedFiles = [] // 파일 목록 초기화
 
-        // content 배열 생성 (임시프론트 방식)
-        const content = [{ "type": "text", "text": text }]
-        
-        // 파일이 있으면 content에 추가
-        if (files.length > 0) {
-          for (const file of files) {
-            if (file.contentBlock) {
-              content.push(file.contentBlock)
-            }
-          }
-        }
-
         // AbortController 생성 및 스트리밍 요청
         this.abortController = new AbortController()
         this.isStreaming = true
-        await this.streamChatLikeTemp(content)
+        await this.streamChatLikeTemp(contentBlocks)
 
       } catch (error) {
         console.error('메시지 전송 실패:', error)
