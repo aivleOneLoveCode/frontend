@@ -26,6 +26,8 @@ interface UserData {
   email: string
   password: string
   confirmPassword?: string
+  marketing_consent?: boolean
+  analytics_consent?: boolean
 }
 
 interface LoginResult {

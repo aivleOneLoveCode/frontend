@@ -11,6 +11,8 @@ interface RegisterData {
   email: string
   password: string
   confirmPassword?: string
+  marketing_consent?: boolean
+  analytics_consent?: boolean
 }
 
 // This interface may be used in future implementations
@@ -51,7 +53,9 @@ export const authService = {
       email: userData.email,
       first_name: userData.first_name,
       last_name: userData.last_name,
-      password: userData.password
+      password: userData.password,
+      marketing_consent: userData.marketing_consent || false,
+      analytics_consent: userData.analytics_consent || false
     })
     return response.data
   },

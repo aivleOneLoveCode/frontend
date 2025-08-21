@@ -13,13 +13,15 @@
     <div class="node-label">{{ data.label }}</div>
     <Handle 
       type="target" 
-      :position="Position.Left" 
+      :position="Position.Top" 
       :style="{ background: '#555' }"
+      id="top"
     />
     <Handle 
       type="source" 
-      :position="Position.Right" 
+      :position="Position.Bottom" 
       :style="{ background: '#555' }"
+      id="bottom"
     />
   </div>
 </template>
@@ -120,11 +122,11 @@ const onImageError = (event: Event) => {
   background: #6b7280;
 }
 
-:deep(.vue-flow__handle.vue-flow__handle-left) {
-  left: -6px;
+:deep(.vue-flow__handle.vue-flow__handle-top) {
+  top: -6px;
 }
 
-:deep(.vue-flow__handle.vue-flow__handle-right) {
-  right: -6px;
+:deep(.vue-flow__handle.vue-flow__handle-bottom) {
+  bottom: -6px;
 }
 </style>

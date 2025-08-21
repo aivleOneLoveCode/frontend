@@ -86,7 +86,7 @@ export const workflowService = {
   },
 
   // 워크플로우를 프로젝트에 할당/제거
-  async assignWorkflowToProject(n8nWorkflowId: string, projectId: number | null) {
+  async assignWorkflowToProject(n8nWorkflowId: string, projectId: string | null) {
     const response = await api.put(`/workflows/${n8nWorkflowId}/project`, { project_id: projectId })
     return response.data
   },

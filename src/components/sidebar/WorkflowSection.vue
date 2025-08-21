@@ -59,7 +59,7 @@
           <div v-if="project.expanded" class="project-workflows">
             <WorkflowItemComponent
               v-for="workflow in workflowsByProject[project.project_id] || []"
-              :key="workflow.n8n_workflow_id"
+              :key="workflow.workflow_id"
               :workflow="workflow"
               @select="handleWorkflowSelect"
               @toggle-running="toggleWorkflowRunning"
@@ -74,7 +74,7 @@
       <div class="standalone-workflows">
         <WorkflowItemComponent
           v-for="workflow in standaloneWorkflows"
-          :key="workflow.n8n_workflow_id"
+          :key="workflow.workflow_id"
           :workflow="workflow"
           @select="handleWorkflowSelect"
           @toggle-running="toggleWorkflowRunning"
@@ -91,10 +91,8 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import WorkflowItemComponent from './WorkflowItem.vue'
 import { useTranslation } from '@/utils/i18n'
-import { registerSelectionClearCallback, selectWorkflowGlobally } from '@/utils/workflowSelection'
 import { openDropdown, closeDropdown, isDropdownOpen, globalDropdownStyle } from '@/utils/dropdownManager'
-import { workflowService } from '@/services/workflow'
-import { projectService } from '@/services/project'
+import { useWorkflowStore } from '@/stores/workflow'
 import { useAuthStore } from '@/stores/auth'
 
 import type { WorkflowItem, Project } from '@/types'
@@ -104,33 +102,26 @@ const emit = defineEmits<{
   'select-workflow': [workflow: WorkflowItem]
 }>()
 
+const workflowStore = useWorkflowStore()
+const authStore = useAuthStore()
 const { t } = useTranslation()
 
-// 상태 관리 변수들 - 백엔드 스키마 그대로 사용
-const projects = ref<Project[]>([])
-const workflows = ref<WorkflowItem[]>([])  // 모든 워크플로우를 하나의 배열로
+// 스토어에서 데이터 가져오기
+const projects = computed(() => workflowStore.projects)
+const workflows = computed(() => workflowStore.workflows)
+
 const copiedWorkflow = ref<WorkflowItem | null>(null)
-const isLoading = ref(false)
-const errorMessage = ref('')
 const pollingInterval = ref<number | null>(null)
-const POLLING_INTERVAL_MS = 10000 // 10초마다 polling
+const POLLING_INTERVAL_MS = 10000
 
 // 계산된 속성으로 워크플로우 분류
-const standaloneWorkflows = computed(() => 
-  workflows.value.filter(w => w.project_id === null)
-)
+const standaloneWorkflows = computed(() => workflowStore.unassignedWorkflows)
 
 const workflowsByProject = computed(() => {
-  const grouped: Record<number, WorkflowItem[]> = {}
-  workflows.value
-    .filter(w => w.project_id !== null)
-    .forEach(w => {
-      const projectId = w.project_id!
-      if (!grouped[projectId]) {
-        grouped[projectId] = []
-      }
-      grouped[projectId].push(w)
-    })
+  const grouped: Record<string, WorkflowItem[]> = {}
+  projects.value.forEach(project => {
+    grouped[project.project_id] = workflowStore.workflowsByProject(project.project_id)
+  })
   return grouped
 })
 
@@ -139,23 +130,8 @@ const createNewProject = async () => {
   const projectName = prompt(t('enter_project_name'), t('new_project'))
   if (projectName && projectName.trim()) {
     try {
-      const response = await projectService.createProject(projectName.trim())
-      
-      // 새 프로젝트를 로컬 상태에 추가
-      const newProject: Project = {
-        project_id: response.project_id,
-        user_id: 1, // 백엔드에서 설정됨
-        name: response.name,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        active: false,
-        expanded: false
-      }
-      projects.value.push(newProject)
-      
-      // 데이터를 다시 로드하여 최신 상태 반영
-      await loadData()
-      
+      await workflowStore.createProject(projectName.trim())
+      // createProject가 이미 백엔드 요청하고 로컬 상태 업데이트함
     } catch (error) {
       console.error('프로젝트 생성 실패:', error)
       alert('프로젝트 생성에 실패했습니다.')
@@ -171,12 +147,7 @@ const selectProject = (project: Project) => {
 // 워크플로우 실행 상태 토글
 const toggleWorkflowRunning = async (workflow: WorkflowItem) => {
   try {
-    const response = await workflowService.toggleWorkflowStatus(workflow.n8n_workflow_id)
-    
-    // 로컬 상태 업데이트
-    workflow.status = response.status as 'active' | 'inactive'
-    workflow.updated_at = new Date().toISOString()
-    
+    await workflowStore.toggleWorkflowStatus(workflow.workflow_id)
   } catch (error) {
     console.error('워크플로우 상태 변경 실패:', error)
     alert('워크플로우 상태 변경에 실패했습니다.')
@@ -211,41 +182,35 @@ const handleProjectDrop = async (project: Project, event: DragEvent) => {
       const draggedWorkflow = JSON.parse(workflowData)
       
       // 워크플로우 데이터 유효성 검사
-      if (!draggedWorkflow.n8n_workflow_id) {
+      if (!draggedWorkflow.workflow_id) {
         return
       }
       
       // 중복 체크 - 이미 이 프로젝트에 있는지
       const exists = workflows.value.some((w: WorkflowItem) => 
-        w.n8n_workflow_id === draggedWorkflow.n8n_workflow_id && 
+        w.workflow_id === draggedWorkflow.workflow_id && 
         w.project_id === project.project_id
       )
       
-      if (!exists) {
-        // 워크플로우의 project_id 업데이트
-        const workflowIndex = workflows.value.findIndex((w: WorkflowItem) => 
-          w.n8n_workflow_id === draggedWorkflow.n8n_workflow_id
-        )
-        
-        if (workflowIndex > -1) {
-          try {
-            await workflowService.assignWorkflowToProject(draggedWorkflow.n8n_workflow_id, project.project_id)
-            
-            // 로컬 상태 업데이트
-            workflows.value[workflowIndex].project_id = project.project_id
-            workflows.value[workflowIndex].updated_at = new Date().toISOString()
-            workflows.value[workflowIndex].isDragging = false
-            
-          } catch (error) {
-            console.error('워크플로우 이동 실패:', error)
-            alert('워크플로우 이동에 실패했습니다.')
-          }
+      if (exists) {
+        return
+      }
+      
+      // 워크플로우의 project_id 업데이트
+      const workflowIndex = workflows.value.findIndex((w: WorkflowItem) => 
+        w.workflow_id === draggedWorkflow.workflow_id
+      )
+      
+      if (workflowIndex > -1) {
+        try {
+          await workflowStore.assignWorkflowToProject(draggedWorkflow.workflow_id, project.project_id)
+        } catch (error) {
+          console.error('워크플로우 이동 실패:', error)
+          alert('워크플로우 이동에 실패했습니다.')
         }
       }
     } catch (e) {
-      console.error('❌ 워크플로우 데이터 파싱 오류 (프로젝트):', e)
-      console.error('파싱 시도한 데이터:', workflowData)
-      // 에러를 조용히 무시하고 사용자에게 표시하지 않음
+      console.error('워크플로우 데이터 파싱 오류:', e)
     }
   }
 }
@@ -267,33 +232,25 @@ const handleSectionDrop = async (event: DragEvent) => {
       const draggedWorkflow = JSON.parse(workflowData)
       
       // 워크플로우 데이터 유효성 검사
-      if (!draggedWorkflow.n8n_workflow_id) {
+      if (!draggedWorkflow.workflow_id) {
         return
       }
       
       // 워크플로우를 비소속으로 변경 (project_id = null)
       const workflowIndex = workflows.value.findIndex((w: WorkflowItem) => 
-        w.n8n_workflow_id === draggedWorkflow.n8n_workflow_id
+        w.workflow_id === draggedWorkflow.workflow_id
       )
       
       if (workflowIndex > -1 && workflows.value[workflowIndex].project_id !== null) {
         try {
-          await workflowService.assignWorkflowToProject(draggedWorkflow.n8n_workflow_id, null)
-          
-          // 로컬 상태 업데이트
-          workflows.value[workflowIndex].project_id = null
-          workflows.value[workflowIndex].updated_at = new Date().toISOString()
-          workflows.value[workflowIndex].isDragging = false
-          
+          await workflowStore.assignWorkflowToProject(draggedWorkflow.workflow_id, null)
         } catch (error) {
           console.error('워크플로우 이동 실패:', error)
           alert('워크플로우 이동에 실패했습니다.')
         }
       }
     } catch (e) {
-      console.error('❌ 워크플로우 데이터 파싱 오류 (섹션):', e)
-      console.error('파싱 시도한 데이터:', workflowData)
-      // 에러를 조용히 무시하고 사용자에게 표시하지 않음
+      console.error('워크플로우 데이터 파싱 오류:', e)
     }
   }
 }
@@ -304,7 +261,7 @@ const handleSectionDragOver = (event: DragEvent) => {
 }
 
 // 드롭다운 관련
-const showProjectDropdown = (id: number, event: Event) => {
+const showProjectDropdown = (id: string, event: Event) => {
   const dropdownId = `project-${id}`
   openDropdown(dropdownId, event)
 }
@@ -316,12 +273,7 @@ const renameProject = async (project: Project) => {
   const newName = prompt(t('enter_new_name', { current: project.name }), project.name)
   if (newName && newName.trim()) {
     try {
-      await projectService.updateProject(project.project_id, newName.trim())
-      
-      // 로컬 상태 업데이트
-      project.name = newName.trim()
-      project.updated_at = new Date().toISOString()
-      
+      await workflowStore.updateProjectName(project.project_id, newName.trim())
     } catch (error) {
       console.error('프로젝트 이름 변경 실패:', error)
       alert('프로젝트 이름 변경에 실패했습니다.')
@@ -329,26 +281,11 @@ const renameProject = async (project: Project) => {
   }
 }
 
-const deleteProject = async (projectId: number) => {
+const deleteProject = async (projectId: string) => {
   closeDropdown()
   if (confirm(t('confirm_delete'))) {
     try {
-      await projectService.deleteProject(projectId)
-      
-      // 로컬 상태에서 프로젝트 제거
-      const index = projects.value.findIndex(item => item.project_id === projectId)
-      if (index > -1) {
-        
-        // 프로젝트의 워크플로우들을 비소속으로 변경
-        workflows.value.forEach((workflow: WorkflowItem) => {
-          if (workflow.project_id === projectId) {
-            workflow.project_id = null
-            workflow.updated_at = new Date().toISOString()
-          }
-        })
-        
-        projects.value.splice(index, 1)
-      }
+      await workflowStore.deleteProject(projectId)
     } catch (error) {
       console.error('프로젝트 삭제 실패:', error)
       alert('프로젝트 삭제에 실패했습니다.')
@@ -361,12 +298,7 @@ const renameWorkflow = async (workflow: WorkflowItem) => {
   const newName = prompt(t('enter_new_name', { current: workflow.name }), workflow.name)
   if (newName && newName.trim()) {
     try {
-      await workflowService.updateWorkflowName(workflow.n8n_workflow_id, newName.trim())
-      
-      // 로컬 상태 업데이트
-      workflow.name = newName.trim()
-      workflow.updated_at = new Date().toISOString()
-      
+      await workflowStore.updateWorkflowName(workflow.workflow_id, newName.trim())
     } catch (error) {
       console.error('워크플로우 이름 변경 실패:', error)
       alert('워크플로우 이름 변경에 실패했습니다.')
@@ -377,7 +309,7 @@ const renameWorkflow = async (workflow: WorkflowItem) => {
 const copyWorkflow = (workflow: WorkflowItem) => {
   copiedWorkflow.value = {
     ...workflow,
-    n8n_workflow_id: `copy_${Date.now()}`,
+    workflow_id: `copy_${Date.now()}`,
     active: false,
     status: 'inactive',
     isDragging: false,
@@ -388,13 +320,8 @@ const copyWorkflow = (workflow: WorkflowItem) => {
 const deleteWorkflow = async (workflowId: string) => {
   if (confirm(t('confirm_delete'))) {
     try {
-      await workflowService.deleteWorkflow(workflowId)
-      
-      // 로컬 상태에서 워크플로우 제거
-      const index = workflows.value.findIndex((w: WorkflowItem) => w.n8n_workflow_id === workflowId)
-      if (index > -1) {
-        workflows.value.splice(index, 1)
-      }
+      await workflowStore.deleteWorkflow(workflowId)
+      // 스토어가 백엔드 요청하고 로컬 상태 업데이트함
     } catch (error) {
       console.error('워크플로우 삭제 실패:', error)
       alert('워크플로우 삭제에 실패했습니다.')
@@ -404,84 +331,32 @@ const deleteWorkflow = async (workflowId: string) => {
 
 // API에서 데이터 로드
 const loadData = async (isPolling = false) => {
-  // 인증된 사용자만 데이터 로드
-  const authStore = useAuthStore()
   if (!authStore.isAuthenticated) {
-    if (!isPolling) {
-      errorMessage.value = '로그인이 필요합니다.'
-    }
     return
   }
   
-  // polling 중이 아닐 때만 로딩 상태 표시
-  if (!isPolling) {
-    isLoading.value = true
-  }
-  errorMessage.value = ''
-  
   try {
-    if (!isPolling) {
-    }
-    
-    // 프로젝트와 워크플로우 데이터를 병렬로 로드
-    const [projectsResponse, workflowsResponse] = await Promise.all([
-      projectService.getAllProjects(),
-      workflowService.getAllWorkflows()
+    await Promise.all([
+      workflowStore.loadWorkflows(),
+      workflowStore.loadProjects()
     ])
-    
-    if (!isPolling) {
-    }
-    
-    projects.value = projectsResponse.projects || []
-    
-    // 백엔드 응답을 프론트엔드 형식으로 변환
-    const rawWorkflows = workflowsResponse.workflows || []
-    workflows.value = rawWorkflows.map((workflow: any) => ({
-      n8n_workflow_id: workflow.workflow_id || workflow.n8n_workflow_id,
-      name: workflow.title || workflow.name,
-      project_id: workflow.project_id,
-      status: workflow.status || 'inactive',
-      user_id: workflow.user_id || '',
-      created_at: workflow.created_at || '',
-      updated_at: workflow.updated_at || ''
-    }))
-    
-    if (!isPolling) {
-    }
   } catch (error: any) {
     if (!isPolling) {
       console.error('❌ 데이터 로드 실패:', error)
-      
-      if (error.response?.status === 401) {
-        errorMessage.value = '인증이 만료되었습니다. 다시 로그인해주세요.'
-      } else if (error.response?.status === 403) {
-        errorMessage.value = '액세스 권한이 없습니다.'
-      } else if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-        errorMessage.value = '서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.'
-      } else {
-        errorMessage.value = `데이터 로드 실패: ${error.message || error}`
-      }
-    }
-  } finally {
-    if (!isPolling) {
-      isLoading.value = false
     }
   }
 }
 
-// 워크플로우 선택 핸들러 - 글로벌 상태 관리 사용
+// 워크플로우 선택 핸들러 - 스토어 기반
 const handleWorkflowSelect = (workflow: WorkflowItem) => {
-  // 글로벌 워크플로우 선택 함수 사용 (다른 컴포넌트와 상태 공유)
-  selectWorkflowGlobally(workflow)
+  // 스토어를 통한 워크플로우 선택 (패널 열기)
+  workflowStore.selectWorkflow(workflow)
   
-  // Home.vue에도 이벤트 전달 (기존 패널 열기 등을 위해)
+  // Home.vue에도 이벤트 전달
   emit('select-workflow', workflow)
 }
 
-// 선택 상태 초기화 함수
-const clearProjectWorkflowSelections = () => {
-  workflows.value.forEach((workflow: WorkflowItem) => workflow.active = false)
-}
+// 스토어 기반으로 변경되어 제거됨
 
 // polling 시작
 const startPolling = () => {
@@ -512,7 +387,6 @@ const handleNewProject = () => {
 // 컴포넌트 마운트 시 API에서 데이터 로드 및 polling 시작
 onMounted(() => {
   loadData()
-  registerSelectionClearCallback(clearProjectWorkflowSelections)
   startPolling()
 })
 
@@ -522,7 +396,6 @@ onUnmounted(() => {
 })
 
 // 인증 상태 변화 감지
-const authStore = useAuthStore()
 watch(() => authStore.isAuthenticated, (isAuthenticated) => {
   if (isAuthenticated) {
     loadData()

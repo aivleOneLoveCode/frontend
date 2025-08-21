@@ -1,56 +1,49 @@
 import { defineStore } from 'pinia'
 import { workflowService } from '@/services/workflow'
-import { selectWorkflowGlobally, registerSelectionClearCallback } from '@/utils/workflowSelection'
-
-interface WorkflowNode {
-  id: string
-  name: string
-  type: string
-}
-
-interface WorkflowJsonData {
-  name: string
-  nodes: WorkflowNode[]
-}
-
-interface Workflow {
-  id: number
-  title: string
-  active: boolean
-  description?: string
-  n8nUrl?: string
-  jsonData?: WorkflowJsonData
-  isCustom: boolean
-}
+import { projectService } from '@/services/project'
+import { registerSelectionClearCallback } from '@/utils/workflowSelection'
+import type { WorkflowItem, Project } from '@/types'
 
 interface WorkflowState {
-  workflows: Workflow[]
-  selectedWorkflow: Workflow | null
+  workflows: WorkflowItem[]
+  projects: Project[]
+  selectedWorkflow: WorkflowItem | null
   isWorkflowPanelOpen: boolean
   workflowPanelWidth: number
   isLoading: boolean
+  error: string | null
 }
 
-interface WorkflowData {
-  title: string
-  description?: string
-  jsonData?: WorkflowJsonData
-  isCustom?: boolean
-}
 
 export const useWorkflowStore = defineStore('workflow', {
   state: (): WorkflowState => ({
     workflows: [],
+    projects: [],
     selectedWorkflow: null,
     isWorkflowPanelOpen: false,
-    workflowPanelWidth: 400,
-    isLoading: false
+    workflowPanelWidth: 800,
+    isLoading: false,
+    error: null
   }),
 
   getters: {
-    customWorkflows: (state): Workflow[] => state.workflows.filter(w => w.isCustom),
-    defaultWorkflows: (state): Workflow[] => state.workflows.filter(w => !w.isCustom),
-    activeWorkflow: (state): Workflow | undefined => state.workflows.find(w => w.active)
+    customWorkflows: (state): WorkflowItem[] => state.workflows.filter(w => w.isCustom),
+    defaultWorkflows: (state): WorkflowItem[] => state.workflows.filter(w => !w.isCustom),
+    activeWorkflow: (state): WorkflowItem | undefined => state.workflows.find(w => w.active),
+    activeWorkflows: (state): WorkflowItem[] => {
+      return state.workflows.filter(w => w.status === 'active')
+    },
+    inactiveWorkflows: (state): WorkflowItem[] => {
+      return state.workflows.filter(w => w.status === 'inactive')
+    },
+    workflowsByProject: (state) => {
+      return (projectId?: string) => {
+        return state.workflows.filter(w => w.project_id === projectId)
+      }
+    },
+    unassignedWorkflows: (state): WorkflowItem[] => {
+      return state.workflows.filter(w => !w.project_id)
+    }
   },
 
   actions: {
@@ -58,77 +51,26 @@ export const useWorkflowStore = defineStore('workflow', {
       try {
         this.isLoading = true
         
-        // 기본 워크플로우들
-        const defaultWorkflows = [
-          {
-            id: 1,
-            title: '데이터 분석 워크플로우',
-            active: false,
-            description: '데이터를 수집, 정제, 분석하여 인사이트를 도출하는 워크플로우입니다.',
-            n8nUrl: 'https://n8n.example.com/workflow/data-analysis',
-            jsonData: {
-              "name": "데이터 분석 워크플로우",
-              "nodes": [
-                {"id": "1", "name": "데이터 수집", "type": "HTTP Request"},
-                {"id": "2", "name": "데이터 정제", "type": "Code"},
-                {"id": "3", "name": "분석 결과", "type": "Webhook"}
-              ]
-            },
-            isCustom: false
-          },
-          {
-            id: 2,
-            title: '이미지 처리 워크플로우',
-            active: false,
-            description: '이미지를 업로드하고 다양한 필터와 변환을 적용하는 워크플로우입니다.',
-            n8nUrl: 'https://n8n.example.com/workflow/image-processing',
-            isCustom: false
-          },
-          {
-            id: 3,
-            title: 'API 데이터 연동',
-            active: false,
-            description: '외부 API에서 데이터를 가져와 내부 시스템과 연동하는 워크플로우입니다.',
-            isCustom: false
-          },
-          {
-            id: 4,
-            title: '머신러닝 모델 학습',
-            active: false,
-            description: '데이터를 기반으로 머신러닝 모델을 학습시키고 배포하는 워크플로우입니다.',
-            n8nUrl: 'https://n8n.example.com/workflow/ml-training',
-            isCustom: false
-          },
-          {
-            id: 5,
-            title: '자동화 업무 수행',
-            active: false,
-            description: '반복적인 업무를 자동화하여 효율성을 높이는 워크플로우입니다.',
-            isCustom: false
-          },
-          {
-            id: 6,
-            title: '리포트 생성 워크플로우',
-            active: false,
-            description: '데이터를 기반으로 정기 리포트를 자동 생성하는 워크플로우입니다.',
-            n8nUrl: 'https://n8n.example.com/workflow/report-generation',
-            isCustom: false
-          }
-        ]
 
-        // 사용자 워크플로우들을 서버에서 가져오기
+        // 서버에서 워크플로우와 프로젝트 가져오기
         const backendWorkflows = await workflowService.getAllWorkflows()
         
-        // 백엔드 워크플로우를 프론트엔드 형식으로 변환
+        // 백엔드 워크플로우를 그대로 사용 (변환 없이)
         const customWorkflows = backendWorkflows.workflows ? backendWorkflows.workflows.map((wf: any) => ({
-          id: wf.workflow_id || wf.n8n_workflow_id,
-          title: wf.title || wf.name || '워크플로우',
+          workflow_id: wf.workflow_id,
+          user_id: wf.user_id,
+          project_id: wf.project_id || null,
+          name: wf.name || wf.title,
+          status: wf.status || 'inactive',
           active: false,
           description: '사용자가 생성한 워크플로우입니다.',
-          isCustom: true
+          isCustom: true,
+          created_at: wf.created_at,
+          updated_at: wf.updated_at
         })) : []
         
-        this.workflows = [...defaultWorkflows, ...customWorkflows]
+        this.workflows = [...customWorkflows]
+        // 프로젝트는 별도 API로 로드
         
       } catch (error) {
         console.error('Failed to load workflows:', error)
@@ -142,73 +84,142 @@ export const useWorkflowStore = defineStore('workflow', {
       }
     },
 
-    async createWorkflow(workflowData: WorkflowData): Promise<Workflow> {
+    async updateWorkflowName(workflowId: string, name: string): Promise<void> {
       try {
-        const newWorkflow = await workflowService.createWorkflow(workflowData)
-        
-        // 모든 워크플로우의 active 상태를 false로 변경
-        this.workflows.forEach(w => w.active = false)
-        
-        // 새 워크플로우를 맨 위에 추가
-        this.workflows.unshift({
-          ...newWorkflow,
-          active: true,
-          isCustom: true
-        })
-        
-        return newWorkflow
-      } catch (error) {
-        console.error('Failed to create workflow:', error)
-        throw error
-      }
-    },
-
-
-    async updateWorkflow(workflowId: number, updateData: Partial<WorkflowData>): Promise<Workflow> {
-      try {
-        const updatedWorkflow = await workflowService.updateWorkflow(workflowId, updateData)
-        
-        // 로컬에서 워크플로우 업데이트
-        const index = this.workflows.findIndex(w => w.id === workflowId)
-        if (index !== -1) {
-          this.workflows[index] = { ...this.workflows[index], ...updatedWorkflow }
+        await workflowService.updateWorkflowName(workflowId, name)
+        const workflow = this.workflows.find(w => w.workflow_id === workflowId)
+        if (workflow) {
+          workflow.name = name
+          workflow.updated_at = new Date().toISOString()
         }
-        
-        return updatedWorkflow
-      } catch (error) {
-        console.error('Failed to update workflow:', error)
+      } catch (error: any) {
+        this.error = error.message || '워크플로우 이름 변경 실패'
         throw error
       }
     },
 
-    async deleteWorkflow(workflowId: number): Promise<void> {
+    async toggleWorkflowStatus(workflowId: string): Promise<void> {
+      try {
+        const response = await workflowService.toggleWorkflowStatus(workflowId)
+        const workflow = this.workflows.find(w => w.workflow_id === workflowId)
+        if (workflow) {
+          workflow.status = response.status as 'active' | 'inactive'
+          workflow.updated_at = new Date().toISOString()
+        }
+      } catch (error: any) {
+        this.error = error.message || '워크플로우 상태 변경 실패'
+        throw error
+      }
+    },
+
+    async deleteWorkflow(workflowId: string): Promise<void> {
       try {
         await workflowService.deleteWorkflow(workflowId)
+        this.workflows = this.workflows.filter(w => w.workflow_id !== workflowId)
         
-        // 로컬에서 워크플로우 제거
-        const index = this.workflows.findIndex(w => w.id === workflowId)
-        if (index !== -1) {
-          this.workflows.splice(index, 1)
-        }
-        
-        // 선택된 워크플로우가 삭제된 경우 초기화
-        if (this.selectedWorkflow?.id === workflowId) {
+        if (this.selectedWorkflow?.workflow_id === workflowId) {
           this.selectedWorkflow = null
           this.isWorkflowPanelOpen = false
         }
-        
-      } catch (error) {
-        console.error('Failed to delete workflow:', error)
+      } catch (error: any) {
+        this.error = error.message || '워크플로우 삭제 실패'
         throw error
       }
     },
 
-    selectWorkflow(workflow: Workflow): void {
-      selectWorkflowGlobally(workflow)
+    selectWorkflow(workflow: WorkflowItem): void {
+      // 같은 워크플로우를 다시 클릭하면 패널 닫기
+      if (this.selectedWorkflow?.workflow_id === workflow.workflow_id && this.isWorkflowPanelOpen) {
+        this.closeWorkflowPanel()
+        return
+      }
       
-      // 로컬 패널 상태 업데이트 (전역 상태와 동기화를 위해)
       this.selectedWorkflow = workflow
       this.isWorkflowPanelOpen = true
+    },
+
+    closeWorkflowPanel(): void {
+      this.isWorkflowPanelOpen = false
+      this.selectedWorkflow = null
+    },
+
+    setWorkflowPanelWidth(width: number): void {
+      this.workflowPanelWidth = Math.max(400, Math.min(1200, width))
+    },
+
+    async loadProjects(): Promise<void> {
+      try {
+        const response = await projectService.getAllProjects()
+        this.projects = response.projects || []
+      } catch (error: any) {
+        this.error = error.message || '프로젝트 로드 실패'
+        console.error('프로젝트 로드 실패:', error)
+      }
+    },
+
+    async createProject(name: string): Promise<Project> {
+      try {
+        const newProject = await projectService.createProject(name)
+        this.projects.unshift(newProject)
+        return newProject
+      } catch (error: any) {
+        this.error = error.message || '프로젝트 생성 실패'
+        throw error
+      }
+    },
+
+    async updateProjectName(projectId: string, name: string): Promise<void> {
+      try {
+        await projectService.updateProject(projectId, name)
+        const project = this.projects.find(p => p.project_id === projectId)
+        if (project) {
+          project.name = name
+        }
+      } catch (error: any) {
+        this.error = error.message || '프로젝트 이름 변경 실패'
+        throw error
+      }
+    },
+
+    async deleteProject(projectId: string): Promise<void> {
+      try {
+        await projectService.deleteProject(projectId)
+        this.projects = this.projects.filter(p => p.project_id !== projectId)
+        
+        this.workflows.forEach(workflow => {
+          if (workflow.project_id === projectId) {
+            workflow.project_id = null
+          }
+        })
+      } catch (error: any) {
+        this.error = error.message || '프로젝트 삭제 실패'
+        throw error
+      }
+    },
+
+    async assignWorkflowToProject(workflowId: string, projectId?: string | null): Promise<void> {
+      try {
+        await workflowService.assignWorkflowToProject(workflowId, projectId || null)
+        
+        const workflow = this.workflows.find(w => w.workflow_id === workflowId)
+        if (workflow) {
+          workflow.project_id = projectId || null
+        }
+      } catch (error: any) {
+        this.error = error.message || '워크플로우 할당 실패'
+        throw error
+      }
+    },
+
+
+    clearError(): void {
+      this.error = null
+    },
+
+    async refreshAll(): Promise<void> {
+      await Promise.all([
+        this.loadWorkflows()
+      ])
     },
 
     initSelectionClearCallback(): void {
@@ -218,50 +229,5 @@ export const useWorkflowStore = defineStore('workflow', {
       registerSelectionClearCallback(clearStoreSelections)
     },
 
-    closeWorkflowPanel(): void {
-      this.isWorkflowPanelOpen = false
-      this.selectedWorkflow = null
-    },
-
-    setWorkflowPanelWidth(width: number): void {
-      this.workflowPanelWidth = Math.max(300, Math.min(800, width))
-    },
-
-    async uploadWorkflowFromJson(jsonData: WorkflowJsonData): Promise<Workflow> {
-      try {
-        // JSON 데이터에서 워크플로우 정보 추출
-        const workflowTitle = jsonData.name || '업로드된 워크플로우'
-        
-        const workflowData = {
-          title: workflowTitle,
-          description: '사용자가 업로드한 n8n 워크플로우입니다.',
-          jsonData: jsonData,
-          isCustom: true
-        }
-        
-        const newWorkflow = await this.createWorkflow(workflowData)
-        
-        return newWorkflow
-      } catch (error) {
-        console.error('Failed to upload workflow from JSON:', error)
-        throw error
-      }
-    },
-
-    parseJsonToWorkflow(jsonString: string): WorkflowJsonData {
-      try {
-        const jsonData = JSON.parse(jsonString)
-        
-        // n8n 워크플로우 JSON 형식 검증
-        if (!jsonData.name || !jsonData.nodes) {
-          throw new Error('유효하지 않은 n8n 워크플로우 JSON 형식입니다.')
-        }
-        
-        return jsonData
-      } catch (error) {
-        console.error('Failed to parse JSON:', error)
-        throw new Error('JSON 파싱에 실패했습니다. 올바른 형식인지 확인해주세요.')
-      }
-    }
   }
 })

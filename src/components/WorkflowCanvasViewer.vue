@@ -52,6 +52,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import type { WorkflowItem } from '../types'
+import { workflowService } from '@/services/workflow'
 
 // Vue Flow를 직접 사용
 import { VueFlow, useVueFlow } from '@vue-flow/core'
@@ -130,6 +131,92 @@ const getNodeIconUrl = (nodeType: string) => {
   return null
 }
 
+// 연결 관계를 고려한 세로 배치 계산
+const calculateVerticalLayout = (nodes: any[], connections: any) => {
+  const nodePositions: Record<string, { x: number; y: number }> = {}
+  const verticalSpacing = 150
+  const horizontalSpacing = 200
+  
+  // 1. 각 노드의 연결 정보 분석
+  const nodeConnections: Record<string, { inputs: string[], outputs: string[] }> = {}
+  nodes.forEach(node => {
+    nodeConnections[node.id] = { inputs: [], outputs: [] }
+  })
+  
+  // connections를 분석해서 입력/출력 관계 파악
+  Object.entries(connections).forEach(([sourceNodeName, conns]: [string, any]) => {
+    const sourceNode = nodes.find(n => n.name === sourceNodeName)
+    if (!sourceNode) return
+    
+    Object.values(conns).forEach((connArray: any) => {
+      connArray.forEach((targetArray: any[]) => {
+        targetArray.forEach((target: any) => {
+          const targetNode = nodes.find(n => n.name === target.node)
+          if (targetNode) {
+            nodeConnections[sourceNode.id].outputs.push(targetNode.id)
+            nodeConnections[targetNode.id].inputs.push(sourceNode.id)
+          }
+        })
+      })
+    })
+  })
+  
+  // 2. 트리거 노드(입력이 없는 노드) 찾기
+  const rootNodes = nodes.filter(node => nodeConnections[node.id].inputs.length === 0)
+  
+  // 3. 계층별로 노드 분류 (BFS)
+  const layers: string[][] = []
+  const visited = new Set<string>()
+  const queue: { nodeId: string, layer: number }[] = []
+  
+  // 루트 노드들을 첫 번째 레이어에 추가
+  rootNodes.forEach(node => {
+    queue.push({ nodeId: node.id, layer: 0 })
+  })
+  
+  while (queue.length > 0) {
+    const { nodeId, layer } = queue.shift()!
+    
+    if (visited.has(nodeId)) continue
+    visited.add(nodeId)
+    
+    // 레이어 배열 초기화
+    if (!layers[layer]) layers[layer] = []
+    layers[layer].push(nodeId)
+    
+    // 다음 레이어의 노드들 추가
+    nodeConnections[nodeId].outputs.forEach(outputNodeId => {
+      if (!visited.has(outputNodeId)) {
+        queue.push({ nodeId: outputNodeId, layer: layer + 1 })
+      }
+    })
+  }
+  
+  // 방문하지 않은 노드들 (고립된 노드들) 마지막 레이어에 추가
+  nodes.forEach(node => {
+    if (!visited.has(node.id)) {
+      if (!layers[layers.length]) layers[layers.length] = []
+      layers[layers.length - 1].push(node.id)
+    }
+  })
+  
+  // 4. 위치 계산
+  layers.forEach((layer, layerIndex) => {
+    const layerY = layerIndex * verticalSpacing
+    
+    layer.forEach((nodeId, nodeIndex) => {
+      // 같은 레이어 내에서 여러 노드가 있으면 가로로 분산
+      const totalWidth = (layer.length - 1) * horizontalSpacing
+      const startX = 300 - totalWidth / 2
+      const nodeX = startX + nodeIndex * horizontalSpacing
+      
+      nodePositions[nodeId] = { x: nodeX, y: layerY }
+    })
+  })
+  
+  return nodePositions
+}
+
 // 폴백 이모지 아이콘
 const getFallbackIcon = (nodeType: string) => {
   const emojiMap: Record<string, string> = {
@@ -183,17 +270,18 @@ const flowNodes = computed(() => {
 
   const jsonData = props.workflow!.jsonData
   
+  // 연결 관계를 고려한 계층적 배치
+  const nodePositions = calculateVerticalLayout(jsonData.nodes, jsonData.connections || {})
+  
   return jsonData.nodes.map((node: any) => {
     const iconUrl = getNodeIconUrl(node.type)
     const fallbackIcon = getFallbackIcon(node.type)
+    const position = nodePositions[node.id] || { x: 300, y: 0 }
     
     return {
       id: node.id,
       type: 'custom',
-      position: { 
-        x: node.position[0] || 0, 
-        y: node.position[1] || 0 
-      },
+      position: position,
       data: {
         label: node.name,
         iconUrl: iconUrl,
@@ -214,14 +302,16 @@ const flowEdges = computed(() => {
   
   // n8n connections 형태를 Vue Flow edges로 변환
   Object.entries(jsonData.connections || {}).forEach(([sourceNodeName, connections]: [string, any]) => {
-    Object.entries(connections).forEach(([connectionType, connectionArray]: [string, any]) => {
+    Object.entries(connections).forEach(([, connectionArray]: [string, any]) => {
       connectionArray.forEach((targetArray: any[], index: number) => {
         targetArray.forEach((target: any) => {
           edges.push({
             id: `${sourceNodeName}-${target.node}-${index}`,
             source: jsonData.nodes.find((n: any) => n.name === sourceNodeName)?.id,
             target: jsonData.nodes.find((n: any) => n.name === target.node)?.id,
-            type: 'default',
+            sourceHandle: 'bottom',
+            targetHandle: 'top',
+            type: 'step',
             style: {
               stroke: '#6b7280',
               strokeWidth: 2
@@ -239,42 +329,48 @@ const flowEdges = computed(() => {
   return edges.filter(edge => edge.source && edge.target)
 })
 
-// 워크플로우 변경 감지
-watch(() => props.workflow, (newWorkflow) => {
+// 워크플로우 변경 감지 및 JSON 데이터 로딩
+watch(() => props.workflow, async (newWorkflow) => {
   error.value = ''
   
-  // 워크플로우가 선택되었지만 JSON 데이터가 없으면 로딩 상태
-  if (newWorkflow && !newWorkflow.jsonData) {
-    loading.value = true
+  if (!newWorkflow) {
+    loading.value = false
     return
   }
   
-  loading.value = false
+  // 워크플로우가 선택되면 항상 JSON 데이터를 새로 로드
+  loading.value = true
   
-  if (newWorkflow?.jsonData) {
-    try {
-      // JSON 데이터 유효성 검증
-      if (!newWorkflow.jsonData.nodes) {
-        throw new Error('워크플로우에 노드가 없습니다')
-      }
-      
-      if (!Array.isArray(newWorkflow.jsonData.nodes)) {
-        throw new Error('잘못된 워크플로우 형식입니다')
-      }
-      
-      // 워크플로우가 로드되면 fitView 실행
-      nextTick(() => {
-        setTimeout(() => {
-          fitView({ 
-            padding: 0.1,
-            duration: 300
-          })
-        }, 300)
-      })
-      
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : '워크플로우 로딩 중 오류가 발생했습니다'
+  try {
+    // 워크플로우 JSON 데이터 가져오기
+    const jsonData = await workflowService.getWorkflowJson(newWorkflow.workflow_id)
+    
+    // JSON 데이터 유효성 검증
+    if (!jsonData.nodes) {
+      throw new Error('워크플로우에 노드가 없습니다')
     }
+    
+    if (!Array.isArray(jsonData.nodes)) {
+      throw new Error('잘못된 워크플로우 형식입니다')
+    }
+    
+    // 워크플로우 객체에 JSON 데이터 설정
+    newWorkflow.jsonData = jsonData
+    
+    loading.value = false
+    
+    // 워크플로우가 로드되면 fitView 실행
+    nextTick(() => {
+      fitView({ 
+        padding: 0.1,
+        duration: 0
+      })
+    })
+    
+  } catch (err) {
+    loading.value = false
+    error.value = err instanceof Error ? err.message : '워크플로우 로딩 중 오류가 발생했습니다'
+    console.error('워크플로우 JSON 로딩 실패:', err)
   }
 }, { immediate: true })
 
@@ -317,14 +413,14 @@ const defaultViewport = computed(() => {
 })
 
 // Vue Flow composable 사용
-const { fitView, onNodesInitialized, onPaneReady } = useVueFlow()
+const { fitView, onNodesInitialized } = useVueFlow()
 
 // 수동으로 fitView 실행하는 함수 (필요시 외부에서 호출 가능)
 const autoFitView = () => {
   if (hasValidWorkflow.value) {
     fitView({ 
       padding: 0.1,
-      duration: 300
+      duration: 0
     })
   }
 }
@@ -332,12 +428,10 @@ const autoFitView = () => {
 // 노드들이 초기화된 후 자동 fitView 실행
 onNodesInitialized(() => {
   if (hasValidWorkflow.value) {
-    setTimeout(() => {
-      fitView({ 
-        padding: 0.1,
-        duration: 300
-      })
-    }, 200)
+    fitView({ 
+      padding: 0.1,
+      duration: 0
+    })
   }
 })
 

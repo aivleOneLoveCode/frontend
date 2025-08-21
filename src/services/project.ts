@@ -14,13 +14,13 @@ export const projectService = {
   },
 
   // 프로젝트 이름 변경
-  async updateProject(projectId: number, name: string) {
+  async updateProject(projectId: string, name: string) {
     const response = await api.put(`/projects/${projectId}`, { name })
     return response.data
   },
 
   // 프로젝트 삭제
-  async deleteProject(projectId: number) {
+  async deleteProject(projectId: string) {
     const response = await api.delete(`/projects/${projectId}`)
     return response.data
   }

@@ -87,7 +87,7 @@
               valid: validation.password.valid
             }"
             v-model="registerForm.password"
-            placeholder="8자 이상 입력하세요"
+            placeholder="10자 이상, 특수문자 포함"
             @input="validateField('password')"
             required
           >
@@ -118,8 +118,32 @@
             {{ validation.confirmPassword.message }}
           </div>
         </div>
+
+        <!-- 개인정보 수집 및 이용 동의 -->
+        <div class="privacy-section">
+          <div class="privacy-consent-main">
+            <label class="checkbox-label main-consent" @click="handlePrivacyClick">
+              <input 
+                type="checkbox" 
+                v-model="privacyConsent.required"
+                class="consent-checkbox"
+                required
+                readonly
+              >
+              <span class="checkmark"></span>
+              <span>
+                개인정보 수집 및 이용에 동의합니다
+                <span class="required-text">(필수)</span>
+              </span>
+            </label>
+          </div>
+        </div>
         
-        <button type="submit" class="submit-btn" :disabled="authStore.isLoading || !isFormValid">
+        <button 
+          type="submit" 
+          class="submit-btn" 
+          :disabled="authStore.isLoading || !isFormValid || !privacyConsent.required"
+        >
           <span v-if="authStore.isLoading" class="loading-spinner"></span>
           {{ authStore.isLoading ? '가입 중...' : '회원가입' }}
         </button>
@@ -143,6 +167,14 @@
         <router-link to="/login">로그인</router-link>
       </div>
     </div>
+
+    <!-- 개인정보 수집 및 이용 동의 모달 -->
+    <PrivacyPolicyModal 
+      :isOpen="showPrivacyModal"
+      :currentConsents="privacyConsent"
+      @close="showPrivacyModal = false"
+      @confirm="handlePrivacyConsent"
+    />
   </div>
 </template>
 
@@ -150,7 +182,8 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { validateEmail, getPasswordStrength } from '@/utils/helpers'
+import { validateEmail, getPasswordStrength, validatePassword } from '@/utils/helpers'
+import PrivacyPolicyModal from '@/components/PrivacyPolicyModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -161,6 +194,13 @@ const registerForm = ref({
   email: '',
   password: '',
   confirmPassword: ''
+})
+
+const showPrivacyModal = ref(false)
+const privacyConsent = ref({
+  required: false,
+  marketing: false,
+  analytics: false
 })
 
 const validation = ref({
@@ -194,8 +234,8 @@ const validateName = (name: string) => {
   return name && name.trim().length >= 1
 }
 
-const validatePassword = (password: string) => {
-  return password && password.length >= 8
+const validatePasswordField = (password: string) => {
+  return validatePassword(password).isValid
 }
 
 const validateField = (fieldName: string) => {
@@ -241,9 +281,10 @@ const validateField = (fieldName: string) => {
       break
 
     case 'password':
-      if (!validatePassword(value)) {
+      const passwordValidation = validatePassword(value)
+      if (!passwordValidation.isValid) {
         field.error = true
-        field.message = '비밀번호는 8자 이상이어야 합니다.'
+        field.message = passwordValidation.message
       } else {
         field.valid = true
         const strength = passwordStrength.value.score
@@ -278,6 +319,12 @@ watch(() => registerForm.value.password, () => {
 
 const handleRegister = async () => {
   try {
+    // 개인정보 수집 동의 확인
+    if (!privacyConsent.value.required) {
+      alert('개인정보 수집 및 이용에 동의해주세요.')
+      return
+    }
+
     // 에러 메시지 초기화
     authStore.clearMessages()
     
@@ -286,7 +333,9 @@ const handleRegister = async () => {
       last_name: registerForm.value.lastName,
       email: registerForm.value.email,
       password: registerForm.value.password,
-      confirmPassword: registerForm.value.confirmPassword
+      confirmPassword: registerForm.value.confirmPassword,
+      marketing_consent: privacyConsent.value.marketing,
+      analytics_consent: privacyConsent.value.analytics
     })
     
     // 성공 시 채팅 페이지로 리다이렉트 (자동 로그인됨)
@@ -322,6 +371,16 @@ const getErrorMessage = (error: string): string => {
   }
   // 기본 에러 메시지
   return error || '회원가입 중 오류가 발생했습니다. 다시 시도해주세요.'
+}
+
+const handlePrivacyClick = (event: Event) => {
+  event.preventDefault()
+  showPrivacyModal.value = true
+}
+
+const handlePrivacyConsent = (consents: { required: boolean; marketing: boolean; analytics: boolean }) => {
+  privacyConsent.value = consents
+  showPrivacyModal.value = false
 }
 
 const goBack = () => {
@@ -585,6 +644,76 @@ const goBack = () => {
 }
 
 /* 반응형 디자인 */
+/* 개인정보 동의 섹션 스타일 */
+.privacy-section {
+  margin: 20px 0;
+}
+
+.privacy-consent-main {
+  padding: 16px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.privacy-consent-main:hover {
+  border-color: #67bdc6;
+  background-color: #f0fbfc;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+  user-select: none;
+}
+
+.main-consent {
+  font-weight: 500;
+}
+
+.consent-checkbox {
+  display: none;
+}
+
+.checkmark {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+  margin-right: 12px;
+  position: relative;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.consent-checkbox:checked + .checkmark {
+  background-color: #67bdc6;
+  border-color: #67bdc6;
+}
+
+.consent-checkbox:checked + .checkmark::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.required-text {
+  color: #dc2626;
+  font-weight: 600;
+  margin-left: 4px;
+  font-size: 13px;
+}
+
 @media (max-width: 480px) {
   .login-card {
     padding: 24px;
@@ -593,6 +722,24 @@ const goBack = () => {
   
   .logo-title {
     font-size: 18px;
+  }
+
+  .privacy-section {
+    margin: 16px 0;
+  }
+
+  .privacy-consent-main {
+    padding: 12px;
+  }
+
+  .checkbox-label {
+    font-size: 13px;
+  }
+
+  .checkmark {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
   }
 }
 </style>

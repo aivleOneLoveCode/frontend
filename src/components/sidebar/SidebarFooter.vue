@@ -20,6 +20,16 @@
           </svg>
           {{ t('help') }}
         </button>
+        <button class="dropdown-item" @click="openPrivacyPolicy">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10,9 9,9 8,9"/>
+          </svg>
+          이용약관
+        </button>
         <button class="dropdown-item" @click="logout">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -42,6 +52,14 @@
   
   <!-- 도움말 모달 -->
   <HelpModal :isOpen="showHelpModal" @close="closeHelpModal" />
+  
+  <!-- 개인정보 처리방침 모달 -->
+  <UserPrivacyModal 
+    :isOpen="showPrivacyModal"
+    :currentConsents="userConsents"
+    @close="closePrivacyModal"
+    @confirm="handlePrivacyConsent"
+  />
 </template>
 
 <script setup lang="ts">
@@ -51,7 +69,9 @@ import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import SettingsModal from '../SettingsModal.vue'
 import HelpModal from '../HelpModal.vue'
+import UserPrivacyModal from '../UserPrivacyModal.vue'
 import { useTranslation } from '@/utils/i18n'
+import api from '@/services/api'
 
 const props = defineProps<{
   collapsed: boolean
@@ -70,6 +90,11 @@ const currentUser = ref<any>(null)
 const showSettingsModal = ref(false)
 const showHelpModal = ref(false)
 const showUserMenu = ref(false)
+const showPrivacyModal = ref(false)
+const userConsents = ref({
+  marketing_consent: false,
+  analytics_consent: false
+})
 
 // 사용자 관련 computed 속성
 const getUserInitial = computed(() => {
@@ -84,16 +109,28 @@ const getUserInitial = computed(() => {
 
 const getUserName = computed(() => {
   if (currentUser.value?.first_name && currentUser.value?.last_name) {
-    return `${currentUser.value.first_name} ${currentUser.value.last_name}`
+    const firstName = maskName(currentUser.value.first_name)
+    const lastName = maskName(currentUser.value.last_name)
+    return `${firstName} ${lastName}`
   }
   if (currentUser.value?.first_name) {
-    return currentUser.value.first_name
+    return maskName(currentUser.value.first_name)
   }
   if (currentUser.value?.name) {
-    return currentUser.value.name
+    return maskName(currentUser.value.name)
   }
   return t('user')
 })
+
+// 이름 마스킹 함수
+const maskName = (name: string): string => {
+  if (!name || name.length <= 1) {
+    return name
+  }
+  
+  // 한글자는 그대로, 나머지는 *로 마스킹
+  return name.charAt(0) + '*'.repeat(name.length - 1)
+}
 
 // 드롭다운 관련
 const toggleUserMenu = () => {
@@ -133,6 +170,40 @@ const openSettings = () => {
 const openHelp = () => {
   showUserMenu.value = false // 드롭다운 닫기
   showHelpModal.value = true
+}
+
+const openPrivacyPolicy = async () => {
+  showUserMenu.value = false // 드롭다운 닫기
+  
+  // 최신 동의 정보 가져오기
+  try {
+    const response = await api.get('/user/profile')
+    userConsents.value = {
+      marketing_consent: response.data.marketing_consent || false,
+      analytics_consent: response.data.analytics_consent || false
+    }
+  } catch (error) {
+    console.error('동의 정보 로드 실패:', error)
+  }
+  
+  showPrivacyModal.value = true
+}
+
+const closePrivacyModal = () => {
+  showPrivacyModal.value = false
+}
+
+const handlePrivacyConsent = async (consents: any) => {
+  try {
+    await api.put('/user/consent', consents)
+    // 로컬 상태 업데이트
+    userConsents.value = { ...consents }
+    console.log('동의 정보가 업데이트되었습니다.')
+  } catch (error) {
+    console.error('동의 정보 업데이트 오류:', error)
+  }
+  
+  closePrivacyModal()
 }
 
 const logout = async () => {
