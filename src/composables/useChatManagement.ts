@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useBoardStore } from '@/stores/board'
 import { FileUploadService, type UploadedFile } from '@/services/fileUpload'
@@ -15,6 +15,11 @@ export function useChatManagement() {
   const messages = computed(() => chatStore.currentMessages)
   const showWelcome = computed(() => messages.value.length === 0)
   const uploadedFiles = computed(() => chatStore.uploadedFiles)
+
+  // 세션 변경 감지해서 입력창 초기화
+  watch(() => chatStore.currentSessionId, () => {
+    inputText.value = ''
+  })
 
   // 채팅 기능
   const sendMessage = async () => {
