@@ -64,7 +64,7 @@ import type { NodeTypesObject } from '@vue-flow/core'
 
 // 커스텀 노드 타입 등록 (markRaw로 reactive 방지)
 const nodeTypes: NodeTypesObject = {
-  custom: markRaw(WorkflowCustomNode)
+  custom: markRaw(WorkflowCustomNode) as any
 }
 
 interface Props {
