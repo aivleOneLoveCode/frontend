@@ -144,7 +144,7 @@ export function useChatManagement() {
             }
 
             // 워크플로우 JSON 데이터 가져오기
-            const response = await fetch(`http://localhost:8000/workflows/${workflowId}/json`, {
+            const response = await fetch(`/api/workflows/${workflowId}/json`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }

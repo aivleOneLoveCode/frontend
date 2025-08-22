@@ -18,7 +18,7 @@ export class DAZZANYChatStream {
   private isProcessing: boolean
 
   constructor() {
-    this.backendUrl = 'http://localhost:8000'
+    this.backendUrl = import.meta.env.VITE_API_BASE_URL || '/api'
     this.sessionId = 'web-' + Date.now()
     this.isConnected = false
     this.isProcessing = false

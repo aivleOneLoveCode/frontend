@@ -586,7 +586,7 @@ const clearEditForm = () => {
     title: '',
     description: '',
     workflow_id: '',
-    workflow_name: ''
+    // workflow_name: ''
   }
 }
 
