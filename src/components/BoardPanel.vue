@@ -36,7 +36,7 @@
           <!-- 에러 상태 -->
           <div v-else-if="error" class="error-state">
             <p>{{ error }}</p>
-            <button class="retry-btn" @click="loadPosts">다시 시도</button>
+            <button class="retry-btn" @click="() => loadPosts()">다시 시도</button>
           </div>
           
           <!-- 게시물 목록 -->
@@ -1072,6 +1072,7 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   line-height: 1.4;
 }

@@ -79,7 +79,7 @@ export const chatService = {
   // WebSocket을 사용한 실시간 채팅 (선택사항)
   connectWebSocket(chatId: number, onMessage: (data: any) => void, onError?: (error: any) => void) {
     const token = localStorage.getItem('auth_token')
-    const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000/ws'
+    const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || '/api/ws'
     
     const ws = new WebSocket(`${wsBaseUrl}/chat/${chatId}?token=${token}`)
     
