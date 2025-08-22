@@ -36,7 +36,7 @@
           <!-- 에러 상태 -->
           <div v-else-if="error" class="error-state">
             <p>{{ error }}</p>
-            <button class="retry-btn" @click="loadPosts">다시 시도</button>
+            <button class="retry-btn" @click="() => loadPosts()">다시 시도</button>
           </div>
           
           <!-- 게시물 목록 -->
