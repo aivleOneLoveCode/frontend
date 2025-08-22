@@ -585,8 +585,7 @@ const clearEditForm = () => {
   editPost.value = {
     title: '',
     description: '',
-    workflow_id: '',
-    // workflow_name: ''
+    workflow_id: ''
   }
 }
 
