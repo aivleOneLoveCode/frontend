@@ -240,6 +240,11 @@ export const translations: Translations = {
     'en': 'Copy',
     'ja': 'コピー'
   },
+  'add_to_chat': {
+    'ko': '채팅에 추가',
+    'en': 'Add to Chat',
+    'ja': 'チャットに追加'
+  },
   'paste': {
     'ko': '붙여넣기',
     'en': 'Paste',

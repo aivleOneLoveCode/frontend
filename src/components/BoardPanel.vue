@@ -1,6 +1,6 @@
 <template>
   <div v-if="isOpen" class="board-overlay" @click="closeBoard">
-    <div class="board-panel" @click.stop>
+    <div class="board-panel" :style="panelStyle" @click.stop>
       <!-- 게시판 헤더 -->
       <div class="board-header">
         <h3>게시판</h3>
@@ -303,6 +303,7 @@ interface Post {
 
 interface Props {
   isOpen: boolean
+  buttonRect?: DOMRect | null
 }
 
 interface Emits {
@@ -310,7 +311,7 @@ interface Emits {
 }
 
 // Props are used directly in template
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // 스토어
@@ -342,6 +343,25 @@ const searchKeyword = ref('')
 const currentPage = ref(1)
 const postsPerPage = 6
 
+// 패널 위치 계산
+const panelStyle = computed(() => {
+  if (!props.buttonRect) {
+    return {}
+  }
+  
+  // 버튼 위치 기준으로 패널 위치 계산
+  const buttonRight = window.innerWidth - props.buttonRect.right
+  const buttonBottom = props.buttonRect.bottom
+  
+  return {
+    position: 'fixed' as const,
+    top: `${buttonBottom + 8}px`, // 버튼 아래 8px 간격
+    right: `${buttonRight}px`, // 버튼의 오른쪽 끝에 맞춤
+    left: 'auto',
+    transform: 'none'
+  }
+})
+
 // 아코디언 기능 제거됨 (카드는 항상 열려있음)
 
 // 게시물 데이터 및 로딩 상태
@@ -351,15 +371,6 @@ const error = ref<string | null>(null)
 
 // 백엔드 데이터를 프론트엔드 형식으로 변환
 const convertBoardPostToPost = (boardPost: BoardPost): Post => {
-  console.log('🔍 변환 중인 게시물 상세:', {
-    title: boardPost.title,
-    post_id: boardPost.post_id,
-    user_id: boardPost.user_id,
-    user_id_type: typeof boardPost.user_id,
-    author_name: boardPost.author_name,
-    created_at: boardPost.created_at,
-    전체_boardPost: boardPost
-  })
   
   // 날짜 안전하게 파싱
   let createdDate: Date
@@ -367,11 +378,9 @@ const convertBoardPostToPost = (boardPost: BoardPost): Post => {
     createdDate = new Date(boardPost.created_at)
     // Invalid Date 체크
     if (isNaN(createdDate.getTime())) {
-      console.warn('⚠️ 유효하지 않은 날짜:', boardPost.created_at)
       createdDate = new Date() // 현재 시간으로 대체
     }
   } catch (error) {
-    console.warn('⚠️ 날짜 파싱 실패:', boardPost.created_at, error)
     createdDate = new Date() // 현재 시간으로 대체
   }
   
@@ -394,34 +403,22 @@ const canEditPost = (post: Post): boolean => {
   const currentUserId = authStore.currentUser?.user_id
   const postUserId = post.userId
   
-  console.log('권한 체크:', {
-    postTitle: post.title,
-    currentUserId,
-    postUserId,
-    postAuthor: post.author,
-    hasCurrentUser: !!authStore.currentUser,
-    hasPostUserId: !!postUserId
-  })
   
   // 현재 사용자가 없으면 편집 불가
   if (!currentUserId) {
-    console.log('권한 거부: 로그인하지 않음')
     return false
   }
   
   // 정상적인 경우: userId가 일치하면 편집 가능
   if (postUserId && String(currentUserId) === String(postUserId)) {
-    console.log('권한 허용: userId 일치')
     return true
   }
   
   // 임시 해결책: userId가 없는 경우 (로컬 생성 게시물)
   if (!postUserId || postUserId === 'unknown') {
-    console.log('권한 허용: userId가 없는 로컬 게시물')
     return true
   }
   
-  console.log('권한 거부: 조건 불일치')
   return false
 }
 
@@ -484,7 +481,6 @@ const loadPosts = async (page: number = 1, forceReload: boolean = false) => {
     if (searchKeyword.value.trim()) {
       // 검색 데이터가 없거나 강제 리로드인 경우에만 서버 요청
       if (!isSearchDataLoaded.value || forceReload) {
-        console.log('=== 검색용 데이터 서버에서 가져오기 ===')
         
         const response = await boardService.getPosts({
           limit: 50,
@@ -496,7 +492,6 @@ const loadPosts = async (page: number = 1, forceReload: boolean = false) => {
       }
       
       // 클라이언트 사이드 검색 (이미 로드된 데이터에서)
-      console.log('=== 클라이언트 사이드 검색 ===')
       const keyword = searchKeyword.value.toLowerCase()
       const filtered = allPosts.value.filter(post => 
         post.title.toLowerCase().includes(keyword) ||
@@ -510,7 +505,6 @@ const loadPosts = async (page: number = 1, forceReload: boolean = false) => {
       const end = start + postsPerPage
       posts.value = filtered.slice(start, end)
       
-      console.log('검색 결과:', filtered.length, '건, 현재 페이지:', page)
     } else {
       // 일반 모드: 서버 페이지네이션
       isSearchDataLoaded.value = false // 검색 모드 해제
@@ -518,8 +512,6 @@ const loadPosts = async (page: number = 1, forceReload: boolean = false) => {
       
       const offset = (page - 1) * postsPerPage
       
-      console.log('=== 일반 모드 데이터 로딩 ===')
-      console.log('페이지:', page, 'Offset:', offset, 'Limit:', postsPerPage)
       
       const response = await boardService.getPosts({
         limit: postsPerPage,
@@ -530,8 +522,6 @@ const loadPosts = async (page: number = 1, forceReload: boolean = false) => {
       totalPosts.value = response.total || posts.value.length
     }
     
-    console.log('로드된 게시물 수:', posts.value.length, '전체:', totalPosts.value)
-    console.log('=== 데이터 로딩 완료 ===')
   } catch (err) {
     console.error('게시물 로딩 실패:', err)
     error.value = '게시물을 불러오는데 실패했습니다.'
@@ -636,10 +626,7 @@ const createPost = async () => {
 
   try {
     // 선택된 워크플로우 정보 찾기
-    console.log('선택된 워크플로우 ID:', newPost.value.workflowId)
-    console.log('전체 워크플로우 목록:', userWorkflows.value)
     const selectedWorkflow = userWorkflows.value.find(w => w.workflow_id === newPost.value.workflowId)
-    console.log('찾은 워크플로우:', selectedWorkflow)
     const workflowName = selectedWorkflow ? (selectedWorkflow.name || selectedWorkflow.title || '') : ''
     
     // 백엔드 API로 게시물 생성
@@ -650,9 +637,7 @@ const createPost = async () => {
       workflow_name: workflowName
     }
     
-    console.log('게시물 생성 요청 데이터 상세:', JSON.stringify(postData, null, 2))
     const response = await boardService.createPost(postData)
-    console.log('게시물 생성 응답:', response)
     
     // 검색 초기화 후 첫 페이지로 이동
     clearSearch()
@@ -702,14 +687,12 @@ const updatePost = async () => {
     const selectedWorkflow = userWorkflows.value.find(w => w.workflow_id === editPost.value.workflow_id)
     const workflowName = selectedWorkflow ? (selectedWorkflow.name || selectedWorkflow.title || '') : ''
     
-    console.log('게시글 수정 요청:', { id: editingPost.value.id, data: editPost.value })
     const response = await boardService.updatePost(editingPost.value.id, {
       title: editPost.value.title,
       description: editPost.value.description,
       workflow_id: editPost.value.workflow_id,
       workflow_name: workflowName
     })
-    console.log('게시글 수정 응답:', response)
     
     // 검색 초기화 후 현재 페이지 새로고침
     clearSearch()
@@ -772,6 +755,27 @@ const addToChat = async (post: Post) => {
     // 채팅 스토어를 가져와서 파일로 추가
     const chatStore = useChatStore()
     
+    // 이미 첨부된 워크플로우인지 확인
+    const isAlreadyAttached = chatStore.uploadedFiles.some((file: any) => {
+      if (file.type === 'text/plain' || file.type === 'application/json') {
+        try {
+          const existingData = typeof file.content === 'string' ? JSON.parse(file.content) : file.content
+          // 게시판 워크플로우는 workflow_json 안에 실제 데이터가 있음
+          const existingWorkflow = existingData.workflow_json || existingData
+          const newWorkflow = workflowJson.workflow_json || workflowJson
+          return existingWorkflow.id === newWorkflow.id
+        } catch {
+          return false
+        }
+      }
+      return false
+    })
+    
+    if (isAlreadyAttached) {
+      alert(`"${post.workflowName || post.title}" 워크플로우는 이미 첨부되어 있습니다.`)
+      return
+    }
+    
     // 워크플로우 JSON을 UploadedFile 형식으로 추가
     const workflowText = JSON.stringify(workflowJson, null, 2)
     const workflowFile = {
@@ -801,13 +805,10 @@ const addToChat = async (post: Post) => {
 }
 
 const deletePost = async (post: Post) => {
-  console.log('삭제 시도:', { postId: post.id, postTitle: post.title })
   
   if (confirm(`"${post.title}" 게시물을 정말로 삭제하시겠습니까?`)) {
     try {
-      console.log('API 삭제 요청 시작:', post.id)
       const response = await boardService.deletePost(post.id)
-      console.log('API 삭제 응답:', response)
       
       alert('게시물이 삭제되었습니다.')
       
@@ -906,17 +907,25 @@ watch(searchKeyword, () => {
   loadPosts(1)
 })
 
+// 게시판이 열릴 때만 데이터 로드
+watch(() => props.isOpen, (newValue) => {
+  if (newValue) {
+    // 게시판이 열릴 때만 데이터 로드
+    if (posts.value.length === 0) {
+      loadPosts(1)
+    }
+    if (userWorkflows.value.length === 0) {
+      loadWorkflows()
+    }
+  }
+})
+
 // 워크플로우 목록 가져오기
 const loadWorkflows = async () => {
   isLoadingWorkflows.value = true
   try {
     const response = await api.get('/workflows')
-    console.log('워크플로우 API 응답:', response.data)
     userWorkflows.value = response.data.workflows || []
-    console.log('워크플로우 목록 상세:', userWorkflows.value)
-    if (userWorkflows.value.length > 0) {
-      console.log('첫 번째 워크플로우 구조:', userWorkflows.value[0])
-    }
   } catch (error) {
     console.error('워크플로우 목록 로드 실패:', error)
   } finally {
@@ -926,8 +935,7 @@ const loadWorkflows = async () => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  loadPosts(1) // 컴포넌트 마운트 시 첫 페이지 로드
-  loadWorkflows() // 워크플로우 목록 로드
+  // isOpen이 true일 때만 데이터 로드 (watch에서 처리)
 })
 
 onUnmounted(() => {

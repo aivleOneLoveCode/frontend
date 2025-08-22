@@ -123,16 +123,14 @@ export function useChatManagement() {
     // 워크플로우 드래그 확인 (JSON 파싱 방식)
     const dragData = event.dataTransfer?.getData('text/plain')
     
-    console.log('드래그 데이터:', dragData)
     
     if (dragData) {
       try {
         const parsed = JSON.parse(dragData)
-        console.log('파싱된 데이터:', parsed)
-        const workflowId = parsed.n8n_workflow_id
+        // workflow_id 또는 n8n_workflow_id 둘 다 지원
+        const workflowId = parsed.workflow_id || parsed.n8n_workflow_id
         const workflowName = parsed.name
         
-        console.log('워크플로우 ID:', workflowId, '이름:', workflowName)
         
         if (workflowId && workflowName) {
           // 워크플로우를 첨부하는 경우
@@ -153,21 +151,39 @@ export function useChatManagement() {
             if (response.ok) {
               const workflowJson = await response.json()
               
+              // 이미 첨부된 워크플로우인지 확인
+              const isAlreadyAttached = uploadedFiles.value.some((file: any) => {
+                if (file.type === 'text/plain' || file.type === 'application/json') {
+                  try {
+                    const existingData = typeof file.content === 'string' ? JSON.parse(file.content) : file.content
+                    return existingData.id === workflowJson.id
+                  } catch {
+                    return false
+                  }
+                }
+                return false
+              })
+              
+              if (isAlreadyAttached) {
+                alert(`"${workflowName}" 워크플로우는 이미 첨부되어 있습니다.`)
+                return
+              }
+              
               // 워크플로우 JSON을 파일처럼 처리
+              const workflowText = JSON.stringify(workflowJson, null, 2)
               const workflowFile = {
                 name: `${workflowName}.json`,
-                type: 'application/json',
-                size: JSON.stringify(workflowJson).length,
-                content: JSON.stringify(workflowJson, null, 2),
-                jsonData: workflowJson,
+                type: 'text/plain',
+                size: workflowText.length,
+                content: workflowText,
                 contentBlock: {
-                  type: "text",
-                  text: `=== 워크플로우: ${workflowName} ===\n${JSON.stringify(workflowJson, null, 2)}\n=== 워크플로우 끝 ===`
-                }
+                  type: 'text',
+                  text: workflowText
+                },
+                source: 'workflow'  // 내 워크플로우 목록에서 추가됨을 표시
               }
               
               chatStore.addUploadedFile(workflowFile)
-              console.log('워크플로우가 첨부되었습니다:', workflowName)
             } else {
               console.error('워크플로우 API 응답 오류:', response.status, response.statusText)
               alert(`워크플로우 데이터를 가져올 수 없습니다. (${response.status})`)
@@ -180,7 +196,6 @@ export function useChatManagement() {
         }
       } catch (error) {
         // JSON 파싱 실패 시 일반 파일 드래그로 처리
-        console.log('JSON 파싱 실패, 일반 파일로 처리:', error)
       }
     }
     

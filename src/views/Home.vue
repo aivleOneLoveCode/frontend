@@ -13,7 +13,7 @@
     <div class="main-content" :style="{ marginRight: (isAuthenticated && workflowPanelOpen) ? workflowStore.workflowPanelWidth + 'px' : '0px' }">
       <!-- 헤더 -->
       <Header
-        :isConnected="isBackendConnected"
+        :connectionStatus="isBackendConnected"
         :backendStatus="backendStatus"
         :isAuthenticated="isAuthenticated"
         @go-to-board="goToBoard"
@@ -38,6 +38,7 @@
     <!-- 게시판 패널 -->
     <BoardPanel
       :isOpen="boardPanelOpen"
+      :buttonRect="boardButtonRect"
       @close="closeBoardPanel"
     />
   </div>
@@ -96,6 +97,7 @@ const getDefaultPanelWidth = () => {
 // UI 상태
 const sidebarCollapsed = ref(false)
 const boardPanelOpen = ref(false)
+const boardButtonRect = ref<DOMRect | null>(null)
 const activeMenu = ref<string | null>(null)
 
 // Connection interval 관리
@@ -161,7 +163,8 @@ const handleNewProject = () => {
 
 
 // 헤더 액션
-const goToBoard = () => {
+const goToBoard = (buttonRect: DOMRect) => {
+  boardButtonRect.value = buttonRect
   boardPanelOpen.value = true
 }
 

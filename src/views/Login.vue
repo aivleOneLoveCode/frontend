@@ -26,7 +26,8 @@
             }"
             v-model="loginForm.email"
             placeholder="your@email.com"
-            @blur="validateField('email')"
+            @input="validateField('email', false)"
+            @blur="validateField('email', true)"
             required
           >
           <div v-if="validation.email.message" class="form-help">
@@ -46,7 +47,8 @@
             }"
             v-model="loginForm.password"
             placeholder="비밀번호를 입력하세요"
-            @blur="validateField('password')"
+            @input="validateField('password', false)"
+            @blur="validateField('password', true)"
             required
           >
           <div v-if="validation.password.message" class="form-help">
@@ -107,35 +109,49 @@ const isFormValid = computed(() => {
   return validation.value.email.valid && validation.value.password.valid
 })
 
-const validateField = (fieldName: string) => {
+const validateField = (fieldName: string, showError: boolean = true) => {
   const field = validation.value[fieldName as keyof typeof validation.value]
   const value = loginForm.value[fieldName as keyof typeof loginForm.value]
   
-  field.error = false
+  // 입력 중에는 에러 메시지를 초기화하지만 에러 상태는 유지
+  if (!showError) {
+    field.message = ''
+  } else {
+    field.error = false
+    field.message = ''
+  }
+  
   field.valid = false
-  field.message = ''
 
   if (!value || value.trim() === '') {
-    field.error = true
-    field.message = '필수 입력 항목입니다.'
+    if (showError) {
+      field.error = true
+      field.message = '필수 입력 항목입니다.'
+    }
     return
   }
 
   switch (fieldName) {
     case 'email':
       if (!validateEmail(value)) {
-        field.error = true
-        field.message = '올바른 이메일 형식이 아닙니다.'
+        if (showError) {
+          field.error = true
+          field.message = '올바른 이메일 형식이 아닙니다.'
+        }
       } else {
         field.valid = true
+        field.error = false
       }
       break
     case 'password':
-      if (value.length < 3) {
-        field.error = true
-        field.message = '비밀번호를 입력해주세요.'
+      if (value.length < 1) {
+        if (showError) {
+          field.error = true
+          field.message = '비밀번호를 입력해주세요.'
+        }
       } else {
         field.valid = true
+        field.error = false
       }
       break
   }

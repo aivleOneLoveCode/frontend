@@ -94,7 +94,7 @@
                   </div>
                   <div class="file-info">
                     <div class="file-name">{{ getAttachmentName(file) }}</div>
-                    <div class="file-type">{{ getFileTypeLabel(file.type) }}</div>
+                    <div class="file-type">{{ getFileTypeLabel(file) }}</div>
                   </div>
                 </div>
               </div>
@@ -146,16 +146,16 @@
 
   <!-- 입력 영역 -->
   <div class="input-container">
-    <div class="input-box-container" 
-         :class="{ 'drag-over': isDragging }"
-         @dragenter="$emit('handle-drag-enter', $event)"
-         @dragover="$emit('handle-drag-over', $event)"
-         @dragleave="$emit('handle-drag-leave', $event)"
-         @drop="$emit('handle-drop', $event)">
+    <div class="input-box-container">
       
       <input type="file" @change="$emit('handle-file-upload', $event)" style="display: none;" ref="fileInput" multiple>
       
-      <div class="input-box" :class="{ 'has-files': uploadedFiles.length > 0 }">
+      <div class="input-box" 
+           :class="{ 'has-files': uploadedFiles.length > 0, 'drag-over': isDragging }"
+           @dragenter="$emit('handle-drag-enter', $event)"
+           @dragover="$emit('handle-drag-over', $event)"
+           @dragleave="$emit('handle-drag-leave', $event)"
+           @drop="$emit('handle-drop', $event)">
         
         <!-- 업로드된 파일들을 입력창 상단에 표시 -->
         <div v-if="uploadedFiles.length > 0" class="uploaded-files-inline" contenteditable="false">
@@ -213,10 +213,10 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <div v-if="isDragging" class="drag-overlay">
-        📁 {{ t('drop_files_here') }}
+        
+        <div v-if="isDragging" class="drag-overlay">
+          📋 워크플로우를 여기에 드롭하세요
+        </div>
       </div>
     </div>
     
@@ -683,11 +683,31 @@ const getFileTypeClass = (type: string): string => {
 }
 
 // 파일 타입 라벨
-const getFileTypeLabel = (type: string): string => {
+const getFileTypeLabel = (file: any): string => {
+  const type = file.type
+  
+  // json 타입일 때 워크플로우 출처 판단
+  if (type === 'json') {
+    try {
+      const jsonData = typeof file.text === 'string' ? JSON.parse(file.text) : file.text
+      
+      // 게시판에서 온 경우: workflow_name과 workflow_json 구조
+      if (jsonData.workflow_name && jsonData.workflow_json) {
+        return '게시판'
+      }
+      // 내 워크플로우에서 온 경우: 바로 워크플로우 JSON 구조
+      else if (jsonData.nodes && jsonData.connections) {
+        return '내 워크플로우'
+      }
+    } catch {
+      // 파싱 실패 시 기본값
+    }
+    return '워크플로우'
+  }
+  
   switch(type) {
     case 'document': return 'PDF'
-    case 'json': return '워크플로우'
-    case 'text': return '워크플로우'
+    case 'text': return '텍스트'
     case 'workflow': return '워크플로우'
     default: return '파일'
   }
@@ -1358,7 +1378,9 @@ const getListWorkflowCompleteMessage = (input: any, content: any): string => {
   background: white;
   border: 1px solid var(--border-color, #e5e7eb);
   border-radius: 12px;
+  width: 200px;
   min-width: 200px;
+  max-width: 200px;
 }
 
 
@@ -1659,6 +1681,7 @@ const getListWorkflowCompleteMessage = (input: any, content: any): string => {
   border-radius: 24px;
   padding: 8px;
   max-height: 100%;
+  position: relative;
 }
 
 
@@ -1807,18 +1830,18 @@ const getListWorkflowCompleteMessage = (input: any, content: any): string => {
   cursor: not-allowed;
 }
 
-.input-box-container.drag-over {
-  border-color: #67bdc6;
-  background: #f0fdf4;
-}
-
-.input-box-container.drag-over .input-box {
+.input-box.drag-over {
   border-color: #67bdc6;
   background: #f0fdf4;
 }
 
 .drag-overlay {
-  background: rgba(16, 163, 127, 0.1);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(103, 189, 198, 0.1);
   border: 2px dashed #67bdc6;
   border-radius: 24px;
   display: flex;
@@ -1828,6 +1851,7 @@ const getListWorkflowCompleteMessage = (input: any, content: any): string => {
   font-size: 14px;
   font-weight: 500;
   pointer-events: none;
+  z-index: 10;
 }
 
 .disclaimer {

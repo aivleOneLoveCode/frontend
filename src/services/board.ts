@@ -86,9 +86,7 @@ export const boardService = {
 
   // 게시물 삭제
   async deletePost(postId: string): Promise<any> {
-    console.log('API 삭제 요청 URL:', `/board/posts/${postId}`)
     const response = await api.delete(`/board/posts/${postId}`)
-    console.log('API 삭제 raw 응답:', response)
     return response.data
   }
 }

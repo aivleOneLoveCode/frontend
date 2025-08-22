@@ -64,7 +64,7 @@
               @select="handleWorkflowSelect"
               @toggle-running="toggleWorkflowRunning"
               @rename="renameWorkflow"
-              @copy="copyWorkflow"
+              @add-to-chat="addToChat"
               @delete="deleteWorkflow"
             />
           </div>
@@ -79,7 +79,7 @@
           @select="handleWorkflowSelect"
           @toggle-running="toggleWorkflowRunning"
           @rename="renameWorkflow"
-          @copy="copyWorkflow"
+          @add-to-chat="addToChat"
           @delete="deleteWorkflow"
         />
       </div>
@@ -94,6 +94,7 @@ import { useTranslation } from '@/utils/i18n'
 import { openDropdown, closeDropdown, isDropdownOpen, globalDropdownStyle } from '@/utils/dropdownManager'
 import { useWorkflowStore } from '@/stores/workflow'
 import { useAuthStore } from '@/stores/auth'
+import { useChatStore } from '@/stores/chat'
 
 import type { WorkflowItem, Project } from '@/types'
 
@@ -104,13 +105,13 @@ const emit = defineEmits<{
 
 const workflowStore = useWorkflowStore()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 const { t } = useTranslation()
 
 // 스토어에서 데이터 가져오기
 const projects = computed(() => workflowStore.projects)
 const workflows = computed(() => workflowStore.workflows)
 
-const copiedWorkflow = ref<WorkflowItem | null>(null)
 const pollingInterval = ref<number | null>(null)
 const POLLING_INTERVAL_MS = 10000
 
@@ -329,14 +330,64 @@ const renameWorkflow = async (workflow: WorkflowItem) => {
   }
 }
 
-const copyWorkflow = (workflow: WorkflowItem) => {
-  copiedWorkflow.value = {
-    ...workflow,
-    workflow_id: `copy_${Date.now()}`,
-    active: false,
-    status: 'inactive',
-    isDragging: false,
-    jsonData: workflow.jsonData ? { ...workflow.jsonData } : undefined
+const addToChat = async (workflow: WorkflowItem) => {
+  try {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      alert('로그인이 필요합니다.')
+      return
+    }
+
+    // 워크플로우 JSON 데이터 가져오기
+    const response = await fetch(`/api/workflows/${workflow.workflow_id}/json`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.ok) {
+      const workflowJson = await response.json()
+      
+      // 이미 첨부된 워크플로우인지 확인
+      const isAlreadyAttached = chatStore.uploadedFiles.some((file: any) => {
+        if (file.type === 'text/plain' || file.type === 'application/json') {
+          try {
+            const existingData = typeof file.content === 'string' ? JSON.parse(file.content) : file.content
+            return existingData.id === workflowJson.id
+          } catch {
+            return false
+          }
+        }
+        return false
+      })
+      
+      if (isAlreadyAttached) {
+        alert(`"${workflow.name}" 워크플로우는 이미 첨부되어 있습니다.`)
+        return
+      }
+      
+      // 워크플로우 JSON을 파일처럼 처리
+      const workflowText = JSON.stringify(workflowJson, null, 2)
+      const workflowFile = {
+        name: `${workflow.name}.json`,
+        type: 'text/plain',
+        size: workflowText.length,
+        content: workflowText,
+        contentBlock: {
+          type: 'text',
+          text: workflowText
+        },
+        source: 'workflow'  // 내 워크플로우 목록에서 추가됨을 표시
+      }
+      
+      chatStore.addUploadedFile(workflowFile)
+    } else {
+      console.error('워크플로우 API 응답 오류:', response.status, response.statusText)
+      alert(`워크플로우 데이터를 가져올 수 없습니다. (${response.status})`)
+    }
+  } catch (error) {
+    console.error('워크플로우 첨부 오류:', error)
+    alert('워크플로우 첨부 중 오류가 발생했습니다.')
   }
 }
 

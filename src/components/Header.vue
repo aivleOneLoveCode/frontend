@@ -1,6 +1,6 @@
 <template>
   <div class="header-buttons">
-    <button class="header-btn-icon" @click="$emit('go-to-board')" :title="t('go_to_board')">
+    <button ref="boardButton" class="header-btn-icon" @click="handleBoardClick" :title="t('go_to_board')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
         <line x1="9" y1="9" x2="15" y2="9"/>
@@ -12,11 +12,21 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useTranslation } from '@/utils/i18n'
 
-defineEmits<{
-  'go-to-board': []
+const boardButton = ref<HTMLButtonElement>()
+
+const emit = defineEmits<{
+  'go-to-board': [buttonRect: DOMRect]
 }>()
+
+const handleBoardClick = () => {
+  if (boardButton.value) {
+    const rect = boardButton.value.getBoundingClientRect()
+    emit('go-to-board', rect)
+  }
+}
 
 const { t } = useTranslation()
 </script>

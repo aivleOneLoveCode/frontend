@@ -193,7 +193,6 @@ export const useChatStore = defineStore('chat', {
           }
           this.messages.push(errorMessage)
         } else if (error instanceof Error && error.name === 'AbortError') {
-          console.log('DEBUG: Request was aborted by user')
         }
       } finally {
         this.isStreaming = false
@@ -239,13 +238,11 @@ export const useChatStore = defineStore('chat', {
       let currentThinkingElement: any = null
       let currentToolBlocks = new Map()
       
-      console.log('DEBUG: Starting new stream, currentClaudeMessage reset to null')
 
       try {
         while (true) {
           const { done, value } = await reader.read()
           if (done) {
-            console.log('DEBUG: Stream ended normally')
             break
           }
           
@@ -256,28 +253,22 @@ export const useChatStore = defineStore('chat', {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
-                console.log('DEBUG: Stream event:', data.type)
                 currentClaudeMessage = this.handleTempStyleStreamEvent(data, currentClaudeMessage, currentThinkingElement, currentToolBlocks)
               } catch (error) {
-                console.log('DEBUG: JSON parse error:', error, 'line:', line)
                 // JSON parse error - skip line
               }
             }
           }
         }
       } catch (error) {
-        console.log('DEBUG: Stream reading error:', error)
         // AbortError인 경우 다시 throw하지 않음 (정상적인 중단)
         if (error instanceof Error && error.name === 'AbortError') {
-          console.log('DEBUG: Stream was aborted by user')
         } else {
           throw error
         }
       } finally {
-        console.log('DEBUG: Stream reader released')
         reader.releaseLock()
         this.isStreaming = false
-        console.log('DEBUG: isStreaming set to false')
       }
     },
 
@@ -285,7 +276,6 @@ export const useChatStore = defineStore('chat', {
     handleTempStyleStreamEvent(data: any, currentClaudeMessage: Message | null, currentThinkingElement: any, currentToolBlocks: Map<string, any>): Message | null {
       switch (data.type) {
         case 'thinking_start':
-          console.log('DEBUG: thinking_start - currentClaudeMessage is null?', currentClaudeMessage === null)
           // 항상 새로운 assistant 메시지 생성 (이전 메시지 재사용 방지)
           if (!currentClaudeMessage) {
             currentClaudeMessage = {
@@ -293,20 +283,16 @@ export const useChatStore = defineStore('chat', {
               content: []
             }
             this.messages.push(currentClaudeMessage)
-            console.log('DEBUG: New Claude message created for thinking, total messages:', this.messages.length)
           } else {
-            console.log('DEBUG: ERROR - currentClaudeMessage should be null at start of new stream!')
             // 강제로 새 메시지 생성
             currentClaudeMessage = {
               role: 'assistant',
               content: []
             }
             this.messages.push(currentClaudeMessage)
-            console.log('DEBUG: Forced new Claude message creation, total messages:', this.messages.length)
           }
           // thinking 블록 추가
           currentClaudeMessage.content.push({ type: 'thinking', thinking: '' })
-          console.log('DEBUG: Thinking block added, content blocks:', currentClaudeMessage.content.length)
           break
 
         case 'thinking_delta':
@@ -335,13 +321,10 @@ export const useChatStore = defineStore('chat', {
               content: []
             }
             this.messages.push(currentClaudeMessage)
-            console.log('DEBUG: New Claude message created for text, total messages:', this.messages.length)
           } else {
-            console.log('DEBUG: text_start - reusing existing message with', currentClaudeMessage.content.length, 'blocks')
           }
           // text 블록 추가
           currentClaudeMessage.content.push({ type: 'text', text: '' })
-          console.log('DEBUG: Text block added, content blocks:', currentClaudeMessage.content.length)
           break
 
         case 'text_delta':
@@ -386,7 +369,6 @@ export const useChatStore = defineStore('chat', {
             }]
           }
           this.messages.push(pendingToolResult)
-          console.log('DEBUG: pending tool_result created for tool:', data.name)
           this.forceUpdate()  // 반응성 강제 업데이트
           break
         
@@ -403,13 +385,11 @@ export const useChatStore = defineStore('chat', {
           break
 
         case 'tool_execution':
-          console.log('DEBUG: tool_execution received:', data)
           // tool_execution은 백엔드에서 도구 실행 중임을 알리는 이벤트
           // 특별한 처리 없이 로그만 남김
           break
 
         case 'tool_result':
-          console.log('DEBUG: tool_result received:', data)
           // 기존 pending tool_result 찾아서 업데이트
           let foundPending = false
           for (let i = this.messages.length - 1; i >= 0; i--) {
@@ -443,7 +423,6 @@ export const useChatStore = defineStore('chat', {
             }
             this.messages.push(toolResultMessage)
           }
-          console.log('DEBUG: tool_result updated/added, current isStreaming:', this.isStreaming)
           this.forceUpdate()  // 반응성 강제 업데이트
           break
 
@@ -470,22 +449,16 @@ export const useChatStore = defineStore('chat', {
           break
 
         case 'complete':
-          console.log('DEBUG: Stream complete event received, total messages:', this.messages.length)
-          if (currentClaudeMessage) {
-            console.log('DEBUG: Final message content blocks:', currentClaudeMessage.content.length)
-          }
           // 스트리밍 완료
           currentClaudeMessage = null
           break
 
         case 'error':
-          console.log('DEBUG: Error event received:', data)
           // 에러가 발생해도 스트리밍을 계속 진행해야 함
           // 단순히 에러 로그만 출력하고 계속
           break
 
         default:
-          console.log('DEBUG: Unknown event type:', data.type, data)
           break
       }
       return currentClaudeMessage
@@ -532,7 +505,6 @@ export const useChatStore = defineStore('chat', {
 
     // 채팅 중단
     async stopMessage() {
-      console.log('DEBUG: stopMessage called, isStreaming before:', this.isStreaming)
       
       // 중단 요청 상태 설정 (UI 변경)
       this.isStopRequested = true
@@ -548,7 +520,6 @@ export const useChatStore = defineStore('chat', {
                 'Authorization': `Bearer ${token}`
               }
             })
-            console.log('DEBUG: Stop request sent to backend - reason-act loop will stop after current tool_result')
           }
         } catch (error) {
           console.error('백엔드 중단 요청 실패:', error)
@@ -557,7 +528,6 @@ export const useChatStore = defineStore('chat', {
       
       // 프론트엔드는 스트림을 계속 받아서 tool_result까지 출력
       // 백엔드가 자연스럽게 스트림을 종료할 때까지 기다림
-      console.log('DEBUG: Frontend continues to receive stream until backend naturally ends')
     },
 
     // 백엔드 연결 상태 확인

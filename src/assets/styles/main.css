@@ -1410,35 +1410,7 @@ body {
     cursor: not-allowed;
 }
 
-/* 드래그 앤 드롭 스타일 */
-.input-wrapper.drag-over {
-    border-color: #67bdc6;
-    background: #f0fdf4;
-}
-
-.input-wrapper.drag-over .input-box {
-    border-color: #67bdc6;
-    background: #f0fdf4;
-}
-
-.drag-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(16, 163, 127, 0.1);
-    border: 2px dashed #67bdc6;
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #67bdc6;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 10;
-    pointer-events: none;
-}
+/* 드래그 앤 드롭 스타일 - ChatArea.vue에서 직접 관리 */
 
 .disclaimer {
     text-align: center;

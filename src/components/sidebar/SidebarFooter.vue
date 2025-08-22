@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
@@ -109,32 +109,34 @@ const getUserInitial = computed(() => {
 
 const getUserName = computed(() => {
   if (currentUser.value?.first_name && currentUser.value?.last_name) {
-    const firstName = maskName(currentUser.value.first_name)
-    const lastName = maskName(currentUser.value.last_name)
-    return `${firstName} ${lastName}`
+    return `${currentUser.value.first_name} ${currentUser.value.last_name}`
   }
   if (currentUser.value?.first_name) {
-    return maskName(currentUser.value.first_name)
+    return currentUser.value.first_name
   }
   if (currentUser.value?.name) {
-    return maskName(currentUser.value.name)
+    return currentUser.value.name
   }
   return t('user')
 })
 
-// 이름 마스킹 함수
-const maskName = (name: string): string => {
-  if (!name || name.length <= 1) {
-    return name
-  }
-  
-  // 한글자는 그대로, 나머지는 *로 마스킹
-  return name.charAt(0) + '*'.repeat(name.length - 1)
-}
-
 // 드롭다운 관련
 const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value
+}
+
+// 외부 클릭 시 드롭다운 닫기
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  const dropdown = document.querySelector('.user-profile-dropdown')
+  const userProfile = document.querySelector('.user-profile')
+  
+  // 드롭다운이나 프로필 영역이 아닌 곳을 클릭했을 때
+  if (showUserMenu.value && 
+      dropdown && !dropdown.contains(target) && 
+      userProfile && !userProfile.contains(target)) {
+    showUserMenu.value = false
+  }
 }
 
 // 축소된 상태에서 프로필 클릭 시
@@ -236,9 +238,17 @@ const loadCurrentUser = () => {
   }
 }
 
-// 컴포넌트 마운트 시 사용자 정보 로드
+// 컴포넌트 마운트 시
 onMounted(() => {
   loadCurrentUser()
+  // 외부 클릭 이벤트 리스너 추가
+  document.addEventListener('click', handleClickOutside)
+})
+
+// 컴포넌트 언마운트 시
+onUnmounted(() => {
+  // 이벤트 리스너 제거
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 

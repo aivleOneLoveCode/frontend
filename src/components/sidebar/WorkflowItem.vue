@@ -32,12 +32,12 @@
           </svg>
           {{ t('rename') }}
         </button>
-        <button class="dropdown-item" @click="handleCopy">
+        <button class="dropdown-item" @click="handleAddToChat">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
-            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M12 8v4M12 16h.01"/>
           </svg>
-          {{ t('copy') }}
+          {{ t('add_to_chat') }}
         </button>
         <button class="dropdown-item delete" @click="handleDelete">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -70,7 +70,7 @@ const emit = defineEmits<{
   'select': [workflow: WorkflowItem]
   'toggle-running': [workflow: WorkflowItem]
   'rename': [workflow: WorkflowItem]
-  'copy': [workflow: WorkflowItem]
+  'add-to-chat': [workflow: WorkflowItem]
   'delete': [workflowId: string]  // n8n_workflow_id는 string
 }>()
 
@@ -113,9 +113,9 @@ const handleRename = () => {
   emit('rename', props.workflow)
 }
 
-const handleCopy = () => {
+const handleAddToChat = () => {
   closeDropdown()
-  emit('copy', props.workflow)
+  emit('add-to-chat', props.workflow)
 }
 
 const handleDelete = () => {
